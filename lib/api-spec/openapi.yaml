@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: API specification for Anki Card Generator
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: decks
+    description: Deck operations
+  - name: cards
+    description: Card operations
+  - name: generate
+    description: AI card generation operations
 paths:
   /healthz:
     get:
@@ -24,6 +30,182 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /decks:
+    get:
+      operationId: listDecks
+      tags: [decks]
+      summary: List all decks
+      responses:
+        "200":
+          description: List of decks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Deck"
+    post:
+      operationId: createDeck
+      tags: [decks]
+      summary: Create a new deck
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeckBody"
+      responses:
+        "201":
+          description: Created deck
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deck"
+        "400":
+          description: Bad request
+
+  /decks/{id}:
+    get:
+      operationId: getDeck
+      tags: [decks]
+      summary: Get a deck by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deck
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deck"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteDeck
+      tags: [decks]
+      summary: Delete a deck
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /decks/{id}/cards:
+    get:
+      operationId: listDeckCards
+      tags: [cards]
+      summary: List cards for a deck
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Card"
+
+  /cards/{id}:
+    patch:
+      operationId: updateCard
+      tags: [cards]
+      summary: Update a card
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCardBody"
+      responses:
+        "200":
+          description: Updated card
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Card"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteCard
+      tags: [cards]
+      summary: Delete a card
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+
+  /generate:
+    post:
+      operationId: generateCards
+      tags: [generate]
+      summary: Generate Anki cards from text content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateCardsBody"
+      responses:
+        "201":
+          description: Generated cards saved to a deck
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateCardsResponse"
+        "400":
+          description: Bad request
+
+  /decks/{id}/export:
+    get:
+      operationId: exportDeck
+      tags: [decks]
+      summary: Export deck as CSV text for Anki import
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: CSV export of deck cards
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExportDeckResponse"
+        "404":
+          description: Not found
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +216,106 @@ components:
       required:
         - status
 
+    Deck:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        cardCount:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - cardCount
+        - createdAt
+
+    CreateDeckBody:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+      required:
+        - name
+
+    Card:
+      type: object
+      properties:
+        id:
+          type: integer
+        deckId:
+          type: integer
+        front:
+          type: string
+        back:
+          type: string
+        tags:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - deckId
+        - front
+        - back
+        - createdAt
+
+    UpdateCardBody:
+      type: object
+      properties:
+        front:
+          type: string
+        back:
+          type: string
+        tags:
+          type: ["string", "null"]
+
+    GenerateCardsBody:
+      type: object
+      properties:
+        text:
+          type: string
+        deckName:
+          type: string
+        cardCount:
+          type: integer
+      required:
+        - text
+        - deckName
+
+    GenerateCardsResponse:
+      type: object
+      properties:
+        deck:
+          $ref: "#/components/schemas/Deck"
+        cards:
+          type: array
+          items:
+            $ref: "#/components/schemas/Card"
+        generatedCount:
+          type: integer
+      required:
+        - deck
+        - cards
+        - generatedCount
+
+    ExportDeckResponse:
+      type: object
+      properties:
+        deckName:
+          type: string
+        csv:
+          type: string
+        cardCount:
+          type: integer
+      required:
+        - deckName
+        - csv
+        - cardCount
