@@ -13,8 +13,10 @@ function normalizeText(text: string): string {
 }
 
 function pdfDocOptions(buffer: Buffer) {
+  // Copy the buffer so pdfjs-dist cannot detach the original ArrayBuffer.
+  const copy = Buffer.from(buffer);
   return {
-    data: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    data: new Uint8Array(copy.buffer, copy.byteOffset, copy.byteLength),
     disableWorker: true,
     useSystemFonts: true,
   } as unknown as Parameters<(typeof import("pdfjs-dist/legacy/build/pdf.mjs"))["getDocument"]>[0];
