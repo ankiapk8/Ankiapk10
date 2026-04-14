@@ -14,13 +14,15 @@
     "@workspace/db": "workspace:*",
     "@workspace/integrations-openai-ai-server": "workspace:*",
     "anki-apkg-export": "^4.0.3",
+    "canvas": "^3.2.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
     "pdfjs-dist": "^5.6.205",
     "pino": "^9",
-    "pino-http": "^10"
+    "pino-http": "^10",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

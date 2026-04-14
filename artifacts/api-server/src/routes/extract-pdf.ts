@@ -1,13 +1,17 @@
 import express, { Router, type IRouter } from "express";
+import { createCanvas } from "canvas";
+import { createWorker } from "tesseract.js";
 
 const router: IRouter = Router();
 const MIN_TEXT_LENGTH = 20;
+const OCR_SCALE = 2;
+const MAX_OCR_DIMENSION = 2200;
 
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-async function extractEmbeddedPdfText(buffer: Buffer): Promise<string> {
+async function extractEmbeddedPdfText(buffer: Buffer): Promise<{ text: string; numPages: number }> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const loadingTask = pdfjsLib.getDocument({
     data: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
@@ -15,10 +19,11 @@ async function extractEmbeddedPdfText(buffer: Buffer): Promise<string> {
     useSystemFonts: true,
   });
   const pdf = await loadingTask.promise;
+  const numPages = pdf.numPages;
   const pageTexts: string[] = [];
 
   try {
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    for (let pageNumber = 1; pageNumber <= numPages; pageNumber++) {
       const page = await pdf.getPage(pageNumber);
       const content = await page.getTextContent();
       const pageText = content.items
@@ -29,6 +34,73 @@ async function extractEmbeddedPdfText(buffer: Buffer): Promise<string> {
       page.cleanup();
     }
   } finally {
+    await pdf.destroy();
+  }
+
+  return { text: normalizeText(pageTexts.join("\n")), numPages };
+}
+
+async function renderPageToBuffer(
+  pdfjsLib: Awaited<ReturnType<typeof import("pdfjs-dist/legacy/build/pdf.mjs")>>,
+  pdf: Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>,
+  pageNumber: number,
+): Promise<Buffer> {
+  const page = await pdf.getPage(pageNumber);
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = Math.min(
+    OCR_SCALE,
+    MAX_OCR_DIMENSION / Math.max(baseViewport.width, baseViewport.height),
+  );
+  const viewport = page.getViewport({ scale });
+  const width = Math.ceil(viewport.width);
+  const height = Math.ceil(viewport.height);
+
+  const canvas = createCanvas(width, height);
+  const context = canvas.getContext("2d") as unknown as CanvasRenderingContext2D;
+
+  await page.render({ canvasContext: context, viewport }).promise;
+  page.cleanup();
+
+  return canvas.toBuffer("image/png");
+}
+
+async function extractOcrText(buffer: Buffer): Promise<string> {
+  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+
+  const canvasFactory = {
+    create(width: number, height: number) {
+      const canvas = createCanvas(width, height);
+      const context = canvas.getContext("2d");
+      return { canvas, context };
+    },
+    reset(canvasAndContext: { canvas: ReturnType<typeof createCanvas>; context: unknown }, width: number, height: number) {
+      canvasAndContext.canvas.width = width;
+      canvasAndContext.canvas.height = height;
+    },
+    destroy(canvasAndContext: { canvas: ReturnType<typeof createCanvas>; context: unknown }) {
+      canvasAndContext.canvas.width = 0;
+      canvasAndContext.canvas.height = 0;
+    },
+  };
+
+  const loadingTask = pdfjsLib.getDocument({
+    data: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength),
+    disableWorker: true,
+    useSystemFonts: true,
+    canvasFactory: canvasFactory as never,
+  });
+  const pdf = await loadingTask.promise;
+  const worker = await createWorker("eng");
+  const pageTexts: string[] = [];
+
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const imageBuffer = await renderPageToBuffer(pdfjsLib as never, pdf as never, pageNumber);
+      const { data } = await worker.recognize(imageBuffer);
+      pageTexts.push(data.text);
+    }
+  } finally {
+    await worker.terminate();
     await pdf.destroy();
   }
 
@@ -47,16 +119,24 @@ router.post(
     }
 
     try {
-      const text = await extractEmbeddedPdfText(body);
+      const { text: embeddedText } = await extractEmbeddedPdfText(body);
 
-      if (text.length <= MIN_TEXT_LENGTH) {
+      if (embeddedText.length > MIN_TEXT_LENGTH) {
+        res.json({ text: embeddedText, length: embeddedText.length, method: "embedded" });
+        return;
+      }
+
+      req.log.info("No embedded text found, running server-side OCR…");
+      const ocrText = await extractOcrText(body);
+
+      if (ocrText.length <= MIN_TEXT_LENGTH) {
         res.status(422).json({
-          error: "No embedded text found in this PDF. It may be a scanned image PDF.",
+          error: "No readable text could be extracted from this PDF, even with OCR.",
         });
         return;
       }
 
-      res.json({ text, length: text.length });
+      res.json({ text: ocrText, length: ocrText.length, method: "ocr" });
     } catch (error) {
       req.log.error({ err: error }, "Server-side PDF extraction failed");
       res.status(422).json({

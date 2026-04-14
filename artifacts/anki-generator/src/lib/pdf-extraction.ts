@@ -58,7 +58,7 @@ async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-async function extractOcrText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
+async function extractClientOcrText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
   const pdf = await loadPdf(buffer);
   const worker = await createWorker("eng");
   const pageTexts: string[] = [];
@@ -99,7 +99,7 @@ async function extractOcrText(buffer: ArrayBuffer, onProgress?: ProgressCallback
 }
 
 async function extractServerText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
-  onProgress?.("Retrying on server…");
+  onProgress?.("Sending to server for OCR…");
   const response = await fetch(SERVER_EXTRACT_URL, {
     method: "POST",
     headers: {
@@ -108,7 +108,7 @@ async function extractServerText(buffer: ArrayBuffer, onProgress?: ProgressCallb
     body: buffer.slice(0),
   });
 
-  const data = await response.json().catch(() => null) as { text?: unknown; error?: unknown } | null;
+  const data = await response.json().catch(() => null) as { text?: unknown; error?: unknown; method?: unknown } | null;
 
   if (!response.ok) {
     const error = typeof data?.error === "string" ? data.error : "Server PDF extraction failed.";
@@ -123,21 +123,17 @@ async function extractServerText(buffer: ArrayBuffer, onProgress?: ProgressCallb
 }
 
 export async function extractPdfText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
-  let localExtractionError: unknown = null;
   let embeddedText = "";
 
   try {
     embeddedText = await extractEmbeddedText(buffer, onProgress);
-  } catch (error) {
-    localExtractionError = error;
+  } catch {
     try {
       return await extractServerText(buffer, onProgress);
     } catch (fallbackError) {
       throw fallbackError instanceof Error
         ? fallbackError
-        : error instanceof Error
-          ? error
-          : new Error("PDF extraction failed in this browser.");
+        : new Error("PDF extraction failed in this browser.");
     }
   }
 
@@ -145,24 +141,24 @@ export async function extractPdfText(buffer: ArrayBuffer, onProgress?: ProgressC
     return embeddedText;
   }
 
-  onProgress?.("Starting OCR…");
-  let ocrText = "";
+  onProgress?.("Scanned PDF detected — running server OCR…");
 
   try {
-    ocrText = await extractOcrText(buffer, onProgress);
-  } catch (error) {
-    localExtractionError = error;
+    return await extractServerText(buffer, onProgress);
+  } catch (serverError) {
+    onProgress?.("Server OCR unavailable, trying local OCR…");
+    try {
+      const ocrText = await extractClientOcrText(buffer, onProgress);
+      if (ocrText.length > MIN_TEXT_LENGTH) {
+        return ocrText;
+      }
+    } catch {
+      // swallow — throw the server error below
+    }
+    throw serverError instanceof Error
+      ? serverError
+      : new Error("No readable text found in this PDF.");
   }
-
-  if (ocrText.length > MIN_TEXT_LENGTH) {
-    return ocrText;
-  }
-
-  if (localExtractionError instanceof Error) {
-    throw localExtractionError;
-  }
-
-  throw new Error("No readable text found in this PDF.");
 }
 
 export function isPdfFile(file: File): boolean {
