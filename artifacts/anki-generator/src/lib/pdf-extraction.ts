@@ -9,6 +9,8 @@ type ProgressCallback = (message: string) => void;
 const MIN_TEXT_LENGTH = 20;
 const MAX_OCR_DIMENSION = 2200;
 const SERVER_EXTRACT_URL = "/api/extract-pdf";
+const CLIENT_MAX_PAGES = 60;
+const SERVER_THRESHOLD_BYTES = 20 * 1024 * 1024; // 20 MB — prefer server for large files
 
 function normalizeText(text: string): string {
   return text.replace(/\s+/g, " ").trim();
@@ -26,9 +28,10 @@ async function loadPdf(buffer: ArrayBuffer) {
 async function extractEmbeddedText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
   const pdf = await loadPdf(buffer);
   const pageTexts: string[] = [];
+  const pagesToProcess = Math.min(pdf.numPages, CLIENT_MAX_PAGES);
 
   try {
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    for (let pageNumber = 1; pageNumber <= pagesToProcess; pageNumber++) {
       onProgress?.(`Extracting page ${pageNumber}/${pdf.numPages}…`);
       const page = await pdf.getPage(pageNumber);
       const content = await page.getTextContent();
@@ -99,13 +102,14 @@ async function extractClientOcrText(buffer: ArrayBuffer, onProgress?: ProgressCa
 }
 
 async function extractServerText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
-  onProgress?.("Sending to server for OCR…");
+  onProgress?.("Sending to server for extraction…");
+  const blob = new Blob([buffer], { type: "application/pdf" });
+  const formData = new FormData();
+  formData.append("file", blob, "upload.pdf");
+
   const response = await fetch(SERVER_EXTRACT_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/pdf",
-    },
-    body: buffer.slice(0),
+    body: formData,
   });
 
   const data = await response.json().catch(() => null) as { text?: unknown; error?: unknown; method?: unknown } | null;
@@ -123,37 +127,37 @@ async function extractServerText(buffer: ArrayBuffer, onProgress?: ProgressCallb
 }
 
 export async function extractPdfText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
-  let embeddedText = "";
+  const isLargeFile = buffer.byteLength > SERVER_THRESHOLD_BYTES;
 
-  try {
-    embeddedText = await extractEmbeddedText(buffer, onProgress);
-  } catch {
+  if (!isLargeFile) {
+    let embeddedText = "";
+
     try {
-      return await extractServerText(buffer, onProgress);
-    } catch (fallbackError) {
-      throw fallbackError instanceof Error
-        ? fallbackError
-        : new Error("PDF extraction failed in this browser.");
+      embeddedText = await extractEmbeddedText(buffer, onProgress);
+    } catch {
+      // Client-side load failed — fall through to server
     }
-  }
 
-  if (embeddedText.length > MIN_TEXT_LENGTH) {
-    return embeddedText;
+    if (embeddedText.length > MIN_TEXT_LENGTH) {
+      return embeddedText;
+    }
+  } else {
+    onProgress?.("Large file detected — using server extraction…");
   }
-
-  onProgress?.("Scanned PDF detected — running server OCR…");
 
   try {
     return await extractServerText(buffer, onProgress);
   } catch (serverError) {
-    onProgress?.("Server OCR unavailable, trying local OCR…");
-    try {
-      const ocrText = await extractClientOcrText(buffer, onProgress);
-      if (ocrText.length > MIN_TEXT_LENGTH) {
-        return ocrText;
+    if (!isLargeFile) {
+      onProgress?.("Server unavailable, trying local OCR…");
+      try {
+        const ocrText = await extractClientOcrText(buffer, onProgress);
+        if (ocrText.length > MIN_TEXT_LENGTH) {
+          return ocrText;
+        }
+      } catch {
+        // swallow — throw the server error below
       }
-    } catch {
-      // swallow — throw the server error below
     }
     throw serverError instanceof Error
       ? serverError
