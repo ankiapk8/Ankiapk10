@@ -5,6 +5,7 @@ import cardsRouter from "./cards";
 import generateRouter from "./generate";
 import exportApkgRouter from "./export-apkg";
 import extractPdfRouter from "./extract-pdf";
+import explainRouter from "./explain";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(cardsRouter);
 router.use(generateRouter);
 router.use(exportApkgRouter);
 router.use(extractPdfRouter);
+router.use(explainRouter);
 
 export default router;

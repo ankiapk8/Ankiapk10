@@ -19,7 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { 
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
-  RotateCcw, GraduationCap, Eye, Bookmark, Play
+  RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { saveSession, getSavePoint, saveSavePoint, clearSavePoint, type StudySavePoint } from "@/lib/study-stats";
@@ -65,6 +65,40 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
   const current = deck[index];
   const total = deck.length;
   const progress = total > 0 ? Math.round(((known.size + unknown.size) / total) * 100) : 0;
+
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+
+  const handleExplain = useCallback(async () => {
+    if (!current || isExplaining) return;
+    setExplanation("");
+    setIsExplaining(true);
+    try {
+      const resp = await fetch("/api/explain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ front: current.front, back: current.back }),
+      });
+      if (!resp.ok || !resp.body) {
+        const err = await resp.json().catch(() => ({}));
+        setExplanation(err.error ?? "Could not get an explanation.");
+        return;
+      }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let text = "";
+      while (true) {
+        const { done: streamDone, value } = await reader.read();
+        if (streamDone) break;
+        text += decoder.decode(value, { stream: true });
+        setExplanation(text);
+      }
+    } catch {
+      setExplanation("Failed to get an explanation. Please try again.");
+    } finally {
+      setIsExplaining(false);
+    }
+  }, [current, isExplaining]);
 
   // Auto-save progress whenever position or results change
   useEffect(() => {
@@ -129,6 +163,7 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
 
   const transition = useCallback((fn: () => void) => {
     setFlipping(true);
+    setExplanation(null);
     setTimeout(() => { fn(); setFlipping(false); }, 150);
   }, []);
 
@@ -273,6 +308,33 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
                 <p className="text-base sm:text-lg text-foreground leading-relaxed">
                   {current?.back}
                 </p>
+
+                {explanation !== null ? (
+                  <div className="mt-4 rounded-lg bg-primary/5 border border-primary/15 p-4 space-y-2 animate-in fade-in duration-300">
+                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-primary uppercase tracking-widest">
+                      <Sparkles className="h-3 w-3" /> AI Explanation
+                    </div>
+                    {isExplaining && explanation.length === 0 ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
+                      </div>
+                    ) : (
+                      <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                        {explanation}
+                        {isExplaining && <span className="inline-block w-1 h-3.5 bg-primary/60 ml-0.5 animate-pulse rounded-sm" />}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleExplain}
+                    className="mt-4 self-start gap-1.5 text-xs text-muted-foreground hover:text-primary"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" /> Explain with AI
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="border-t border-dashed border-border/30 p-4 sm:p-6 flex justify-center">
