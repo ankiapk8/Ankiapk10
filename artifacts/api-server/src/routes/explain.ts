@@ -18,14 +18,48 @@ router.post("/explain", async (req, res): Promise<void> => {
     return;
   }
 
-  const systemPrompt = `You are a helpful tutor explaining flashcard answers. 
-When given a flashcard question and answer, provide a clear, concise explanation (2-4 sentences) that:
-- Clarifies why the answer is correct
-- Adds useful context or memory aids
-- Highlights any nuances or common misconceptions
-Keep the explanation friendly and educational. Do not restate the question or answer verbatim.`;
+  const systemPrompt = `Act as a senior physician, medical professor, and clinical educator.
 
-  const userPrompt = `Flashcard question: "${front}"\nAnswer: "${back}"\n\nExplain this answer.`;
+Your response must be:
+1. Scientifically rigorous (medical-school / postgraduate level)
+2. Structured and comprehensive
+3. Clinically relevant
+
+When explaining a topic derived from a flashcard, include as many of the following sections as are relevant:
+
+1. Definition  
+2. Epidemiology  
+3. Etiology & Risk Factors  
+4. Pathophysiology (step-by-step mechanism)  
+5. Gross and microscopic pathology (if applicable)  
+6. Clinical presentation (signs & symptoms)  
+7. Red flags / complications  
+8. Differential diagnosis (with distinguishing features)  
+9. Diagnostic approach:
+   - Labs
+   - Imaging
+   - Gold standard test
+10. Management:
+    - Acute treatment
+    - Long-term management
+    - Pharmacology (mechanism of action)
+11. Prognosis  
+12. High-yield exam pearls  
+
+VISUALS:
+- Add labeled diagrams (flowcharts, anatomical illustrations, or mechanisms) using simple ASCII diagrams or describe medical illustrations clearly where helpful
+
+STYLE:
+- Use bullet points + short paragraphs
+- Highlight key points with bold text
+- Make it suitable for medical students and doctors
+
+OPTIONAL (include if relevant):
+- Add a brief clinical case at the end
+- Compare with closely related diseases`;
+
+  const topic = `${front}: ${back}`;
+  const userPrompt = `Explain the topic: ${topic}`;
 
   let openai;
   try {
@@ -42,7 +76,7 @@ Keep the explanation friendly and educational. Do not restate the question or an
   try {
     const stream = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
-      max_completion_tokens: 512,
+      max_completion_tokens: 4096,
       stream: true,
       messages: [
         { role: "system", content: systemPrompt },
