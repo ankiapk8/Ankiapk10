@@ -67,18 +67,27 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
   const total = deck.length;
   const progress = total > 0 ? Math.round(((known.size + unknown.size) / total) * 100) : 0;
 
+  type ExplainMode = "full" | "revision" | "osce";
   const [explanation, setExplanation] = useState<string | null>(null);
+  const [explainMode, setExplainMode] = useState<ExplainMode | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
 
-  const handleExplain = useCallback(async () => {
+  const EXPLAIN_LABELS: Record<ExplainMode, string> = {
+    full: "Full Explanation",
+    revision: "1-Page Revision Sheet",
+    osce: "OSCE Questions",
+  };
+
+  const handleExplain = useCallback(async (mode: ExplainMode) => {
     if (!current || isExplaining) return;
     setExplanation("");
+    setExplainMode(mode);
     setIsExplaining(true);
     try {
       const resp = await fetch(apiUrl("api/explain"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ front: current.front, back: current.back }),
+        body: JSON.stringify({ front: current.front, back: current.back, mode }),
       });
       if (!resp.ok || !resp.body) {
         const err = await resp.json().catch(() => ({}));
@@ -165,6 +174,7 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
   const transition = useCallback((fn: () => void) => {
     setFlipping(true);
     setExplanation(null);
+    setExplainMode(null);
     setTimeout(() => { fn(); setFlipping(false); }, 150);
   }, []);
 
@@ -320,9 +330,27 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
                 </p>
 
                 {explanation !== null ? (
-                  <div className="mt-4 rounded-lg bg-primary/5 border border-primary/15 p-4 space-y-2 animate-in fade-in duration-300">
-                    <div className="flex items-center gap-1.5 text-[10px] font-semibold text-primary uppercase tracking-widest">
-                      <Sparkles className="h-3 w-3" /> AI Explanation
+                  <div className="mt-4 rounded-lg bg-primary/5 border border-primary/15 p-4 space-y-3 animate-in fade-in duration-300">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[10px] font-semibold text-primary uppercase tracking-widest">
+                        <Sparkles className="h-3 w-3" />
+                        {explainMode ? EXPLAIN_LABELS[explainMode] : "AI"}
+                      </div>
+                      {!isExplaining && (
+                        <div className="flex gap-1">
+                          {(["full", "revision", "osce"] as ExplainMode[]).filter(m => m !== explainMode).map(m => (
+                            <Button
+                              key={m}
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleExplain(m)}
+                              className="h-6 text-[10px] px-2 text-muted-foreground hover:text-primary"
+                            >
+                              {m === "full" ? "Full" : m === "revision" ? "Revision" : "OSCE"}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     {isExplaining && explanation.length === 0 ? (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -336,14 +364,35 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
                     )}
                   </div>
                 ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleExplain}
-                    className="mt-4 self-start gap-1.5 text-xs text-muted-foreground hover:text-primary"
-                  >
-                    <Sparkles className="h-3.5 w-3.5" /> Explain with AI
-                  </Button>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExplain("full")}
+                      disabled={isExplaining}
+                      className="gap-1.5 text-xs"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" /> Full Explanation
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExplain("revision")}
+                      disabled={isExplaining}
+                      className="gap-1.5 text-xs"
+                    >
+                      <FileText className="h-3.5 w-3.5" /> Revision Sheet
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExplain("osce")}
+                      disabled={isExplaining}
+                      className="gap-1.5 text-xs"
+                    >
+                      <GraduationCap className="h-3.5 w-3.5" /> OSCE Questions
+                    </Button>
+                  </div>
                 )}
               </div>
             ) : (
