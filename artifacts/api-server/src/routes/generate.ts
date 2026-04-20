@@ -120,12 +120,13 @@ Respond with a JSON array of objects with "front" (question), "back" (answer)${h
 
   const textContent = `Generate exactly ${maxCards} Anki flashcards from the following content. Return only a JSON array:\n\n${text.slice(0, 20000)}`;
 
-  let userMessageContent: Parameters<typeof import("openai").default.prototype.chat.completions.create>[0]["messages"][0]["content"];
+  type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string; detail: "low" } };
+  let userMessageContent: string | ContentPart[];
 
   if (hasImages && selectedImages.length > 0) {
     userMessageContent = [
       { type: "text" as const, text: textContent },
-      ...selectedImages.map((imgData, i) => ({
+      ...selectedImages.map((imgData): ContentPart => ({
         type: "image_url" as const,
         image_url: {
           url: imgData.startsWith("data:") ? imgData : `data:image/jpeg;base64,${imgData}`,
@@ -143,9 +144,10 @@ Respond with a JSON array of objects with "front" (question), "back" (answer)${h
     response = await createChatCompletionWithRetry(openai, {
       model: "gpt-4.1-mini",
       max_completion_tokens: 16384,
+      stream: false as const,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userMessageContent },
+        { role: "user", content: userMessageContent as string },
       ],
     }, req.log);
   } catch (error) {
@@ -164,7 +166,8 @@ Respond with a JSON array of objects with "front" (question), "back" (answer)${h
     return;
   }
 
-  const rawContent = response.choices[0]?.message?.content ?? "[]";
+  const completion = response as { choices: Array<{ message: { content: string | null } }> };
+  const rawContent = completion.choices[0]?.message?.content ?? "[]";
 
   let generatedCards: { front: string; back: string; imageIndex?: number | null }[] = [];
   try {
