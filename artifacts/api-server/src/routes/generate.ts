@@ -4,6 +4,8 @@ import { GenerateCardsBody } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
+const MAX_PAGE_IMAGES = 12;
+
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -47,7 +49,7 @@ async function createChatCompletionWithRetry(
   }
 }
 
-function parseGeneratedCards(rawContent: string): { front: string; back: string }[] {
+function parseGeneratedCards(rawContent: string): { front: string; back: string; imageIndex?: number | null }[] {
   const cleaned = rawContent
     .replace(/```json/gi, "")
     .replace(/```/g, "")
@@ -63,7 +65,7 @@ function parseGeneratedCards(rawContent: string): { front: string; back: string 
       const parsed = JSON.parse(candidate);
       if (Array.isArray(parsed)) return parsed;
       if (parsed && typeof parsed === "object" && Array.isArray((parsed as { cards?: unknown }).cards)) {
-        return (parsed as { cards: { front: string; back: string }[] }).cards;
+        return (parsed as { cards: { front: string; back: string; imageIndex?: number | null }[] }).cards;
       }
     } catch {
       continue;
@@ -89,38 +91,61 @@ router.post("/generate", async (req, res, next): Promise<void> => {
     return;
   }
 
-  const { text, deckName, cardCount = 15, parentId } = parsed.data;
+  const { text, deckName, cardCount = 20, parentId, pageImages } = parsed.data;
 
   if (!text || text.trim().length < 10) {
     res.status(400).json({ error: "Text is too short to generate cards from." });
     return;
   }
 
-  const maxCards = Math.min(Math.max(cardCount, 1), 50);
+  const maxCards = Math.min(Math.max(cardCount, 1), 200);
 
-  const systemPrompt = `You are an expert Anki flashcard creator. Given source material, generate high-quality question-answer flashcards that test understanding, not just recall.
-  
+  const hasImages = Array.isArray(pageImages) && pageImages.length > 0;
+  const selectedImages = hasImages ? pageImages.slice(0, MAX_PAGE_IMAGES) : [];
+
+  const systemPrompt = `You are an expert Anki flashcard creator. Given source material (text and optionally PDF page images), generate high-quality question-answer flashcards that test understanding, not just recall.
+
 Rules:
 - Questions should be specific and unambiguous
 - Answers should be concise but complete
 - Avoid trivial or overly obvious cards
-- Focus on key concepts, definitions, relationships, and important facts
+- Focus on key concepts, definitions, relationships, mechanisms, diagrams, and important facts
 - Each card should be self-contained (understandable without context)
 - Use simple, clear language
+- When the source contains diagrams, tables, charts, or figures, create cards that reference them${hasImages ? `
+- For cards that are specifically about a visual element (diagram, table, chart, anatomical illustration, flowchart, etc.) from a page, include an "imageIndex" field (0-based integer) identifying which page image to attach to the card
+- Only include imageIndex when the visual content is essential to understanding the card` : ""}
 
-Respond with a JSON array of objects with "front" (question) and "back" (answer) fields only. No markdown, no explanation, just the JSON array.`;
+Respond with a JSON array of objects with "front" (question), "back" (answer)${hasImages ? ', and optionally "imageIndex" (integer, 0-based, references the page image)' : ""} fields only. No markdown, no explanation, just the JSON array.`;
 
-  const userPrompt = `Generate exactly ${maxCards} Anki flashcards from the following text. Return only a JSON array:\n\n${text.slice(0, 15000)}`;
+  const textContent = `Generate exactly ${maxCards} Anki flashcards from the following content. Return only a JSON array:\n\n${text.slice(0, 20000)}`;
+
+  let userMessageContent: Parameters<typeof import("openai").default.prototype.chat.completions.create>[0]["messages"][0]["content"];
+
+  if (hasImages && selectedImages.length > 0) {
+    userMessageContent = [
+      { type: "text" as const, text: textContent },
+      ...selectedImages.map((imgData, i) => ({
+        type: "image_url" as const,
+        image_url: {
+          url: imgData.startsWith("data:") ? imgData : `data:image/jpeg;base64,${imgData}`,
+          detail: "low" as const,
+        },
+      })),
+    ];
+  } else {
+    userMessageContent = textContent;
+  }
 
   let response;
   try {
     const openai = await getOpenAIClient();
     response = await createChatCompletionWithRetry(openai, {
-      model: "gpt-5.2",
-      max_completion_tokens: 8192,
+      model: "gpt-4.1-mini",
+      max_completion_tokens: 16384,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
+        { role: "user", content: userMessageContent },
       ],
     }, req.log);
   } catch (error) {
@@ -141,7 +166,7 @@ Respond with a JSON array of objects with "front" (question) and "back" (answer)
 
   const rawContent = response.choices[0]?.message?.content ?? "[]";
 
-  let generatedCards: { front: string; back: string }[] = [];
+  let generatedCards: { front: string; back: string; imageIndex?: number | null }[] = [];
   try {
     generatedCards = parseGeneratedCards(rawContent);
   } catch {
@@ -163,7 +188,16 @@ Respond with a JSON array of objects with "front" (question) and "back" (answer)
 
     const validCards = generatedCards
       .filter(c => c && typeof c.front === "string" && typeof c.back === "string")
-      .map(c => ({ deckId: deck.id, front: c.front.trim(), back: c.back.trim() }))
+      .map(c => {
+        const imageIndex = typeof c.imageIndex === "number" ? c.imageIndex : null;
+        const image = (imageIndex !== null && selectedImages[imageIndex]) ? selectedImages[imageIndex] : null;
+        return {
+          deckId: deck.id,
+          front: c.front.trim(),
+          back: c.back.trim(),
+          image: image ?? null,
+        };
+      })
       .filter(c => c.front.length > 0 && c.back.length > 0);
 
     if (validCards.length === 0) {

@@ -35,6 +35,8 @@ export interface Card {
   back: string;
   /** @nullable */
   tags?: string | null;
+  /** @nullable */
+  image?: string | null;
   createdAt: string;
 }
 
@@ -59,6 +61,7 @@ export interface GenerateCardsBody {
   cardCount?: number;
   /** @nullable */
   parentId?: number | null;
+  pageImages?: string[];
 }
 
 export interface GenerateCardsResponse {

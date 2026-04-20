@@ -306,6 +306,15 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
                   <span className="h-5 w-5 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center text-[9px] font-bold">A</span>
                   Back
                 </div>
+                {(current as Card & { image?: string | null })?.image && (
+                  <div className="mb-4 rounded-lg overflow-hidden border border-border/40 bg-background">
+                    <img
+                      src={(current as Card & { image?: string | null }).image!}
+                      alt="Card visual"
+                      className="w-full h-auto max-h-64 object-contain"
+                    />
+                  </div>
+                )}
                 <p className="text-base sm:text-lg text-foreground leading-relaxed">
                   {current?.back}
                 </p>
@@ -756,6 +765,15 @@ function EditableCard({
         </div>
         <div className="flex-1 p-4 sm:p-5">
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Back</div>
+          {(card as Card & { image?: string | null }).image && (
+            <div className="mb-3 rounded-md overflow-hidden border border-border/40">
+              <img
+                src={(card as Card & { image?: string | null }).image!}
+                alt="Card visual"
+                className="w-full h-auto max-h-48 object-contain bg-background"
+              />
+            </div>
+          )}
           <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{card.back}</p>
         </div>
         

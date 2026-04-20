@@ -13,5 +13,7 @@ export interface Card {
   back: string;
   /** @nullable */
   tags?: string | null;
+  /** @nullable */
+  image?: string | null;
   createdAt: string;
 }

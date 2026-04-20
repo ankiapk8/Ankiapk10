@@ -11,8 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, X, CheckCircle2, AlertCircle, Loader2, FileText, Sparkles, FolderOpen } from "lucide-react";
-import { extractPdfText, isPdfFile, isTextFile } from "@/lib/pdf-extraction";
+import { UploadCloud, X, CheckCircle2, AlertCircle, Loader2, FileText, Sparkles, FolderOpen, ImageIcon } from "lucide-react";
+import { extractPdf, isPdfFile, isTextFile } from "@/lib/pdf-extraction";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
 
 type FileStatus = "extracting" | "ready" | "error" | "generating" | "done";
@@ -22,6 +22,7 @@ type FileEntry = {
   name: string;
   status: FileStatus;
   text: string;
+  pageImages: string[];
   progress: string;
   deckName: string;
   cardCount: number | "";
@@ -104,15 +105,15 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
     }
     const id = `${file.name}-${Date.now()}-${Math.random()}`;
     const baseName = file.name.replace(/\.[^.]+$/, "");
-    setFiles(prev => [...prev, { id, name: file.name, status: "extracting", text: "", progress: "Reading…", deckName: baseName, cardCount: "" }]);
+    setFiles(prev => [...prev, { id, name: file.name, status: "extracting", text: "", pageImages: [], progress: "Reading…", deckName: baseName, cardCount: "" }]);
     try {
       if (isTxt) {
         const text = await file.text();
-        updateFile(id, { status: "ready", text, progress: "" });
+        updateFile(id, { status: "ready", text, pageImages: [], progress: "" });
       } else {
         const buffer = await file.arrayBuffer();
-        const extracted = await extractPdfText(buffer, (progress) => updateFile(id, { progress }));
-        updateFile(id, { status: "ready", text: extracted, progress: "" });
+        const { text, pageImages } = await extractPdf(buffer, (progress) => updateFile(id, { progress }));
+        updateFile(id, { status: "ready", text, pageImages, progress: "" });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Extraction failed";
@@ -151,17 +152,17 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
     return "Generation failed";
   };
 
-  const generateOne = (text: string, deckName: string, cardCount: number | "", pid: number | null): Promise<number> =>
+  const generateOne = (text: string, deckName: string, cardCount: number | "", pid: number | null, pageImages?: string[]): Promise<number> =>
     generateCards.mutateAsync(
-      { data: { text, deckName, cardCount: cardCount ? Number(cardCount) : undefined, parentId: pid } },
+      { data: { text, deckName, cardCount: cardCount ? Number(cardCount) : undefined, parentId: pid, pageImages: pageImages && pageImages.length > 0 ? pageImages : undefined } },
     ).then(d => d.generatedCount);
 
   const handleGenerateAll = async () => {
     setIsGeneratingAll(true);
     let ok = 0, fail = 0;
     const targets = [
-      ...readyFiles.map(f => ({ id: f.id, text: f.text, deckName: f.deckName, cardCount: f.cardCount })),
-      ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount }] : []),
+      ...readyFiles.map(f => ({ id: f.id, text: f.text, deckName: f.deckName, cardCount: f.cardCount, pageImages: f.pageImages })),
+      ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount, pageImages: [] as string[] }] : []),
     ];
 
     for (let i = 0; i < targets.length; i++) {
@@ -173,7 +174,7 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
       }
       if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…" });
       try {
-        const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId);
+        const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages);
         if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count });
         ok++;
       } catch (error) {
@@ -317,7 +318,16 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                     {f.status === "error"      && <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />}
                     <span className="text-sm font-medium flex-1 truncate">{f.name}</span>
                     {f.status === "extracting" && <span className="text-xs text-muted-foreground shrink-0">{f.progress}</span>}
-                    {f.status === "ready"      && <Badge variant="secondary" className="text-xs shrink-0">{(f.text.length / 1000).toFixed(1)}k chars</Badge>}
+                    {f.status === "ready"      && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge variant="secondary" className="text-xs">{(f.text.length / 1000).toFixed(1)}k chars</Badge>
+                        {f.pageImages.length > 0 && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <ImageIcon className="h-2.5 w-2.5" />{f.pageImages.length} pg
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                     {f.status === "generating" && <span className="text-xs text-muted-foreground shrink-0">Generating…</span>}
                     {f.status === "done"       && <Badge className="text-xs shrink-0 bg-green-500 hover:bg-green-600">{f.generatedCount} cards</Badge>}
                     {f.status === "error"      && <span className="text-xs text-destructive shrink-0">{f.progress}</span>}
@@ -333,7 +343,7 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Target Cards</Label>
-                        <Input type="number" value={f.cardCount} onChange={e => updateFile(f.id, { cardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder="e.g. 20" min="1" max="100" disabled={isGeneratingAll} />
+                        <Input type="number" value={f.cardCount} onChange={e => updateFile(f.id, { cardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder="e.g. 20" min="1" max="200" disabled={isGeneratingAll} />
                       </div>
                     </div>
                   )}
@@ -354,7 +364,7 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Target Cards</Label>
-                  <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Number(e.target.value) : "")} className="h-7 text-xs" placeholder="e.g. 15" min="1" max="100" disabled={isGeneratingAll} />
+                  <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Number(e.target.value) : "")} className="h-7 text-xs" placeholder="e.g. 15" min="1" max="200" disabled={isGeneratingAll} />
                 </div>
               </div>
             )}

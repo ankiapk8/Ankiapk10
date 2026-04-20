@@ -289,6 +289,8 @@ components:
           type: string
         tags:
           type: ["string", "null"]
+        image:
+          type: ["string", "null"]
         createdAt:
           type: string
       required:
@@ -329,6 +331,10 @@ components:
           type: integer
         parentId:
           type: ["integer", "null"]
+        pageImages:
+          type: array
+          items:
+            type: string
       required:
         - text
         - deckName

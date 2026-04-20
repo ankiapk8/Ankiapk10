@@ -12,4 +12,5 @@ export interface GenerateCardsBody {
   cardCount?: number;
   /** @nullable */
   parentId?: number | null;
+  pageImages?: string[];
 }
