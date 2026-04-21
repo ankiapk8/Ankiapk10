@@ -5,9 +5,10 @@ import { createCanvas, loadImage } from "canvas";
 
 const router: IRouter = Router();
 
-const MAX_PAGE_IMAGES = 100;
+const MAX_PAGE_IMAGES = 200;
 const VISUAL_BATCH_SIZE = 6;
-const MAX_VISUAL_PAGES = 48;
+const MAX_VISUAL_PAGES = 200;
+const CROP_PADDING = 0.06;
 const VISUAL_CONCURRENCY = 2;
 
 function sleep(ms: number): Promise<void> {
@@ -127,19 +128,30 @@ function normalizeBbox(raw: unknown): Bbox | null {
   return bbox;
 }
 
+function expandBbox(bbox: Bbox, pad: number): Bbox {
+  const x = Math.max(0, bbox.x - pad);
+  const y = Math.max(0, bbox.y - pad);
+  const right = Math.min(1, bbox.x + bbox.w + pad);
+  const bottom = Math.min(1, bbox.y + bbox.h + pad);
+  return { x, y, w: Math.max(0, right - x), h: Math.max(0, bottom - y) };
+}
+
 async function cropImage(dataUrlOrB64: string, bbox: Bbox | null): Promise<string> {
   const src = dataUrlOrB64.startsWith("data:") ? dataUrlOrB64 : `data:image/jpeg;base64,${dataUrlOrB64}`;
   if (!bbox) return src;
   try {
     const img = await loadImage(src);
-    const sx = Math.round(bbox.x * img.width);
-    const sy = Math.round(bbox.y * img.height);
-    const sw = Math.max(1, Math.round(bbox.w * img.width));
-    const sh = Math.max(1, Math.round(bbox.h * img.height));
+    // If the box already covers most of the page, just return the original — avoids re-encoding loss.
+    if (bbox.w >= 0.9 && bbox.h >= 0.9) return src;
+    const padded = expandBbox(bbox, CROP_PADDING);
+    const sx = Math.round(padded.x * img.width);
+    const sy = Math.round(padded.y * img.height);
+    const sw = Math.max(1, Math.min(img.width - sx, Math.round(padded.w * img.width)));
+    const sh = Math.max(1, Math.min(img.height - sy, Math.round(padded.h * img.height)));
     const canvas = createCanvas(sw, sh);
     const ctx = canvas.getContext("2d");
     ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-    return canvas.toDataURL("image/jpeg", 0.85);
+    return canvas.toDataURL("image/jpeg", 0.92);
   } catch {
     return src;
   }
@@ -219,7 +231,7 @@ Return ONLY a JSON array. Each item must have exactly:
 - "pageIndex": integer (0-based index within the images you received, so 0 = first image in this batch)
 - "front": string (question)
 - "back": string (answer)
-- "bbox": object with numeric "x", "y", "w", "h" all between 0 and 1, tightly cropped around the visual element. Include a small margin (~3%) around the figure. If the entire page is the visual, use {"x":0,"y":0,"w":1,"h":1}.
+- "bbox": object with numeric "x", "y", "w", "h" all between 0 and 1. The crop MUST fully contain every important detail of the visual: the entire figure, ALL labels/arrows/legends/axes/captions/scale bars/colour keys, and any text directly describing it. When in doubt, make the box LARGER rather than smaller — prefer a generous box (~5–10% padding around the figure) over a tight one that risks clipping labels or annotations. Never cut through text, arrows, or anatomical structures. If the entire page is the visual, use {"x":0,"y":0,"w":1,"h":1}.
 
 No markdown, no explanation, just the JSON array.`;
 
