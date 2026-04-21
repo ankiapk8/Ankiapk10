@@ -13,8 +13,8 @@ const SERVER_EXTRACT_URL = apiUrl("api/extract-pdf");
 const CLIENT_MAX_PAGES = 100;
 const SERVER_THRESHOLD_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_PAGES = 100;
-const IMAGE_WIDTH = 600;
-const IMAGE_QUALITY = 0.65;
+const IMAGE_WIDTH = 1100;
+const IMAGE_QUALITY = 0.85;
 
 export interface PdfExtractionResult {
   text: string;

@@ -138,15 +138,16 @@ async function generateVisualCardsForBatch(
     },
   }));
 
-  const systemPrompt = `You are an expert Anki flashcard creator specialised in visual content. You will receive ${batchImages.length} PDF page image(s) (pages ${batchStart + 1}–${batchStart + batchImages.length}).
+  const systemPrompt = `You are an expert Anki flashcard creator working from PDF page images. You will receive ${batchImages.length} page image(s) (pages ${batchStart + 1}–${batchStart + batchImages.length}).
 
-Your task: for EACH image that contains a meaningful visual element — such as diagrams, anatomical illustrations, X-rays, CT/MRI scans, ECGs, histology slides, dermatology photos, charts, tables, flowcharts, algorithms, graphs, labelled figures, equations — generate 1–3 specific flashcards about that visual.
+For EACH page, generate 1–3 high-quality flashcards. Be generous: even pages that are mostly text usually contain at least one labelled figure, diagram, table, chart, photo, scan, anatomical illustration, X-ray, CT/MRI, ECG, histology slide, dermatology photo, flowchart, algorithm, graph, equation, or important highlighted concept worth a card.
 
-Rules:
-- Generate cards ONLY for pages with meaningful visuals. Skip plain-text or empty pages entirely.
-- Cards must be specific to what is VISIBLE in the image (not general knowledge).
-- Questions should ask the learner to identify, interpret, label, or explain what is shown.
-- Answers must be concise and accurate.
+Card guidelines:
+- If the page contains a meaningful visual (diagram, chart, illustration, scan, etc.), prioritize asking the learner to identify, interpret, or label what is shown in that visual.
+- If the page is purely text but contains key concepts, still generate cards from those concepts.
+- Only skip a page if it is completely blank, just a title page, or contains no learnable content at all.
+- Cards must be self-contained and specific. Avoid trivially obvious questions.
+- Keep answers concise and accurate.
 
 Return ONLY a JSON array. Each item must have exactly:
 - "pageIndex": integer (0-based index within the images you received, so 0 = first image in this batch)
