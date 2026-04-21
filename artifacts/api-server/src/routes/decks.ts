@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, inArray } from "drizzle-orm";
+import { eq, sql, inArray, asc } from "drizzle-orm";
 import { db, decksTable, cardsTable } from "@workspace/db";
 import {
   CreateDeckBody,
@@ -94,7 +94,7 @@ router.get("/decks/:id", async (req, res, next): Promise<void> => {
       .leftJoin(cardsTable, eq(cardsTable.deckId, decksTable.id))
       .where(eq(decksTable.parentId, params.data.id))
       .groupBy(decksTable.id)
-      .orderBy(decksTable.createdAt);
+      .orderBy(asc(decksTable.name));
 
     res.json({
       ...row,

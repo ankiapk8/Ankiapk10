@@ -571,7 +571,7 @@ export default function DeckDetail() {
   }, [deckId]);
 
   const deckWithSubs = deck as DeckWithSubDecks | undefined;
-  const subDecks = deckWithSubs?.subDecks ?? [];
+  const subDecks = [...(deckWithSubs?.subDecks ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   const hasSubDecks = subDecks.length > 0;
 
   const handleExportJson = async () => {

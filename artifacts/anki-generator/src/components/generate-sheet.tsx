@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGenerateCards, useCreateDeck, useListDecks, getListDecksQueryKey } from "@workspace/api-client-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -108,10 +108,24 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
   const hasManual = manualText.trim().length > 0 && manualDeckName.trim().length > 0;
   const canGenerate = !isExtracting && !isGeneratingAll && (readyFiles.length > 0 || hasManual);
 
-  const parentOptions = buildParentOptions((allDecks as DeckWithParent[]) ?? []);
+  const parentOptions = useMemo(
+    () => buildParentOptions((allDecks as DeckWithParent[]) ?? []),
+    [allDecks]
+  );
 
   const updateFile = useCallback((id: string, patch: Partial<FileEntry>) => {
     setFiles(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f));
+  }, []);
+
+  const progressThrottleRef = useRef<Map<string, number>>(new Map());
+
+  const throttledProgressUpdate = useCallback((id: string, progress: string) => {
+    const now = Date.now();
+    const last = progressThrottleRef.current.get(id) ?? 0;
+    if (now - last >= 150) {
+      progressThrottleRef.current.set(id, now);
+      setFiles(prev => prev.map(f => f.id === id ? { ...f, progress } : f));
+    }
   }, []);
 
   const processFile = useCallback(async (file: File) => {
@@ -130,14 +144,14 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
         updateFile(id, { status: "ready", text, pageImages: [], progress: "" });
       } else {
         const buffer = await file.arrayBuffer();
-        const { text, pageImages } = await extractPdf(buffer, (progress) => updateFile(id, { progress }));
+        const { text, pageImages } = await extractPdf(buffer, (progress) => throttledProgressUpdate(id, progress));
         updateFile(id, { status: "ready", text, pageImages, progress: "" });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Extraction failed";
       updateFile(id, { status: "error", progress: message });
     }
-  }, [updateFile, toast]);
+  }, [updateFile, throttledProgressUpdate, toast]);
 
   const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
