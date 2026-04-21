@@ -17,6 +17,24 @@ import { extractPdf, isPdfFile, isTextFile } from "@/lib/pdf-extraction";
 import { apiUrl } from "@/lib/utils";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
 
+const DEFAULT_TARGET_CARDS = 20;
+const CHARS_PER_CARD = 400;
+
+function estimateCardCapacity(text: string, pageImages: number): number {
+  const chars = text.trim().length;
+  if (chars === 0 && pageImages === 0) return 0;
+  const textCards = Math.round(chars / CHARS_PER_CARD);
+  const visualCards = Math.min(pageImages, 20);
+  return Math.max(3, Math.min(80, textCards + visualCards));
+}
+
+function estimatedCards(text: string, pageImages: number, target: number | ""): number {
+  const capacity = estimateCardCapacity(text, pageImages);
+  if (capacity === 0) return 0;
+  const goal = typeof target === "number" && target > 0 ? target : DEFAULT_TARGET_CARDS;
+  return Math.min(goal, capacity);
+}
+
 function parseProgressPercent(message: string): number | null {
   const match = message.match(/(\d+)\s*\/\s*(\d+)/);
   if (!match) return null;
@@ -465,15 +483,34 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                   )}
 
                   {(f.status === "ready" || f.status === "error") && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Deck Name</Label>
-                        <Input value={f.deckName} onChange={e => updateFile(f.id, { deckName: e.target.value })} className="h-7 text-xs" placeholder="e.g. Chapter 1" disabled={isGeneratingAll} />
+                    <div className="space-y-1.5">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Deck Name</Label>
+                          <Input value={f.deckName} onChange={e => updateFile(f.id, { deckName: e.target.value })} className="h-7 text-xs" placeholder="e.g. Chapter 1" disabled={isGeneratingAll} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs flex items-center justify-between gap-1">
+                            <span>Target Cards</span>
+                            <span className="text-[10px] font-normal text-muted-foreground">
+                              ~{estimatedCards(f.text, f.pageImages.length, f.cardCount)} likely
+                            </span>
+                          </Label>
+                          <Input type="number" value={f.cardCount} onChange={e => updateFile(f.id, { cardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="200" disabled={isGeneratingAll} />
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Target Cards</Label>
-                        <Input type="number" value={f.cardCount} onChange={e => updateFile(f.id, { cardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder="e.g. 20" min="1" max="200" disabled={isGeneratingAll} />
-                      </div>
+                      {(() => {
+                        const capacity = estimateCardCapacity(f.text, f.pageImages.length);
+                        const target = typeof f.cardCount === "number" ? f.cardCount : DEFAULT_TARGET_CARDS;
+                        if (target > capacity && capacity > 0) {
+                          return (
+                            <p className="text-[10px] text-amber-600 dark:text-amber-500">
+                              Content likely only supports ~{capacity} cards — target will be capped.
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   )}
                 </CardContent>
@@ -487,15 +524,34 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
               <Textarea placeholder="Paste study material here…" className="min-h-[90px] resize-none text-sm" value={manualText} onChange={e => setManualText(e.target.value)} disabled={isGeneratingAll} />
             </div>
             {manualText.trim().length > 0 && (
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">Deck Name</Label>
-                  <Input value={manualDeckName} onChange={e => setManualDeckName(e.target.value)} className="h-7 text-xs" placeholder="e.g. Notes" disabled={isGeneratingAll} />
+              <div className="space-y-1.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Deck Name</Label>
+                    <Input value={manualDeckName} onChange={e => setManualDeckName(e.target.value)} className="h-7 text-xs" placeholder="e.g. Notes" disabled={isGeneratingAll} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs flex items-center justify-between gap-1">
+                      <span>Target Cards</span>
+                      <span className="text-[10px] font-normal text-muted-foreground">
+                        ~{estimatedCards(manualText, 0, manualCardCount)} likely
+                      </span>
+                    </Label>
+                    <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Number(e.target.value) : "")} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="200" disabled={isGeneratingAll} />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Target Cards</Label>
-                  <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Number(e.target.value) : "")} className="h-7 text-xs" placeholder="e.g. 15" min="1" max="200" disabled={isGeneratingAll} />
-                </div>
+                {(() => {
+                  const capacity = estimateCardCapacity(manualText, 0);
+                  const target = typeof manualCardCount === "number" ? manualCardCount : DEFAULT_TARGET_CARDS;
+                  if (target > capacity && capacity > 0) {
+                    return (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-500">
+                        Content likely only supports ~{capacity} cards — target will be capped.
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
 
