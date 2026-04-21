@@ -20,7 +20,7 @@ import {
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
-  Brain, ClipboardList, Stethoscope, ChevronDown, FileJson, Package
+  Brain, ClipboardList, Stethoscope, ChevronDown, FileJson, Package, ImageIcon
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -787,12 +787,22 @@ export default function DeckDetail() {
 
       <div className="space-y-6">
         <div className="flex items-center justify-between border-b pb-2">
-          <h2 className="text-xl font-medium tracking-tight">
-            Cards ({cardList.length})
-            {hasSubDecks && cardList.length > 0 && (
-              <span className="text-sm font-normal text-muted-foreground ml-2">across all sub-decks</span>
-            )}
-          </h2>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h2 className="text-xl font-medium tracking-tight">
+              Cards ({cardList.length})
+              {hasSubDecks && cardList.length > 0 && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">across all sub-decks</span>
+              )}
+            </h2>
+            {(() => {
+              const visualCount = cardList.filter(c => (c as Card & { image?: string | null }).image).length;
+              return visualCount > 0 ? (
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                  <ImageIcon className="h-3 w-3" /> {visualCount} with image
+                </span>
+              ) : null;
+            })()}
+          </div>
         </div>
 
         {isLoadingCards ? (
@@ -918,11 +928,14 @@ function EditableCard({
       )}
       <CardContent className="p-0 flex flex-col sm:flex-row relative">
         <div className="flex-1 p-4 sm:p-5 border-b sm:border-b-0 sm:border-r border-border/40">
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Front</div>
-          <p className="font-medium text-foreground whitespace-pre-wrap leading-relaxed">{card.front}</p>
-        </div>
-        <div className="flex-1 p-4 sm:p-5">
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Back</div>
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            Front
+            {(card as Card & { image?: string | null }).image && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                <ImageIcon className="h-2.5 w-2.5" /> Visual
+              </span>
+            )}
+          </div>
           {(card as Card & { image?: string | null }).image && (
             <div className="mb-3 rounded-md overflow-hidden border border-border/40">
               <img
@@ -932,6 +945,10 @@ function EditableCard({
               />
             </div>
           )}
+          <p className="font-medium text-foreground whitespace-pre-wrap leading-relaxed">{card.front}</p>
+        </div>
+        <div className="flex-1 p-4 sm:p-5">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">Back</div>
           <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{card.back}</p>
         </div>
         
