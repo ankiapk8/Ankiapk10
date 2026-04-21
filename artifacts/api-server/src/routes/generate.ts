@@ -31,17 +31,26 @@ function isRetryableAIError(error: unknown): boolean {
   return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = (error as { name?: unknown }).name;
+  return name === "AbortError" || getErrorCode(error) === "ABORT_ERR";
+}
+
 async function createChatCompletionWithRetry(
   openai: Awaited<ReturnType<typeof getOpenAIClient>>,
   payload: Parameters<typeof openai.chat.completions.create>[0],
   requestLog: { warn: (obj: unknown, message: string) => void },
+  signal?: AbortSignal,
 ) {
   const delays = [2000, 5000, 10000];
 
   for (let attempt = 0; ; attempt++) {
+    if (signal?.aborted) throw new Error("Cancelled");
     try {
-      return await openai.chat.completions.create(payload);
+      return await openai.chat.completions.create(payload, { signal });
     } catch (error) {
+      if (isAbortError(error) || signal?.aborted) throw error;
       if (!isRetryableAIError(error) || attempt >= delays.length) {
         throw error;
       }
@@ -141,6 +150,7 @@ async function generateTextCards(
   text: string,
   maxCards: number,
   requestLog: { warn: (obj: unknown, message: string) => void },
+  signal?: AbortSignal,
 ): Promise<RawCard[]> {
   const systemPrompt = `You are an expert Anki flashcard creator. Generate high-quality question-answer flashcards from the provided text that test understanding, not just recall.
 
@@ -164,7 +174,7 @@ Respond ONLY with a JSON array of objects with "front" (question) and "back" (an
       { role: "system", content: systemPrompt },
       { role: "user", content: userContent },
     ],
-  }, requestLog);
+  }, requestLog, signal);
 
   const raw = (response as { choices: Array<{ message: { content: string | null } }> })
     .choices[0]?.message?.content ?? "[]";
@@ -177,6 +187,7 @@ async function generateVisualCardsForBatch(
   batchStart: number,
   cardsPerPage: number,
   requestLog: { warn: (obj: unknown, message: string) => void },
+  signal?: AbortSignal,
 ): Promise<VisualRawCard[]> {
   type ContentPart =
     | { type: "text"; text: string }
@@ -227,14 +238,15 @@ No markdown, no explanation, just the JSON array.`;
           ],
         },
       ],
-    }, requestLog);
+    }, requestLog, signal);
 
     const raw = (response as { choices: Array<{ message: { content: string | null } }> })
       .choices[0]?.message?.content ?? "[]";
     return parseJson<VisualRawCard>(raw)
       .filter(c => typeof c.pageIndex === "number" && typeof c.front === "string" && typeof c.back === "string")
       .map(c => ({ ...c, bbox: normalizeBbox(c.bbox) ?? undefined }));
-  } catch {
+  } catch (error) {
+    if (isAbortError(error) || signal?.aborted) throw error;
     return [];
   }
 }
@@ -245,6 +257,7 @@ async function generateAllVisualCards(
   targetCount: number | undefined,
   requestLog: { warn: (obj: unknown, message: string) => void },
   onBatchGroupDone?: (doneBatches: number, totalBatches: number) => void,
+  signal?: AbortSignal,
 ): Promise<{ front: string; back: string; image: string }[]> {
   const pagesToProcess = images.slice(0, MAX_VISUAL_PAGES);
   const batches: { start: number; imgs: string[] }[] = [];
@@ -262,9 +275,10 @@ async function generateAllVisualCards(
   let doneBatches = 0;
 
   for (let i = 0; i < batches.length; i += VISUAL_CONCURRENCY) {
+    if (signal?.aborted) throw new Error("Cancelled");
     const chunk = batches.slice(i, i + VISUAL_CONCURRENCY);
     const settled = await Promise.allSettled(
-      chunk.map(b => generateVisualCardsForBatch(openai, b.imgs, b.start, cardsPerPage, requestLog).then(async cards => {
+      chunk.map(b => generateVisualCardsForBatch(openai, b.imgs, b.start, cardsPerPage, requestLog, signal).then(async cards => {
         const out: { front: string; back: string; image: string }[] = [];
         for (const c of cards) {
           if (c.pageIndex < 0 || c.pageIndex >= b.imgs.length) continue;
@@ -354,6 +368,11 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
 
   sseEmit(res, { type: "progress", percent: 12, message: wantText ? "Generating text cards…" : "Analyzing pages…" });
 
+  const abortController = new AbortController();
+  const onClientClose = () => abortController.abort();
+  req.on("close", onClientClose);
+  const signal = abortController.signal;
+
   const TEXT_DONE_PERCENT = wantVisual ? 40 : 82;
   const VISUAL_START = wantText ? 42 : 15;
   const VISUAL_END = 85;
@@ -363,7 +382,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
 
   try {
     const textPromise = wantText
-      ? generateTextCards(openai, text, maxTextCards, req.log).then(cards => {
+      ? generateTextCards(openai, text, maxTextCards, req.log, signal).then(cards => {
           textCards = cards;
           sseEmit(res, { type: "progress", percent: TEXT_DONE_PERCENT, message: `Text cards done (${cards.length} generated)` });
         })
@@ -375,11 +394,18 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
           const pct = Math.round(VISUAL_START + frac * (VISUAL_END - VISUAL_START));
           const pages = Math.min(done * VISUAL_BATCH_SIZE, selectedImages.length);
           sseEmit(res, { type: "progress", percent: pct, message: `Analyzing & cropping images… (${pages}/${selectedImages.length} pages)` });
-        }).then(cards => { visualCards = cards; })
+        }, signal).then(cards => { visualCards = cards; })
       : Promise.resolve();
 
     await Promise.all([textPromise, visualPromise]);
   } catch (error) {
+    req.off("close", onClientClose);
+    if (isAbortError(error) || signal.aborted) {
+      req.log.info("AI card generation cancelled by client");
+      try { sseEmit(res, { type: "error", message: "Cancelled" }); } catch { /* socket may be gone */ }
+      try { res.end(); } catch { /* ignore */ }
+      return;
+    }
     req.log.error({ err: error }, "SSE AI card generation failed");
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
@@ -389,6 +415,11 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
       sseEmit(res, { type: "error", message: error instanceof Error ? error.message : "AI card generation failed." });
     }
     res.end();
+    return;
+  }
+  req.off("close", onClientClose);
+  if (signal.aborted) {
+    try { res.end(); } catch { /* ignore */ }
     return;
   }
 

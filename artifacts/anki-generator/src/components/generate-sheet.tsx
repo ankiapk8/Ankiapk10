@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
-import { UploadCloud, X, CheckCircle2, AlertCircle, Loader2, FileText, Sparkles, FolderOpen, ImageIcon, ArrowLeft, Type, Layers } from "lucide-react";
+import { UploadCloud, X, CheckCircle2, AlertCircle, Loader2, FileText, Sparkles, FolderOpen, ImageIcon, ArrowLeft, Type, Layers, StopCircle } from "lucide-react";
 import { extractPdf, isPdfFile, isTextFile } from "@/lib/pdf-extraction";
 import { apiUrl } from "@/lib/utils";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -144,6 +144,10 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
   }, []);
 
   const progressThrottleRef = useRef<Map<string, number>>(new Map());
+  const abortControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const cancelledIdsRef = useRef<Set<string>>(new Set());
+  const manualCancelKey = "__manual__";
+  const [isCancelling, setIsCancelling] = useState(false);
 
   const throttledProgressUpdate = useCallback((id: string, progress: string) => {
     const now = Date.now();
@@ -230,10 +234,14 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
         pageImages: pageImages && pageImages.length > 0 ? pageImages : undefined,
       });
 
+      const controller = new AbortController();
+      abortControllersRef.current.set(fileId ?? manualCancelKey, controller);
+
       fetch(apiUrl("api/generate/stream"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
+        signal: controller.signal,
       }).then(async resp => {
         if (!resp.ok || !resp.body) {
           const err = await resp.json().catch(() => ({}));
@@ -274,12 +282,36 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
           }
         }
         reject(new Error("Stream ended unexpectedly"));
-      }).catch(reject);
+      }).catch(err => {
+        if (err && typeof err === "object" && (err as { name?: string }).name === "AbortError") {
+          reject(new Error("Cancelled"));
+        } else {
+          reject(err);
+        }
+      }).finally(() => {
+        abortControllersRef.current.delete(fileId ?? manualCancelKey);
+      });
     });
+
+  const cancelOne = (fileId: string | undefined) => {
+    const key = fileId ?? manualCancelKey;
+    cancelledIdsRef.current.add(key);
+    abortControllersRef.current.get(key)?.abort();
+  };
+
+  const cancelAll = () => {
+    setIsCancelling(true);
+    for (const [key, c] of abortControllersRef.current.entries()) {
+      cancelledIdsRef.current.add(key);
+      c.abort();
+    }
+  };
 
   const handleGenerateAll = async () => {
     setIsGeneratingAll(true);
-    let ok = 0, fail = 0;
+    setIsCancelling(false);
+    cancelledIdsRef.current.clear();
+    let ok = 0, fail = 0, cancelled = 0;
     const targets = [
       ...readyFiles.map(f => ({ id: f.id, text: f.text, deckName: f.deckName, cardCount: f.cardCount, pageImages: f.pageImages, deckType: f.deckType, visualCardCount: f.visualCardCount })),
       ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount, pageImages: [] as string[], deckType: "text" as DeckType, visualCardCount: "" as number | "" }] : []),
@@ -292,29 +324,53 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
         setIsGeneratingAll(false);
         return;
       }
+
+      const key = t.id ?? manualCancelKey;
+      // If user already hit cancel-all, mark remaining as cancelled and skip
+      if (cancelledIdsRef.current.has(manualCancelKey)) {
+        if (t.id) updateFile(t.id, { status: "ready", progress: "Cancelled", generatingPercent: 0, generatingMessage: undefined });
+        cancelled++;
+        continue;
+      }
+
       if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…" });
       try {
         const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount);
         if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count });
         ok++;
       } catch (error) {
-        const message = getGenerationErrorMessage(error);
-        if (t.id) updateFile(t.id, { status: "error", progress: message });
-        toast({ title: `Could not generate ${t.deckName}`, description: message, variant: "destructive" });
-        fail++;
+        const wasCancelled = cancelledIdsRef.current.has(key) || cancelledIdsRef.current.has(manualCancelKey);
+        if (wasCancelled) {
+          if (t.id) updateFile(t.id, { status: "ready", progress: "Cancelled", generatingPercent: 0, generatingMessage: undefined });
+          cancelled++;
+        } else {
+          const message = getGenerationErrorMessage(error);
+          if (t.id) updateFile(t.id, { status: "error", progress: message });
+          toast({ title: `Could not generate ${t.deckName}`, description: message, variant: "destructive" });
+          fail++;
+        }
       }
-      if (i < targets.length - 1) await pauseBetweenFiles();
+      if (i < targets.length - 1 && !cancelledIdsRef.current.has(manualCancelKey)) await pauseBetweenFiles();
     }
 
     setIsGeneratingAll(false);
+    setIsCancelling(false);
     queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
+
+    if (cancelled > 0 && ok === 0) {
+      toast({ title: "Generation cancelled", description: `${cancelled} ${cancelled === 1 ? "deck" : "decks"} were not generated.` });
+      return;
+    }
 
     if (ok > 0) {
       toast({
         title: ok === 1 ? "Deck generated!" : `${ok} decks generated!`,
-        description: fail > 0 ? `${fail} file${fail === 1 ? "" : "s"} still need attention.` : undefined,
+        description:
+          fail + cancelled > 0
+            ? `${fail > 0 ? `${fail} failed` : ""}${fail > 0 && cancelled > 0 ? ", " : ""}${cancelled > 0 ? `${cancelled} cancelled` : ""}.`
+            : undefined,
       });
-      if (fail === 0) { resetState(); onDone?.(); onOpenChange(false); }
+      if (fail === 0 && cancelled === 0) { resetState(); onDone?.(); onOpenChange(false); }
     } else {
       toast({ title: "Generation failed", variant: "destructive" });
     }
@@ -543,6 +599,15 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                         </span>
                       </div>
                       <Progress value={f.generatingPercent ?? 0} className="h-1.5" />
+                      <button
+                        type="button"
+                        onClick={() => cancelOne(f.id)}
+                        disabled={cancelledIdsRef.current.has(f.id)}
+                        className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+                      >
+                        <StopCircle className="h-3 w-3" />
+                        {cancelledIdsRef.current.has(f.id) ? "Cancelling…" : "Cancel this deck"}
+                      </button>
                     </div>
                   )}
 
@@ -704,6 +769,17 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                   : <><Sparkles className="mr-2 h-4 w-4" />{totalTargets > 1 ? `Generate ${totalTargets} Decks` : "Generate Deck"}</>
                 }
               </Button>
+              {isGeneratingAll && (
+                <Button
+                  variant="outline"
+                  className="w-full h-9 mt-2 text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                  onClick={cancelAll}
+                  disabled={isCancelling}
+                >
+                  <StopCircle className="mr-2 h-4 w-4" />
+                  {isCancelling ? "Cancelling…" : "Cancel generation"}
+                </Button>
+              )}
             </div>
           </TabsContent>
 
