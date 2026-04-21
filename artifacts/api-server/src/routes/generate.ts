@@ -336,9 +336,9 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
   const wantText = deckType === "text" || deckType === "both";
   const wantVisual = (deckType === "visual" || deckType === "both") && hasImages;
 
-  const maxTextCards = wantText ? Math.min(Math.max(cardCount, 1), 200) : 0;
+  const maxTextCards = wantText ? Math.min(Math.max(cardCount, 1), 500) : 0;
   const maxVisualCards = wantVisual
-    ? Math.min(Math.max(visualCardCount ?? cardCount, 1), 200)
+    ? Math.min(Math.max(visualCardCount ?? cardCount, 1), 500)
     : 0;
 
   sseEmit(res, { type: "progress", percent: 5, message: "Connecting to AI…" });
@@ -491,8 +491,8 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   const deckType = resolveDeckType(rawDeckType, hasImages);
   const wantText = deckType === "text" || deckType === "both";
   const wantVisual = (deckType === "visual" || deckType === "both") && hasImages;
-  const maxTextCards = wantText ? Math.min(Math.max(cardCount, 1), 200) : 0;
-  const maxVisualCards = wantVisual ? Math.min(Math.max(visualCardCount ?? cardCount, 1), 200) : 0;
+  const maxTextCards = wantText ? Math.min(Math.max(cardCount, 1), 500) : 0;
+  const maxVisualCards = wantVisual ? Math.min(Math.max(visualCardCount ?? cardCount, 1), 500) : 0;
 
   let openai: Awaited<ReturnType<typeof getOpenAIClient>>;
   try {

@@ -19,7 +19,7 @@ import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas
 
 const DEFAULT_TARGET_CARDS = 20;
 const CHARS_PER_CARD = 220;
-const MAX_CAPACITY = 200;
+const MAX_CAPACITY = 500;
 
 function estimateCardCapacity(text: string, pageImages: number): number {
   const chars = text.trim().length;
@@ -599,7 +599,7 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                                 ~{estimatedCards(f.text, 0, f.cardCount)} likely
                               </span>
                             </Label>
-                            <Input type="number" value={f.cardCount} onChange={e => updateFile(f.id, { cardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="200" disabled={isGeneratingAll} />
+                            <Input type="number" value={f.cardCount} onChange={e => updateFile(f.id, { cardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="500" disabled={isGeneratingAll} />
                           </div>
                         )}
                         {(f.deckType === "visual" || f.deckType === "both") && f.pageImages.length > 0 && (
@@ -607,10 +607,10 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                             <Label className="text-xs flex items-center justify-between gap-1">
                               <span className="flex items-center gap-1"><ImageIcon className="h-3 w-3" />Visual Cards</span>
                               <span className="text-[10px] font-normal text-muted-foreground">
-                                up to {Math.min(f.pageImages.length * 3, 200)}
+                                up to {Math.min(f.pageImages.length * 3, 500)}
                               </span>
                             </Label>
-                            <Input type="number" value={f.visualCardCount} onChange={e => updateFile(f.id, { visualCardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder={`e.g. ${Math.min(f.pageImages.length * 2, 30)}`} min="1" max="200" disabled={isGeneratingAll} />
+                            <Input type="number" value={f.visualCardCount} onChange={e => updateFile(f.id, { visualCardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder={`e.g. ${Math.min(f.pageImages.length * 2, 30)}`} min="1" max="500" disabled={isGeneratingAll} />
                           </div>
                         )}
                       </div>
@@ -662,7 +662,7 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                         ~{estimatedCards(manualText, 0, manualCardCount)} likely
                       </span>
                     </Label>
-                    <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Number(e.target.value) : "")} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="200" disabled={isGeneratingAll} />
+                    <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Number(e.target.value) : "")} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="500" disabled={isGeneratingAll} />
                   </div>
                 </div>
                 {(() => {
