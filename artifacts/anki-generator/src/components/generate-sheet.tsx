@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCreateDeck, useListDecks, getListDecksQueryKey } from "@workspace/api-client-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -71,7 +71,19 @@ type FileEntry = {
   generatedCount?: number;
   generatingPercent?: number;
   generatingMessage?: string;
+  generatingStartedAt?: number;
 };
+
+function formatEta(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  const seconds = Math.round(ms / 1000);
+  if (seconds < 60) return `~${Math.max(5, seconds)}s left`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `~${minutes} min left`;
+  const hours = Math.floor(minutes / 60);
+  const remMin = minutes % 60;
+  return remMin > 0 ? `~${hours}h ${remMin}m left` : `~${hours}h left`;
+}
 
 type DeckWithParent = Deck & { parentId?: number | null };
 
@@ -128,6 +140,14 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
   const [emptyDesc, setEmptyDesc] = useState("");
   const [emptyParentId, setEmptyParentId] = useState<string>(defaultParentId?.toString() ?? "none");
   const [isCreating, setIsCreating] = useState(false);
+
+  const isAnyGenerating = files.some(f => f.status === "generating");
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    if (!isAnyGenerating) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [isAnyGenerating]);
 
   const isExtracting = files.some(f => f.status === "extracting");
   const readyFiles = files.filter(f => f.status === "ready");
@@ -333,7 +353,7 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
         continue;
       }
 
-      if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…" });
+      if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…", generatingStartedAt: Date.now() });
       try {
         const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount);
         if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count });
@@ -588,17 +608,35 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                     </div>
                   )}
 
-                  {f.status === "generating" && (
+                  {f.status === "generating" && (() => {
+                    const pct = f.generatingPercent ?? 0;
+                    const startedAt = f.generatingStartedAt;
+                    let etaLabel = "";
+                    if (startedAt && pct >= 8 && pct < 99) {
+                      const elapsed = nowTick - startedAt;
+                      if (elapsed > 4000) {
+                        const total = (elapsed / pct) * 100;
+                        etaLabel = formatEta(total - elapsed);
+                      }
+                    } else if (startedAt && pct < 8 && nowTick - startedAt > 4000) {
+                      etaLabel = "estimating…";
+                    }
+                    return (
                     <div className="space-y-1 pt-0.5">
-                      <div className="flex justify-between items-center">
+                      <div className="flex justify-between items-center gap-2">
                         <span className="text-[11px] text-muted-foreground truncate pr-2">
                           {f.generatingMessage ?? "Generating…"}
                         </span>
-                        <span className="text-[11px] font-medium text-primary shrink-0">
-                          {f.generatingPercent ?? 0}%
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          {etaLabel && (
+                            <span className="text-[10px] text-muted-foreground/80 tabular-nums">{etaLabel}</span>
+                          )}
+                          <span className="text-[11px] font-medium text-primary tabular-nums">
+                            {pct}%
+                          </span>
                         </span>
                       </div>
-                      <Progress value={f.generatingPercent ?? 0} className="h-1.5" />
+                      <Progress value={pct} className="h-1.5" />
                       <button
                         type="button"
                         onClick={() => cancelOne(f.id)}
@@ -609,7 +647,8 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
                         {cancelledIdsRef.current.has(f.id) ? "Cancelling…" : "Cancel this deck"}
                       </button>
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {(f.status === "ready" || f.status === "error") && (
                     <div className="space-y-2">
