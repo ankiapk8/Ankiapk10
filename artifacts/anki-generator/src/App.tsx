@@ -7,6 +7,7 @@ import { Layout } from "@/components/layout";
 import Dashboard from "@/pages/dashboard";
 import Decks from "@/pages/decks";
 import DeckDetail from "@/pages/deck-detail";
+import History from "@/pages/history";
 import NotFound from "@/pages/not-found";
 import { Redirect } from "wouter";
 
@@ -20,6 +21,7 @@ function Router() {
         <Route path="/generate">{() => <Redirect to="/decks?new=1" />}</Route>
         <Route path="/decks" component={Decks} />
         <Route path="/decks/:id" component={DeckDetail} />
+        <Route path="/history" component={History} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

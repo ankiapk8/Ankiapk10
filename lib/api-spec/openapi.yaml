@@ -212,6 +212,44 @@ paths:
         "400":
           description: Bad request
 
+  /generations:
+    get:
+      operationId: listGenerations
+      tags: [generations]
+      summary: List recent card generation runs
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+      responses:
+        "200":
+          description: Generation history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Generation"
+    delete:
+      operationId: clearGenerations
+      tags: [generations]
+      summary: Clear all generation history
+      responses:
+        "200":
+          description: Cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required: [ok]
+
   /decks/{id}/export:
     get:
       operationId: exportDeck
@@ -242,6 +280,42 @@ components:
           type: string
       required:
         - status
+
+    Generation:
+      type: object
+      properties:
+        id:
+          type: integer
+        deckName:
+          type: string
+        deckType:
+          type: string
+        status:
+          type: string
+          description: "success | error | cancelled"
+        cardsGenerated:
+          type: integer
+        pageCount:
+          type: integer
+        durationMs:
+          type: integer
+        customPrompt:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        startedAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+      required:
+        - id
+        - deckName
+        - deckType
+        - status
+        - cardsGenerated
+        - pageCount
+        - durationMs
+        - startedAt
 
     Deck:
       type: object

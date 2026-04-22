@@ -18,12 +18,15 @@ import type {
 
 import type {
   Card,
+  ClearGenerations200,
   CreateDeckBody,
   Deck,
   ExportDeckResponse,
   GenerateCardsBody,
   GenerateCardsResponse,
+  Generation,
   HealthStatus,
+  ListGenerationsParams,
   UpdateCardBody,
   UpdateDeckBody,
 } from "./api.schemas";
@@ -854,6 +857,181 @@ export const useGenerateCards = <
   TContext
 > => {
   return useMutation(getGenerateCardsMutationOptions(options));
+};
+
+/**
+ * @summary List recent card generation runs
+ */
+export const getListGenerationsUrl = (params?: ListGenerationsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/generations?${stringifiedParams}`
+    : `/api/generations`;
+};
+
+export const listGenerations = async (
+  params?: ListGenerationsParams,
+  options?: RequestInit,
+): Promise<Generation[]> => {
+  return customFetch<Generation[]>(getListGenerationsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListGenerationsQueryKey = (params?: ListGenerationsParams) => {
+  return [`/api/generations`, ...(params ? [params] : [])] as const;
+};
+
+export const getListGenerationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listGenerations>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListGenerationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGenerations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListGenerationsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listGenerations>>> = ({
+    signal,
+  }) => listGenerations(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listGenerations>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListGenerationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGenerations>>
+>;
+export type ListGenerationsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List recent card generation runs
+ */
+
+export function useListGenerations<
+  TData = Awaited<ReturnType<typeof listGenerations>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListGenerationsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGenerations>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListGenerationsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Clear all generation history
+ */
+export const getClearGenerationsUrl = () => {
+  return `/api/generations`;
+};
+
+export const clearGenerations = async (
+  options?: RequestInit,
+): Promise<ClearGenerations200> => {
+  return customFetch<ClearGenerations200>(getClearGenerationsUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getClearGenerationsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearGenerations>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearGenerations>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["clearGenerations"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearGenerations>>,
+    void
+  > = () => {
+    return clearGenerations(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClearGenerationsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof clearGenerations>>
+>;
+
+export type ClearGenerationsMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Clear all generation history
+ */
+export const useClearGenerations = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof clearGenerations>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearGenerations>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getClearGenerationsMutationOptions(options));
 };
 
 /**

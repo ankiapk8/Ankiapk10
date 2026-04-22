@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/label";
 import {
   Trash2, Layers, Plus, Download, CheckSquare, X, Search,
   FileText, FolderOpen, ChevronDown, ChevronRight, Pencil,
-  Sparkles, BookOpen, Upload, Combine,
+  Sparkles, BookOpen, Upload, Combine, History as HistoryIcon,
 } from "lucide-react";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -574,6 +574,11 @@ export default function Decks() {
                 className="hidden"
                 onChange={handleImportJson}
               />
+              <Link href="/history">
+                <Button variant="ghost" size="icon" title="Generation history" aria-label="Generation history">
+                  <HistoryIcon className="h-4 w-4" />
+                </Button>
+              </Link>
               <Button variant="outline" className="gap-2" onClick={() => openDeckForm({ type: "new-topic" })}>
                 <FolderOpen className="h-4 w-4" /> New Topic
               </Button>

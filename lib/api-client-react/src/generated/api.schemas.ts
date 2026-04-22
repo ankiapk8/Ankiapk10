@@ -9,6 +9,24 @@ export interface HealthStatus {
   status: string;
 }
 
+export interface Generation {
+  id: number;
+  deckName: string;
+  deckType: string;
+  /** success | error | cancelled */
+  status: string;
+  cardsGenerated: number;
+  pageCount: number;
+  durationMs: number;
+  /** @nullable */
+  customPrompt?: string | null;
+  /** @nullable */
+  errorMessage?: string | null;
+  startedAt: string;
+  /** @nullable */
+  completedAt?: string | null;
+}
+
 export interface Deck {
   id: number;
   name: string;
@@ -99,3 +117,15 @@ export interface ExportDeckResponse {
   csv: string;
   cardCount: number;
 }
+
+export type ListGenerationsParams = {
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  limit?: number;
+};
+
+export type ClearGenerations200 = {
+  ok: boolean;
+};

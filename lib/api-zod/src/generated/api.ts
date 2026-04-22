@@ -169,6 +169,41 @@ export const GenerateCardsBody = zod.object({
 });
 
 /**
+ * @summary List recent card generation runs
+ */
+export const listGenerationsQueryLimitMax = 500;
+
+export const ListGenerationsQueryParams = zod.object({
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listGenerationsQueryLimitMax)
+    .optional(),
+});
+
+export const ListGenerationsResponseItem = zod.object({
+  id: zod.number(),
+  deckName: zod.string(),
+  deckType: zod.string(),
+  status: zod.string().describe("success | error | cancelled"),
+  cardsGenerated: zod.number(),
+  pageCount: zod.number(),
+  durationMs: zod.number(),
+  customPrompt: zod.string().nullish(),
+  errorMessage: zod.string().nullish(),
+  startedAt: zod.string(),
+  completedAt: zod.string().nullish(),
+});
+export const ListGenerationsResponse = zod.array(ListGenerationsResponseItem);
+
+/**
+ * @summary Clear all generation history
+ */
+export const ClearGenerationsResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * @summary Export deck as CSV text for Anki import
  */
 export const ExportDeckParams = zod.object({

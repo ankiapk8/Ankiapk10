@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, decksTable, cardsTable } from "@workspace/db";
+import { db, decksTable, cardsTable, generationsTable } from "@workspace/db";
 import { GenerateCardsBody } from "@workspace/api-zod";
 import { createCanvas, loadImage } from "canvas";
 
@@ -388,6 +388,29 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     return;
   }
 
+  const runStartedAt = Date.now();
+  let recorded = false;
+  const recordRun = async (status: "success" | "error" | "cancelled", cardsGenerated: number, errorMessage?: string) => {
+    if (recorded) return;
+    recorded = true;
+    try {
+      await db.insert(generationsTable).values({
+        deckName,
+        deckType: rawDeckType ?? "both",
+        status,
+        cardsGenerated,
+        pageCount: Array.isArray(pageImages) ? pageImages.length : 0,
+        durationMs: Date.now() - runStartedAt,
+        customPrompt: customPrompt?.trim() ? customPrompt.trim().slice(0, 1500) : null,
+        errorMessage: errorMessage ? errorMessage.slice(0, 500) : null,
+        startedAt: new Date(runStartedAt),
+        completedAt: new Date(),
+      });
+    } catch (err) {
+      req.log.warn({ err }, "Failed to record generation history");
+    }
+  };
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
@@ -413,7 +436,9 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
   try {
     openai = await getOpenAIClient();
   } catch (error) {
-    sseEmit(res, { type: "error", message: error instanceof Error ? error.message : "AI not configured." });
+    const msg = error instanceof Error ? error.message : "AI not configured.";
+    await recordRun("error", 0, msg);
+    sseEmit(res, { type: "error", message: msg });
     res.end();
     return;
   }
@@ -454,6 +479,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     req.off("close", onClientClose);
     if (isAbortError(error) || signal.aborted) {
       req.log.info("AI card generation cancelled by client");
+      await recordRun("cancelled", 0);
       try { sseEmit(res, { type: "error", message: "Cancelled" }); } catch { /* socket may be gone */ }
       try { res.end(); } catch { /* ignore */ }
       return;
@@ -461,16 +487,20 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     req.log.error({ err: error }, "SSE AI card generation failed");
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
+    let msg: string;
     if (status === 429 || code === "too_many_requests") {
-      sseEmit(res, { type: "error", message: "AI is temporarily rate-limited. Wait a minute and try again." });
+      msg = "AI is temporarily rate-limited. Wait a minute and try again.";
     } else {
-      sseEmit(res, { type: "error", message: error instanceof Error ? error.message : "AI card generation failed." });
+      msg = error instanceof Error ? error.message : "AI card generation failed.";
     }
+    await recordRun("error", 0, msg);
+    sseEmit(res, { type: "error", message: msg });
     res.end();
     return;
   }
   req.off("close", onClientClose);
   if (signal.aborted) {
+    await recordRun("cancelled", 0);
     try { res.end(); } catch { /* ignore */ }
     return;
   }
@@ -487,6 +517,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
       .filter(c => c.front.length > 0 && c.back.length > 0);
 
     if (filteredText.length === 0 && filteredVisual.length === 0) {
+      await recordRun("error", 0, "AI did not return any usable cards.");
       sseEmit(res, { type: "error", message: "AI did not return any usable cards." });
       res.end();
       return;
@@ -535,11 +566,13 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
 
     const primaryDeck = textDeck ?? visualDeck;
     if (!primaryDeck) {
+      await recordRun("error", 0, "Failed to save deck.");
       sseEmit(res, { type: "error", message: "Failed to save deck." });
       res.end();
       return;
     }
 
+    await recordRun("success", totalInserted);
     sseEmit(res, {
       type: "done",
       percent: 100,
@@ -551,6 +584,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     });
     res.end();
   } catch (err) {
+    await recordRun("error", 0, err instanceof Error ? err.message : "Unknown error");
     next(err);
   }
 });
