@@ -79,6 +79,8 @@
     "@capacitor/android": "^8.3.1",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
+    "@tanstack/query-sync-storage-persister": "^5.90.27",
+    "@tanstack/react-query-persist-client": "^5.90.27",
     "canvas-confetti": "^1.9.4",
     "pdfjs-dist": "^5.6.205",
     "radix-ui": "^1.4.3",
