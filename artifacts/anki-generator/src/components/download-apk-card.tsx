@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Smartphone, Download, ShieldCheck, Sparkles, AlertTriangle, Loader2 } from "lucide-react";
+import { Smartphone, Download, ShieldCheck, Sparkles, AlertTriangle, Loader2, Hammer } from "lucide-react";
 import { apiUrl } from "@/lib/utils";
 
 const APK_URL = apiUrl("api/download-apk");
@@ -92,9 +92,12 @@ export function DownloadApkCard() {
     }
   }, [isBuilding]);
 
-  const triggerRebuild = async () => {
+  const triggerRebuild = async (host?: string) => {
     try {
-      await fetch(REBUILD_URL, { method: "POST" });
+      const url = host
+        ? `${REBUILD_URL}?host=${encodeURIComponent(host)}`
+        : REBUILD_URL;
+      await fetch(url, { method: "POST" });
       await fetchStatus();
     } catch {
       // ignore
@@ -192,7 +195,7 @@ export function DownloadApkCard() {
               <Button
                 size="lg"
                 className="gap-2 shadow-md shadow-primary/20"
-                onClick={triggerRebuild}
+                onClick={() => triggerRebuild()}
               >
                 <Sparkles className="h-4 w-4" />
                 Build APK for this URL
@@ -301,6 +304,45 @@ export function DownloadApkCard() {
                 Saved on the server. After every publish, the deployed app reads this and auto-builds the APK targeting that URL.
               </p>
             </div>
+          )}
+        </div>
+        <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold flex items-center gap-1.5">
+                <Hammer className="h-3.5 w-3.5 text-primary" />
+                Admin · build APK for this domain
+              </p>
+              <p className="text-muted-foreground mt-0.5 leading-relaxed">
+                Force a fresh APK build targeting{" "}
+                <span className="font-mono">{currentHost || "this site"}</span>{" "}
+                — useful right after publishing or if the cached APK is stale.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => triggerRebuild(currentHost || undefined)}
+              disabled={isBuilding || !currentHost || buildUnsupported}
+              className="gap-1.5"
+            >
+              {isBuilding ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Building…
+                </>
+              ) : (
+                <>
+                  <Hammer className="h-3.5 w-3.5" />
+                  Build now
+                </>
+              )}
+            </Button>
+          </div>
+          {buildFailed && build?.build.error && (
+            <p className="mt-2 text-[11px] text-destructive break-words">
+              Last build failed: {build.build.error}
+            </p>
           )}
         </div>
         {buildUnsupported && targetMismatch && (
