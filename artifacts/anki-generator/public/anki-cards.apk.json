@@ -1,9 +1,12 @@
 {
-  "targetUrl": "https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev",
-  "host": "2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev",
-  "packageId": "app.replit.ankicards",
-  "versionName": "1.0.0",
+  "targetUrl": "https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev",
+  "host": "e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev",
+  "additionalHosts": [],
+  "packageId": "app.replit.ankigen",
+  "versionName": "1.0",
   "versionCode": 1,
-  "sizeBytes": 2511020,
-  "builtAt": "2026-04-23T09:20:01.407Z"
+  "sizeBytes": 6026781,
+  "builtAt": "2026-04-23T10:20:22Z",
+  "kind": "bundled",
+  "apiBase": "https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/api"
 }
