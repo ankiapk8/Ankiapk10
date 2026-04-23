@@ -1,8 +1,29 @@
 import express, { Router, type IRouter } from "express";
 import multer from "multer";
-import { createCanvas } from "canvas";
+import { createCanvas, type Canvas } from "canvas";
 import { createWorker } from "tesseract.js";
 import type { PDFDocumentProxy } from "pdfjs-dist";
+
+class NodeCanvasFactory {
+  create(width: number, height: number) {
+    if (width <= 0 || height <= 0) throw new Error("Invalid canvas size");
+    const canvas = createCanvas(width, height);
+    const context = canvas.getContext("2d");
+    return { canvas, context };
+  }
+  reset(entry: { canvas: Canvas }, width: number, height: number) {
+    if (width <= 0 || height <= 0) throw new Error("Invalid canvas size");
+    entry.canvas.width = width;
+    entry.canvas.height = height;
+  }
+  destroy(entry: { canvas: Canvas | null }) {
+    if (entry.canvas) {
+      entry.canvas.width = 0;
+      entry.canvas.height = 0;
+      entry.canvas = null;
+    }
+  }
+}
 
 const router: IRouter = Router();
 const MIN_TEXT_LENGTH = 20;
@@ -35,6 +56,8 @@ function pdfDocOptions(buffer: Buffer) {
     data: new Uint8Array(copy.buffer, copy.byteOffset, copy.byteLength),
     disableWorker: true,
     useSystemFonts: true,
+    isEvalSupported: false,
+    CanvasFactory: NodeCanvasFactory,
   } as unknown as Parameters<(typeof import("pdfjs-dist/legacy/build/pdf.mjs"))["getDocument"]>[0];
 }
 
@@ -73,17 +96,19 @@ async function renderPageToBuffer(pdf: PDFDocumentProxy, pageNumber: number): Pr
   const width = Math.ceil(viewport.width);
   const height = Math.ceil(viewport.height);
 
-  const canvas = createCanvas(width, height);
-  const context = canvas.getContext("2d") as unknown;
+  const factory = new NodeCanvasFactory();
+  const entry = factory.create(width, height);
 
   await page.render({
-    canvasContext: context as Parameters<typeof page.render>[0]["canvasContext"],
-    canvas: canvas as never,
+    canvasContext: entry.context as Parameters<typeof page.render>[0]["canvasContext"],
+    canvas: entry.canvas as never,
     viewport,
   }).promise;
   page.cleanup();
 
-  return canvas.toBuffer("image/png");
+  const buffer = (entry.canvas as Canvas).toBuffer("image/png");
+  factory.destroy(entry as { canvas: Canvas | null });
+  return buffer;
 }
 
 async function extractOcrText(buffer: Buffer): Promise<string> {
