@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { BookOpen, LayoutDashboard, Library, Sparkles } from "lucide-react";
 import { HeaderApkButton } from "@/components/header-apk-button";
+import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -96,6 +97,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-8">
         {children}
       </main>
+      <ApkWelcomeBanner />
     </div>
   );
 }
