@@ -9,7 +9,8 @@ const MAX_PAGE_IMAGES = Number.MAX_SAFE_INTEGER;
 const VISUAL_BATCH_SIZE = 6;
 const MAX_VISUAL_PAGES = Number.MAX_SAFE_INTEGER;
 const MAX_CARD_TARGET = Number.MAX_SAFE_INTEGER;
-const CROP_PADDING = 0.06;
+const CROP_PADDING = 0.085;
+const MIN_CROP_DIMENSION = 0.18;
 const VISUAL_CONCURRENCY = 2;
 
 function sleep(ms: number): Promise<void> {
@@ -124,9 +125,21 @@ function normalizeBbox(raw: unknown): Bbox | null {
     w: clamp01(w, 1),
     h: clamp01(h, 1),
   };
-  if (bbox.w < 0.05 || bbox.h < 0.05) return null;
+  if (bbox.w < 0.03 || bbox.h < 0.03) return null;
   if (bbox.x + bbox.w > 1) bbox.w = 1 - bbox.x;
   if (bbox.y + bbox.h > 1) bbox.h = 1 - bbox.y;
+  // Guarantee a minimum visible crop size so tiny boxes don't produce
+  // postage-stamp images that miss labels/captions around the figure.
+  if (bbox.w < MIN_CROP_DIMENSION) {
+    const grow = (MIN_CROP_DIMENSION - bbox.w) / 2;
+    bbox.x = Math.max(0, bbox.x - grow);
+    bbox.w = Math.min(1 - bbox.x, MIN_CROP_DIMENSION);
+  }
+  if (bbox.h < MIN_CROP_DIMENSION) {
+    const grow = (MIN_CROP_DIMENSION - bbox.h) / 2;
+    bbox.y = Math.max(0, bbox.y - grow);
+    bbox.h = Math.min(1 - bbox.y, MIN_CROP_DIMENSION);
+  }
   return bbox;
 }
 
@@ -246,29 +259,86 @@ async function generateVisualCardsForBatch(
 
   const cardsRange = cardsPerPage <= 1 ? "1" : `1–${cardsPerPage}`;
 
-  const systemPrompt = `You are an expert Anki flashcard creator working from PDF page images. You will receive ${batchImages.length} page image(s) (pages ${batchStart + 1}–${batchStart + batchImages.length}).
+  const systemPrompt = `You are an expert visual learning designer and clinical/scientific illustrator. You convert PDF page images into Anki flashcards centered on the figures shown on each page. You will receive ${batchImages.length} page image(s) (pages ${batchStart + 1}–${batchStart + batchImages.length}).
 
-For EACH page, generate ${cardsRange} high-quality VISUAL flashcards focused on diagrams, figures, illustrations, charts, scans, anatomical drawings, X-rays, CT/MRI, ECGs, histology slides, dermatology photos, flowcharts, algorithms, graphs, equations, or labelled visuals.
+═══════════════════════════════════════════════
+STEP 1 — DETECT EVERY VISUAL ON EACH PAGE
+═══════════════════════════════════════════════
+Carefully scan each page like a librarian indexing it. Identify EVERY distinct visual element. Do not miss any. Visuals include (non-exhaustive):
+  • Diagrams, schematics, flowcharts, algorithms, decision trees
+  • Anatomical drawings, cross-sections, organ illustrations, embryology stages
+  • Medical imaging: X-ray, CT, MRI, ultrasound, PET, angiography, fluoroscopy
+  • Histology / cytology / microscopy slides, gross pathology photos
+  • Dermatology, ophthalmology, ENT clinical photos
+  • ECG / EEG / EMG / spirometry / capnography traces
+  • Tables that present clinical/scientific data visually (drug doses, classifications, scoring systems, criteria, differential lists)
+  • Charts, graphs, dose-response curves, Kaplan-Meier curves, growth charts
+  • Chemical structures, biochemical pathways, cell signalling diagrams
+  • Mathematical/physics equations, derivations, vector diagrams, circuits, free-body diagrams
+  • Maps, geological cross-sections, engineering blueprints
+  • Photographs, micrographs, electrophoresis gels, Western blots
 
-For each card, you MUST identify the specific region of the page that contains the relevant visual content, and return a NORMALIZED bounding box for cropping. Coordinates are 0..1 where (0,0) is the TOP-LEFT of the page and (1,1) is the BOTTOM-RIGHT.
+If a page has multiple distinct figures (e.g., Figure 5.1 and Figure 5.2), each gets its OWN card with its OWN bounding box. Do not lump them.
 
-Card guidelines:
-- Prioritize asking the learner to identify, interpret, or label what is shown in the visual.
-- Cards must be self-contained and specific. Avoid trivially obvious questions.
-- Keep answers concise and accurate.
-- Skip a page only if it contains no meaningful visual content.
+If a single figure has multiple sub-panels (A, B, C, D) AND each panel teaches a clearly different concept, you may make one card per panel with a tight bbox around just that panel — but always include that panel's individual label/caption inside the bbox.
 
+If the entire page is one large visual (a full-page diagram), use {"x":0,"y":0,"w":1,"h":1}.
+
+Skip a page only if it genuinely contains no meaningful visual learning content (pure prose, table of contents, copyright notice, blank page).
+
+═══════════════════════════════════════════════
+STEP 2 — DRAW BOUNDING BOXES PROFESSIONALLY
+═══════════════════════════════════════════════
+Coordinates are NORMALIZED 0..1 where (0,0) is the TOP-LEFT of the page and (1,1) is the BOTTOM-RIGHT. The bbox is {"x", "y", "w", "h"}.
+
+Hard rules — every box MUST include:
+  1. The entire figure body (no clipping of arms, branches, edges, ROI, organ borders).
+  2. ALL labels, arrows, leader lines, callouts, sub-panel letters (A/B/C/D), and the structures they point to.
+  3. The figure's caption / title / footnote (e.g., "Figure 5.1: Cardiac conduction system").
+  4. Axis labels, axis numbers/units, tick marks, legends, colour keys, scale bars, and orientation markers (R/L, anterior/posterior).
+  5. Any annotation directly describing the visual (e.g., "Note the ST-segment elevation in II, III, aVF").
+  6. ~6–10% of empty/white margin on EACH side of the visual content. Generous breathing room is REQUIRED.
+
+Hard rules — every box MUST NEVER:
+  ✗ Clip text mid-line, mid-word, or mid-character.
+  ✗ Cut through arrows, leader lines, or anatomical structures.
+  ✗ Omit any sub-panel of a multi-part figure that you're referencing.
+  ✗ Miss the figure number/caption — these orient the learner.
+  ✗ Be tight to the visible pixels of the diagram. Always pad outward to clean white space.
+
+Decision algorithm for each box:
+  a. Find the visible bounding rectangle of all ink belonging to this figure (lines, labels, captions, leaders, legends).
+  b. Expand outward to the nearest margin of true whitespace on each side.
+  c. Add an extra ~6–10% safety margin in every direction.
+  d. Snap to page edges if you reach them.
+  e. When in doubt, make the box LARGER, not smaller. A slightly oversized box is professional; a tight box that clips a label is unusable.
+
+═══════════════════════════════════════════════
+STEP 3 — WRITE FOCUSED VISUAL CARDS
+═══════════════════════════════════════════════
+Each card must be:
+  • Image-first: the question should require the learner to look at the cropped image (identify, label, interpret, diagnose, name the structure, calculate from the graph, recognise the pattern).
+  • Self-contained: do not say "as shown above" or "from the previous figure". Reference what's in the cropped image itself.
+  • Specific: prefer "Identify the structure indicated by arrow A in this CT scan" over "What is this?".
+  • Concise on the back: a clear answer + 1–2 lines of context if useful (e.g., "Right middle lobe consolidation — typical for community-acquired pneumonia").
+  • Free of trivial questions ("What colour is this?" unless colour is diagnostic).
+
+═══════════════════════════════════════════════
+OUTPUT FORMAT (STRICT)
+═══════════════════════════════════════════════
 Return ONLY a JSON array. Each item must have exactly:
-- "pageIndex": integer (0-based index within the images you received, so 0 = first image in this batch)
-- "front": string (question)
-- "back": string (answer)
-- "bbox": object with numeric "x", "y", "w", "h" all between 0 and 1. The crop MUST fully contain every important detail of the visual: the entire figure, ALL labels/arrows/legends/axes/captions/scale bars/colour keys, and any text directly describing it. When in doubt, make the box LARGER rather than smaller — prefer a generous box (~5–10% padding around the figure) over a tight one that risks clipping labels or annotations. Never cut through text, arrows, or anatomical structures. If the entire page is the visual, use {"x":0,"y":0,"w":1,"h":1}.
+  - "pageIndex": integer (0-based index within the images you received, so 0 = first image in this batch)
+  - "front": string (question)
+  - "back": string (answer)
+  - "bbox": object {"x": number, "y": number, "w": number, "h": number} — all between 0 and 1, following STEP 2 strictly.
 
-No markdown, no explanation, just the JSON array.${customPromptBlock(customPrompt)}`;
+Aim for ${cardsRange} card(s) per page when there is meaningful visual content. If a page has more distinct figures than that, you MAY exceed the upper bound up to one card per distinct figure (do not invent cards for non-existent visuals).
+
+No markdown, no commentary, no \`\`\` fences — just the JSON array.${customPromptBlock(customPrompt)}`;
 
   try {
     const response = await createChatCompletionWithRetry(openai, {
-      model: "gpt-4.1-mini",
+      model: "gpt-4.1",
       max_completion_tokens: 1_000_000,
       stream: false as const,
       messages: [
@@ -276,7 +346,7 @@ No markdown, no explanation, just the JSON array.${customPromptBlock(customPromp
         {
           role: "user",
           content: [
-            { type: "text" as const, text: `Here are the ${batchImages.length} page image(s) for pages ${batchStart + 1}–${batchStart + batchImages.length}. Generate visual flashcards with tight bounding boxes:` },
+            { type: "text" as const, text: `Here are the ${batchImages.length} page image(s) for pages ${batchStart + 1}–${batchStart + batchImages.length}. Detect EVERY visual on each page (do not miss any) and produce generous, professional bounding boxes that include all labels, captions, and ~6–10% breathing room. Then write image-first Anki cards. Output JSON only.` },
             ...imageUrls,
           ],
         },
@@ -310,10 +380,12 @@ async function generateAllVisualCards(
     batches.push({ start: i, imgs: pagesToProcess.slice(i, i + VISUAL_BATCH_SIZE) });
   }
 
-  // Compute cards per page from target
+  // Compute upper bound of cards per page from target. The model is also
+  // instructed it MAY exceed this when a page has more distinct figures than
+  // this number, so genuinely figure-rich pages aren't artificially capped.
   const cardsPerPage = targetCount && targetCount > 0
-    ? Math.max(1, Math.min(3, Math.ceil(targetCount / pagesToProcess.length)))
-    : 2;
+    ? Math.max(1, Math.min(8, Math.ceil(targetCount / pagesToProcess.length)))
+    : 3;
 
   const results: VisualCardResult[] = [];
   let doneBatches = 0;
