@@ -16,6 +16,7 @@ import {
   getDeckStats,
   getTodayStats,
 } from "@/lib/study-stats";
+import { DownloadApkCard } from "@/components/download-apk-card";
 
 export default function Dashboard() {
   const { data: decks, isLoading } = useListDecks();
@@ -64,6 +65,8 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
+
+      <DownloadApkCard />
 
       {/* Top stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

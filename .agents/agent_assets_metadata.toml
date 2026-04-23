@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "r1wPJOlJl8sdk-wsw9ZBW"
+uri = "file://artifacts/anki-generator/public/app-icon.png"
+type = "image"
+title = "anki app icon"

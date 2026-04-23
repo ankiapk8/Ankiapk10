@@ -27,3 +27,10 @@ if (!promiseConstructor.withResolvers) {
 const { default: App } = await import("./App");
 
 createRoot(document.getElementById("root")!).render(<App />);
+
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    const swUrl = `${import.meta.env.BASE_URL}sw.js`;
+    navigator.serviceWorker.register(swUrl).catch(() => {});
+  });
+}
