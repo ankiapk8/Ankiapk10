@@ -6,7 +6,7 @@ const LOGO_URL = `${import.meta.env.BASE_URL}favicon.svg`;
 
 // Welcome splash now appears on every launch (no session gate) and runs
 // long enough to feel cinematic.
-const SPLASH_MIN_MS = 2200;
+const SPLASH_MIN_MS = 3000;
 
 export function SplashScreen({ children }: { children: React.ReactNode }) {
   const [show, setShow] = useState<boolean>(true);
