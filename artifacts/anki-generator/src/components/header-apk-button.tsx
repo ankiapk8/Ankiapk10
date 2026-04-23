@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Download, Smartphone } from "lucide-react";
+import { apiUrl } from "@/lib/utils";
 
-const APK_URL = `${import.meta.env.BASE_URL}anki-cards.apk`;
+const APK_URL = apiUrl("api/download-apk");
 
 export function HeaderApkButton() {
   const [mounted, setMounted] = useState(false);

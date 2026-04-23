@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Smartphone, Download, ShieldCheck, Sparkles, AlertTriangle } from "lucide-react";
+import { apiUrl } from "@/lib/utils";
 
-const APK_URL = `${import.meta.env.BASE_URL}anki-cards.apk`;
+const APK_URL = apiUrl("api/download-apk");
 const META_URL = `${import.meta.env.BASE_URL}anki-cards.apk.json`;
 
 type ApkMeta = {

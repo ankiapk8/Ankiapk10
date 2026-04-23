@@ -8,6 +8,7 @@ import extractPdfRouter from "./extract-pdf";
 import explainRouter from "./explain";
 import transferRouter from "./transfer";
 import generationsRouter from "./generations";
+import downloadApkRouter from "./download-apk";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(extractPdfRouter);
 router.use(explainRouter);
 router.use(transferRouter);
 router.use(generationsRouter);
+router.use(downloadApkRouter);
 
 export default router;
