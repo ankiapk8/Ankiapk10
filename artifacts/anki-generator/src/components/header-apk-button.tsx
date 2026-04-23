@@ -1,15 +1,26 @@
-import { useEffect, useState } from "react";
-import { Download, Smartphone, Apple } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Download, Smartphone, Apple, Loader2 } from "lucide-react";
 import { apiUrl } from "@/lib/utils";
 import { IosInstallModal } from "@/components/ios-install-modal";
 
 const APK_URL = apiUrl("api/download-apk");
+const STATUS_URL = apiUrl("api/download-apk/status");
+const REBUILD_URL = apiUrl("api/download-apk/rebuild");
+
+type ApkStatus = {
+  build: { status: "idle" | "building" | "ready" | "failed" | "unsupported" };
+  matches: boolean;
+};
 
 export function HeaderApkButton() {
   const [mounted, setMounted] = useState(false);
   const [isInApk, setIsInApk] = useState(false);
   const [isIos, setIsIos] = useState(false);
   const [showIos, setShowIos] = useState(false);
+  const [building, setBuilding] = useState(false);
+  const [stale, setStale] = useState(false);
+  const triggeredRef = useRef(false);
+  const pollRef = useRef<number | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -36,22 +47,139 @@ export function HeaderApkButton() {
     }
   }, []);
 
+  // Auto-trigger an APK rebuild whenever the bundled APK is out of sync with
+  // the current host (e.g. right after a fresh deploy). Best-effort, runs once
+  // per page load and silently no-ops when the build environment isn't available.
+  useEffect(() => {
+    if (!mounted || isInApk || isIos) return;
+
+    const REBUILD_KEY = "ankigen-apk-rebuild-triggered";
+    let cancelled = false;
+
+    const checkStatus = async (): Promise<ApkStatus | null> => {
+      try {
+        const r = await fetch(STATUS_URL, { cache: "no-store" });
+        if (!r.ok) return null;
+        return (await r.json()) as ApkStatus;
+      } catch {
+        return null;
+      }
+    };
+
+    const startPolling = () => {
+      if (pollRef.current) return;
+      pollRef.current = window.setInterval(async () => {
+        const s = await checkStatus();
+        if (cancelled || !s) return;
+        if (s.build.status === "building") {
+          setBuilding(true);
+          return;
+        }
+        setBuilding(false);
+        setStale(!s.matches);
+        if (pollRef.current) {
+          window.clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      }, 4000);
+    };
+
+    (async () => {
+      const s = await checkStatus();
+      if (cancelled || !s) return;
+
+      if (s.build.status === "building") {
+        setBuilding(true);
+        startPolling();
+        return;
+      }
+
+      if (s.build.status === "unsupported") {
+        // No build tooling here — just show stale indicator if needed.
+        setStale(!s.matches);
+        return;
+      }
+
+      if (!s.matches && !triggeredRef.current) {
+        // Avoid retriggering on every navigation in the same session.
+        let alreadyTried = false;
+        try {
+          alreadyTried = sessionStorage.getItem(REBUILD_KEY) === "1";
+        } catch {
+          /* ignore */
+        }
+        if (alreadyTried) {
+          setStale(true);
+          return;
+        }
+        triggeredRef.current = true;
+        try {
+          sessionStorage.setItem(REBUILD_KEY, "1");
+        } catch {
+          /* ignore */
+        }
+        try {
+          await fetch(REBUILD_URL, { method: "POST" });
+          setBuilding(true);
+          startPolling();
+        } catch {
+          setStale(true);
+        }
+      } else {
+        setStale(!s.matches);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [mounted, isInApk, isIos]);
+
   if (!mounted || isInApk) return null;
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (isIos) {
       e.preventDefault();
       setShowIos(true);
+      return;
+    }
+    if (building) {
+      e.preventDefault();
     }
   };
+
+  const label = isIos
+    ? "Install on iPhone"
+    : building
+      ? "Preparing APK…"
+      : "Get the App";
+  const badge = isIos ? "iOS" : building ? "WAIT" : stale ? "NEW" : "APK";
 
   return (
     <>
       <a
-        href={isIos ? "#" : APK_URL}
-        download={isIos ? undefined : "anki-cards.apk"}
+        href={isIos || building ? "#" : APK_URL}
+        download={isIos || building ? undefined : "anki-cards.apk"}
         onClick={handleClick}
-        aria-label={isIos ? "Install on iPhone or iPad" : "Download Android APK"}
+        aria-disabled={building}
+        aria-label={
+          isIos
+            ? "Install on iPhone or iPad"
+            : building
+              ? "APK is being rebuilt"
+              : "Download Android APK"
+        }
+        title={
+          building
+            ? "Building a fresh APK that matches the latest version of this site…"
+            : stale
+              ? "A new APK matching the latest site is available"
+              : undefined
+        }
         className="group relative inline-flex items-center gap-1.5 sm:gap-2 h-9 px-2.5 sm:px-3.5 rounded-full overflow-hidden text-white text-xs sm:text-sm font-semibold tracking-tight shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
         style={{
           background:
@@ -79,6 +207,8 @@ export function HeaderApkButton() {
         <span className="relative flex items-center justify-center">
           {isIos ? (
             <Apple className="h-4 w-4 transition-transform group-hover:-rotate-6" />
+          ) : building ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <>
               <Smartphone className="h-4 w-4 sm:hidden transition-transform group-hover:-rotate-6" />
@@ -86,14 +216,12 @@ export function HeaderApkButton() {
             </>
           )}
         </span>
-        <span className="relative hidden sm:inline whitespace-nowrap">
-          {isIos ? "Install on iPhone" : "Get the App"}
-        </span>
+        <span className="relative hidden sm:inline whitespace-nowrap">{label}</span>
         <span
           aria-hidden
           className="relative hidden sm:inline-flex items-center gap-1 ml-0.5 px-1.5 py-0.5 rounded-full bg-white/20 text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm"
         >
-          {isIos ? "iOS" : "APK"}
+          {badge}
         </span>
       </a>
       <IosInstallModal open={showIos} onClose={() => setShowIos(false)} />
