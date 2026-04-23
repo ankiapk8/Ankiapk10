@@ -320,7 +320,9 @@ export function GenerateForm({
             } catch { continue; }
           }
         }
-        reject(new Error("Stream ended unexpectedly"));
+        reject(new Error(
+          "Connection dropped before generation finished. Your network may have changed (Wi-Fi ↔ mobile) or the app was backgrounded. Please try again — the AI run was not saved.",
+        ));
       }).catch(err => {
         if (err && typeof err === "object" && (err as { name?: string }).name === "AbortError") {
           reject(new Error("Cancelled"));

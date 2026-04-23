@@ -417,6 +417,21 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
+  // Send SSE comment heartbeats to keep proxies (Replit edge, Cloudflare,
+  // Android Chrome on mobile networks, etc.) from closing the long-lived
+  // connection during slow AI calls. Comments start with ":" and are ignored
+  // by EventSource/fetch consumers.
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(`: ping ${Date.now()}\n\n`);
+    } catch {
+      /* socket may be closed */
+    }
+  }, 12_000);
+  const stopHeartbeat = () => clearInterval(heartbeat);
+  res.on("close", stopHeartbeat);
+  res.on("finish", stopHeartbeat);
+
   const selectedImages = Array.isArray(pageImages) && pageImages.length > 0
     ? pageImages.slice(0, MAX_PAGE_IMAGES)
     : [];
