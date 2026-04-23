@@ -133,8 +133,8 @@ export default function Generate() {
         </motion.p>
       </div>
 
-      {/* Feature highlights */}
-      <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
+      {/* Feature highlights — 2x2 grid */}
+      <div className="mt-10 grid grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
         {features.map(({ icon: Icon, title, desc, color, bg }, idx) => (
           <motion.div
             key={title}
@@ -147,27 +147,76 @@ export default function Generate() {
             }}
             whileHover={{ y: -4, transition: { duration: 0.2 } }}
           >
-            <Card className="h-full border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all bg-background/70 backdrop-blur-sm">
-              <CardContent className="p-5">
+            <Card className="h-full aspect-square border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all bg-background/70 backdrop-blur-sm">
+              <CardContent className="p-4 sm:p-5 h-full flex flex-col">
                 <div
                   className={`h-10 w-10 rounded-lg ${bg} flex items-center justify-center mb-3`}
                 >
                   <Icon className={`h-5 w-5 ${color}`} />
                 </div>
-                <p className="font-semibold">{title}</p>
-                <p className="text-sm text-muted-foreground mt-1">{desc}</p>
+                <p className="font-semibold text-sm sm:text-base">{title}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-snug">
+                  {desc}
+                </p>
               </CardContent>
             </Card>
           </motion.div>
         ))}
+
+        {/* Build with AI — 4th tile in 2x2 */}
+        <motion.button
+          type="button"
+          onClick={() => {
+            const el = document.getElementById("generate-form-section");
+            el?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.7, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+          whileHover={{ y: -4, transition: { duration: 0.2 } }}
+          whileTap={{ scale: 0.97 }}
+          className="relative aspect-square rounded-xl overflow-hidden text-left group"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-emerald-500 to-lime-500" />
+          <motion.div
+            aria-hidden
+            className="absolute -inset-8 opacity-60"
+            style={{
+              background:
+                "conic-gradient(from 0deg, hsl(150 60% 55% / 0.4), transparent 60%, hsl(95 65% 50% / 0.4), transparent)",
+              filter: "blur(10px)",
+            }}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+          />
+          <div className="relative h-full flex flex-col p-4 sm:p-5 text-white">
+            <div className="h-10 w-10 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center mb-3">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <p className="font-semibold text-sm sm:text-base">Build with AI</p>
+            <p className="text-xs sm:text-sm text-white/85 mt-1 leading-snug">
+              Tap to start — upload, paste, generate.
+            </p>
+            <div className="mt-auto inline-flex items-center gap-1 text-xs font-semibold opacity-90 group-hover:opacity-100">
+              Start
+              <motion.span
+                animate={{ x: [0, 3, 0] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              >
+                →
+              </motion.span>
+            </div>
+          </div>
+        </motion.button>
       </div>
 
       {/* Inline generation form */}
       <motion.div
+        id="generate-form-section"
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="mt-10 max-w-2xl mx-auto"
+        className="mt-10 max-w-2xl mx-auto scroll-mt-20"
       >
         <Card className="border-border/60 shadow-md bg-card/85 backdrop-blur-md overflow-hidden">
           <CardContent className="p-5 md:p-6">
