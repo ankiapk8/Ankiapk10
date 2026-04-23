@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { extractPdf, isPdfFile, isTextFile } from "@/lib/pdf-extraction";
 import { apiUrl } from "@/lib/utils";
+import { GenerationSuccessOverlay } from "@/components/generation-success-overlay";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
 
 const DEFAULT_TARGET_CARDS = 20;
@@ -142,6 +143,7 @@ export function GenerateForm({
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [successOverlay, setSuccessOverlay] = useState<{ open: boolean; decks: number; cards: number }>({ open: false, decks: 0, cards: 0 });
   const [manualText, setManualText] = useState("");
   const [manualDeckName, setManualDeckName] = useState("");
   const [manualCardCount, setManualCardCount] = useState<number | "">("");
@@ -358,7 +360,7 @@ export function GenerateForm({
     setIsGeneratingAll(true);
     setIsCancelling(false);
     cancelledIdsRef.current.clear();
-    let ok = 0, fail = 0, cancelled = 0;
+    let ok = 0, fail = 0, cancelled = 0, totalCards = 0;
     const sharedTrim = sharedCustomPrompt.trim();
     const fileEffectivePrompt = (f: FileEntry) => {
       const own = (f.customPrompt ?? "").trim();
@@ -395,6 +397,7 @@ export function GenerateForm({
         const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt);
         if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count });
         ok++;
+        totalCards += count;
       } catch (error) {
         const wasCancelled = cancelledIdsRef.current.has(key) || cancelledIdsRef.current.has(manualCancelKey);
         if (wasCancelled) {
@@ -420,13 +423,13 @@ export function GenerateForm({
     }
 
     if (ok > 0) {
-      toast({
-        title: ok === 1 ? "Deck generated!" : `${ok} decks generated!`,
-        description:
-          fail + cancelled > 0
-            ? `${fail > 0 ? `${fail} failed` : ""}${fail > 0 && cancelled > 0 ? ", " : ""}${cancelled > 0 ? `${cancelled} cancelled` : ""}.`
-            : undefined,
-      });
+      setSuccessOverlay({ open: true, decks: ok, cards: totalCards });
+      if (fail + cancelled > 0) {
+        toast({
+          title: ok === 1 ? "Deck generated!" : `${ok} decks generated!`,
+          description: `${fail > 0 ? `${fail} failed` : ""}${fail > 0 && cancelled > 0 ? ", " : ""}${cancelled > 0 ? `${cancelled} cancelled` : ""}.`,
+        });
+      }
       if (fail === 0 && cancelled === 0) { resetState(); onDone?.(); }
     } else {
       toast({ title: "Generation failed", variant: "destructive" });
@@ -489,6 +492,12 @@ export function GenerateForm({
 
   return (
     <Wrapper className="space-y-5" {...(wrapperAnim as object)}>
+      <GenerationSuccessOverlay
+        open={successOverlay.open}
+        deckCount={successOverlay.decks}
+        cardCount={successOverlay.cards}
+        onClose={() => setSuccessOverlay((s) => ({ ...s, open: false }))}
+      />
       <ParentSelector />
 
       {/* Shared custom instructions */}

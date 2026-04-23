@@ -3,6 +3,36 @@
     "slot": "dev",
     "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
     "status": "ready",
+    "startedAt": "2026-04-23T14:52:31.134Z",
+    "finishedAt": "2026-04-23T14:52:49.672Z",
+    "durationMs": 18538,
+    "error": null,
+    "sizeBytes": 8255252
+  },
+  {
+    "slot": "published",
+    "host": "anki-1--ankiapk5.replit.app",
+    "status": "ready",
+    "startedAt": "2026-04-23T14:52:11.122Z",
+    "finishedAt": "2026-04-23T14:52:31.134Z",
+    "durationMs": 20012,
+    "error": null,
+    "sizeBytes": 8253608
+  },
+  {
+    "slot": "dev",
+    "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
+    "status": "ready",
+    "startedAt": "2026-04-23T14:51:51.908Z",
+    "finishedAt": "2026-04-23T14:52:11.115Z",
+    "durationMs": 19207,
+    "error": null,
+    "sizeBytes": 8253704
+  },
+  {
+    "slot": "dev",
+    "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
+    "status": "ready",
     "startedAt": "2026-04-23T14:48:00.249Z",
     "finishedAt": "2026-04-23T14:48:19.385Z",
     "durationMs": 19136,
@@ -167,32 +197,5 @@
     "durationMs": 18043,
     "error": null,
     "sizeBytes": 6057197
-  },
-  {
-    "host": "78fadb61-c310-467c-82d1-7ea5e8b0fb67-00-20xzgjeqw18rj.pike.replit.dev",
-    "status": "ready",
-    "startedAt": "2026-04-23T12:20:31.375Z",
-    "finishedAt": "2026-04-23T12:20:49.915Z",
-    "durationMs": 18540,
-    "error": null,
-    "sizeBytes": 6053657
-  },
-  {
-    "host": "78fadb61-c310-467c-82d1-7ea5e8b0fb67-00-20xzgjeqw18rj.pike.replit.dev",
-    "status": "ready",
-    "startedAt": "2026-04-23T12:18:18.473Z",
-    "finishedAt": "2026-04-23T12:18:38.343Z",
-    "durationMs": 19870,
-    "error": null,
-    "sizeBytes": 6053597
-  },
-  {
-    "host": "78fadb61-c310-467c-82d1-7ea5e8b0fb67-00-20xzgjeqw18rj.pike.replit.dev",
-    "status": "ready",
-    "startedAt": "2026-04-23T12:14:52.090Z",
-    "finishedAt": "2026-04-23T12:15:31.810Z",
-    "durationMs": 39720,
-    "error": null,
-    "sizeBytes": 6053269
   }
 ]
