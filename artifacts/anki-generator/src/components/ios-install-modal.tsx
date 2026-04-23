@@ -103,8 +103,7 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
   }, [open]);
 
   const steps = device === "ipad" ? IPAD_STEPS : IPHONE_STEPS;
-  const heading =
-    device === "ipad" ? "Install on your iPad" : "Install on your iPhone";
+  const heading = "Install on iPhone/iPad";
 
   if (typeof document === "undefined") return null;
 
