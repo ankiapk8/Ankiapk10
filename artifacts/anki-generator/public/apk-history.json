@@ -1,6 +1,16 @@
 [
   {
     "slot": "dev",
+    "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
+    "status": "ready",
+    "startedAt": "2026-04-23T14:23:26.579Z",
+    "finishedAt": "2026-04-23T14:25:29.881Z",
+    "durationMs": 123302,
+    "error": null,
+    "sizeBytes": 8252605
+  },
+  {
+    "slot": "dev",
     "host": "5b2c2488-ba7f-43ea-ac47-e992ede8db6d-00-52ot6g66hfc.pike.replit.dev",
     "status": "ready",
     "startedAt": "2026-04-23T13:43:46.803Z",
