@@ -5,12 +5,29 @@ const APK_URL = `${import.meta.env.BASE_URL}anki-cards.apk`;
 
 export function HeaderApkButton() {
   const [mounted, setMounted] = useState(false);
+  const [isInApk, setIsInApk] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined") {
+      const w = window as unknown as {
+        Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string };
+      };
+      const inApk =
+        !!w.Capacitor?.isNativePlatform?.() ||
+        w.Capacitor?.getPlatform?.() === "android" ||
+        w.Capacitor?.getPlatform?.() === "ios" ||
+        document.referrer.startsWith("android-app://") ||
+        window.matchMedia?.("(display-mode: standalone)").matches ||
+        window.matchMedia?.("(display-mode: fullscreen)").matches ||
+        // @ts-expect-error iOS only
+        window.navigator.standalone === true ||
+        /\bwv\b|AnkiGen/.test(navigator.userAgent);
+      setIsInApk(inApk);
+    }
   }, []);
 
-  if (!mounted) return null;
+  if (!mounted || isInApk) return null;
 
   return (
     <a
