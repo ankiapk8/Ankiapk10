@@ -9,7 +9,8 @@ import {
   Globe,
   Rocket,
   Check,
-  AlertTriangle,
+  RefreshCw,
+  Hourglass,
 } from "lucide-react";
 import { apiUrl } from "@/lib/utils";
 import { IosInstallModal } from "@/components/ios-install-modal";
@@ -41,16 +42,20 @@ type StatusResponse = {
 
 type TargetState = {
   host: string | null;
+  hasApk: boolean;
   building: boolean;
   upToDate: boolean;
   unsupported: boolean;
+  failed: boolean;
 };
 
 const initialTarget: TargetState = {
   host: null,
+  hasApk: false,
   building: false,
-  upToDate: true,
+  upToDate: false,
   unsupported: false,
+  failed: false,
 };
 
 function summaryToTargetState(s: SlotSummary | undefined): TargetState {
@@ -58,9 +63,11 @@ function summaryToTargetState(s: SlotSummary | undefined): TargetState {
   const status = s.build.status;
   return {
     host: s.host,
+    hasApk: !!s.apk,
     building: status === "building" || status === "queued",
-    upToDate: s.upToDate && !!s.apk,
+    upToDate: s.upToDate,
     unsupported: status === "unsupported",
+    failed: status === "failed",
   };
 }
 
@@ -70,6 +77,7 @@ export function HeaderApkButton() {
   const [isIos, setIsIos] = useState(false);
   const [showIos, setShowIos] = useState(false);
   const [open, setOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const [dev, setDev] = useState<TargetState>(initialTarget);
   const [pub, setPub] = useState<TargetState>(initialTarget);
@@ -158,32 +166,57 @@ export function HeaderApkButton() {
     return () => window.clearInterval(id);
   }, [dev.building, pub.building, open]);
 
-  const startDownload = async (slot: Slot) => {
-    const t = slot === "dev" ? dev : pub;
-    if (!t.host || t.unsupported) return;
-    if (!t.upToDate && !t.building) {
-      try {
-        await fetch(REBUILD_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ slot }),
-        });
-      } catch {
-        /* ignore */
-      }
-      const setter = slot === "dev" ? setDev : setPub;
-      setter((s) => ({ ...s, building: true }));
-      const status = await fetchStatus();
-      if (status) applyStatus(status);
-      return;
-    }
+  // Auto-hide toast
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), 3500);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+
+  const triggerDownload = (slot: Slot) => {
     const a = document.createElement("a");
-    a.href = `${APK_URL}?slot=${slot}`;
+    a.href = `${APK_URL}?slot=${slot}&t=${Date.now()}`;
     a.download = `anki-cards-${slot}.apk`;
     document.body.appendChild(a);
     a.click();
     a.remove();
+    setToast(
+      slot === "dev"
+        ? "Downloading dev APK… open the file when it's done to install."
+        : "Downloading published APK… open the file when it's done to install."
+    );
     setOpen(false);
+  };
+
+  const triggerRebuild = async (slot: Slot) => {
+    try {
+      await fetch(REBUILD_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slot }),
+      });
+    } catch {
+      /* ignore */
+    }
+    const setter = slot === "dev" ? setDev : setPub;
+    setter((s) => ({ ...s, building: true }));
+    const status = await fetchStatus();
+    if (status) applyStatus(status);
+    setToast(
+      slot === "dev"
+        ? "Rebuilding the dev APK in the background… takes ~1 minute."
+        : "Rebuilding the published APK in the background… takes ~1 minute."
+    );
+  };
+
+  const handlePrimaryClick = (slot: Slot) => {
+    const t = slot === "dev" ? dev : pub;
+    if (t.unsupported || !t.host) return;
+    if (t.hasApk) {
+      triggerDownload(slot);
+      return;
+    }
+    if (!t.building) void triggerRebuild(slot);
   };
 
   if (!mounted || isInApk) return null;
@@ -198,7 +231,7 @@ export function HeaderApkButton() {
   };
 
   const anyBuilding = dev.building || pub.building;
-  const mainLabel = isIos ? "Install on iPhone" : anyBuilding ? "Preparing APK…" : "Get the App";
+  const mainLabel = isIos ? "Install on iPhone" : anyBuilding ? "Building APK…" : "Get the App";
   const mainBadge = isIos ? "iOS" : anyBuilding ? "WAIT" : "APK";
 
   return (
@@ -263,7 +296,7 @@ export function HeaderApkButton() {
           {!isIos && open && (
             <motion.div
               key="apk-popover"
-              className="absolute right-0 mt-2 w-80 max-w-[92vw] z-50"
+              className="absolute right-0 mt-2 w-[22rem] max-w-[94vw] z-50"
               initial={{ opacity: 0, y: -8, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.96 }}
@@ -277,7 +310,7 @@ export function HeaderApkButton() {
                     Choose which build to install
                   </div>
                   <div className="text-[11px] text-emerald-700/80">
-                    Each APK auto-rebuilds when the app changes — pick the URL it should talk to.
+                    Each APK loads the chosen URL on launch — pick the one that matches where you want to use it.
                   </div>
                 </div>
                 <div className="p-2 space-y-1.5">
@@ -286,21 +319,46 @@ export function HeaderApkButton() {
                     title="Dev preview build"
                     subtitle="Talks to this development URL"
                     state={dev}
-                    onClick={() => startDownload("dev")}
+                    onPrimary={() => handlePrimaryClick("dev")}
+                    onRebuild={() => void triggerRebuild("dev")}
                     testid="apk-target-dev"
                   />
                   <TargetRow
                     icon={<Rocket className="w-4 h-4" />}
                     title="Published build"
                     subtitle={
-                      pub.host ? "Talks to your live deployment" : "Publish your app to enable this"
+                      pub.host
+                        ? "Talks to your live deployment"
+                        : "Publish your app first to enable this build"
                     }
                     state={pub}
-                    onClick={() => startDownload("published")}
+                    onPrimary={() => handlePrimaryClick("published")}
+                    onRebuild={() => void triggerRebuild("published")}
                     testid="apk-target-published"
                   />
                 </div>
+                <div className="px-4 py-2.5 border-t border-emerald-100 bg-emerald-50/40 text-[10.5px] text-emerald-800/80 leading-snug">
+                  <strong>Android tip:</strong> after downloading, open the file and accept "Install
+                  from unknown sources" when prompted.
+                </div>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              key="apk-toast"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] max-w-[92vw] px-4 py-2.5 rounded-full bg-emerald-900 text-white text-xs font-medium shadow-2xl shadow-emerald-900/40"
+              role="status"
+              data-testid="apk-toast"
+            >
+              {toast}
             </motion.div>
           )}
         </AnimatePresence>
@@ -316,73 +374,93 @@ function TargetRow({
   title,
   subtitle,
   state,
-  onClick,
+  onPrimary,
+  onRebuild,
   testid,
 }: {
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   state: TargetState;
-  onClick: () => void;
+  onPrimary: () => void;
+  onRebuild: () => void;
   testid: string;
 }) {
-  const disabled = !state.host || state.unsupported;
-  const showRebuild = !!state.host && !state.upToDate && !state.building && !state.unsupported;
-  const showBuilding = state.building;
-  const showReady = !!state.host && state.upToDate && !state.building && !state.unsupported;
+  const noHost = !state.host || state.unsupported;
+  const canDownload = !noHost && state.hasApk;
+  const showRebuildSide = canDownload && !state.upToDate && !state.building;
 
-  let badge: React.ReactNode = null;
-  let badgeClass = "";
-  if (state.unsupported) {
-    badge = (
-      <>
-        <AlertTriangle className="w-3 h-3" /> Unavailable
-      </>
-    );
-    badgeClass = "bg-amber-100 text-amber-800";
-  } else if (showBuilding) {
-    badge = (
-      <>
-        <Loader2 className="w-3 h-3 animate-spin" /> Building
-      </>
-    );
-    badgeClass = "bg-emerald-100 text-emerald-800";
-  } else if (showRebuild) {
-    badge = "Build now";
-    badgeClass = "bg-emerald-600 text-white";
-  } else if (showReady) {
-    badge = (
-      <>
-        <Check className="w-3 h-3" /> Ready
-      </>
-    );
-    badgeClass = "bg-emerald-100 text-emerald-800";
+  let primaryLabel: React.ReactNode;
+  let primaryIcon: React.ReactNode;
+  let primaryClass = "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-md shadow-emerald-600/30 hover:shadow-emerald-600/50 hover:scale-[1.02] active:scale-[0.98]";
+
+  if (noHost) {
+    primaryIcon = <Hourglass className="w-4 h-4" />;
+    primaryLabel = "Unavailable";
+    primaryClass = "bg-slate-100 text-slate-400 cursor-not-allowed";
+  } else if (state.building) {
+    primaryIcon = <Loader2 className="w-4 h-4 animate-spin" />;
+    primaryLabel = "Building…";
+    primaryClass = "bg-emerald-100 text-emerald-800 cursor-wait";
+  } else if (canDownload) {
+    primaryIcon = <Download className="w-4 h-4" />;
+    primaryLabel = "Download";
+  } else {
+    primaryIcon = <RefreshCw className="w-4 h-4" />;
+    primaryLabel = "Build APK";
   }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
+    <div
+      className="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-emerald-50/50 transition"
       data-testid={testid}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
     >
       <div className="shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center shadow">
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-slate-800 leading-tight">{title}</div>
-        <div className="text-[11px] text-slate-500 leading-tight truncate">
+        <div className="text-sm font-semibold text-slate-800 leading-tight truncate">{title}</div>
+        <div className="text-[11px] text-slate-500 leading-tight truncate" title={state.host ?? subtitle}>
           {state.host ?? subtitle}
         </div>
+        {showRebuildSide && (
+          <div className="text-[10px] text-amber-700 mt-0.5 leading-tight">
+            App was updated since this build
+          </div>
+        )}
+        {state.upToDate && state.hasApk && !state.building && (
+          <div className="text-[10px] text-emerald-700 mt-0.5 leading-tight inline-flex items-center gap-1">
+            <Check className="w-2.5 h-2.5" /> Up to date
+          </div>
+        )}
+        {state.failed && !state.building && (
+          <div className="text-[10px] text-red-700 mt-0.5 leading-tight">
+            Last build failed — tap rebuild to retry
+          </div>
+        )}
       </div>
-      {badge && (
-        <span
-          className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeClass}`}
+      <div className="flex flex-col items-stretch gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={onPrimary}
+          disabled={noHost || state.building}
+          data-testid={`${testid}-primary`}
+          className={`inline-flex items-center justify-center gap-1.5 px-3 h-8 rounded-full text-xs font-semibold transition disabled:opacity-70 disabled:cursor-not-allowed ${primaryClass}`}
         >
-          {badge}
-        </span>
-      )}
-    </button>
+          {primaryIcon}
+          {primaryLabel}
+        </button>
+        {showRebuildSide && (
+          <button
+            type="button"
+            onClick={onRebuild}
+            data-testid={`${testid}-rebuild`}
+            className="inline-flex items-center justify-center gap-1 px-2 h-6 rounded-full text-[10px] font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition"
+          >
+            <RefreshCw className="w-2.5 h-2.5" /> Rebuild
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

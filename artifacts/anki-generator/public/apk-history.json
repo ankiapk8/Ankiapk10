@@ -3,6 +3,16 @@
     "slot": "dev",
     "host": "5b2c2488-ba7f-43ea-ac47-e992ede8db6d-00-52ot6g66hfc.pike.replit.dev",
     "status": "ready",
+    "startedAt": "2026-04-23T13:43:46.803Z",
+    "finishedAt": "2026-04-23T13:44:14.519Z",
+    "durationMs": 27716,
+    "error": null,
+    "sizeBytes": 8250769
+  },
+  {
+    "slot": "dev",
+    "host": "5b2c2488-ba7f-43ea-ac47-e992ede8db6d-00-52ot6g66hfc.pike.replit.dev",
+    "status": "ready",
     "startedAt": "2026-04-23T13:38:21.787Z",
     "finishedAt": "2026-04-23T13:40:08.237Z",
     "durationMs": 106450,
