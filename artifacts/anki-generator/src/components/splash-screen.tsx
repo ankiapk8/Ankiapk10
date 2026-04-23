@@ -4,24 +4,28 @@ import { BookOpen, Sparkles } from "lucide-react";
 
 const SPLASH_KEY = "ankigen_splash_seen_v1";
 
+function readInitialShow() {
+  if (typeof window === "undefined") return false;
+  try {
+    return !sessionStorage.getItem(SPLASH_KEY);
+  } catch {
+    return true;
+  }
+}
+
 export function SplashScreen({ children }: { children: React.ReactNode }) {
-  const [show, setShow] = useState<boolean | null>(null);
+  const [show, setShow] = useState<boolean>(readInitialShow);
 
   useEffect(() => {
-    const seen = sessionStorage.getItem(SPLASH_KEY);
-    if (seen) {
-      setShow(false);
-      return;
-    }
-    setShow(true);
+    if (!show) return;
     const t = setTimeout(() => {
-      sessionStorage.setItem(SPLASH_KEY, "1");
+      try {
+        sessionStorage.setItem(SPLASH_KEY, "1");
+      } catch {}
       setShow(false);
     }, 2200);
     return () => clearTimeout(t);
-  }, []);
-
-  if (show === null) return null;
+  }, [show]);
 
   return (
     <>
@@ -155,13 +159,9 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
         )}
       </AnimatePresence>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: show ? 0 : 1 }}
-        transition={{ duration: 0.5, delay: show ? 0 : 0.1 }}
-      >
+      <div style={{ visibility: show ? "hidden" : "visible" }}>
         {children}
-      </motion.div>
+      </div>
     </>
   );
 }
