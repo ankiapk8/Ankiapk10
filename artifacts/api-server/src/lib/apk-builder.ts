@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { logger } from "./logger";
 
@@ -28,6 +28,28 @@ const META_PATH = path.join(
   "artifacts/anki-generator/public/anki-cards.apk.json",
 );
 const BUILD_SCRIPT = path.join(PROJECT_ROOT, "build-apk", "build-bundled.sh");
+const TARGET_CONFIG_PATH = path.join(
+  PROJECT_ROOT,
+  "artifacts/anki-generator/public/apk-target.json",
+);
+
+type TargetConfig = { host: string; updatedAt: string };
+
+export function getStoredTargetHost(): string | null {
+  try {
+    if (!existsSync(TARGET_CONFIG_PATH)) return null;
+    const data = JSON.parse(readFileSync(TARGET_CONFIG_PATH, "utf8")) as TargetConfig;
+    return data.host || null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredTargetHost(host: string): void {
+  mkdirSync(path.dirname(TARGET_CONFIG_PATH), { recursive: true });
+  const data: TargetConfig = { host, updatedAt: new Date().toISOString() };
+  writeFileSync(TARGET_CONFIG_PATH, JSON.stringify(data, null, 2));
+}
 
 export type BuildState = {
   status: "idle" | "building" | "ready" | "failed" | "unsupported";
@@ -197,8 +219,16 @@ export function ensureApkForHost(host: string): BuildState {
 }
 
 export function autoConfigureFromEnv(): void {
+  // Priority:
+  //   1. User-configured "published URL" stored on disk (survives restarts and
+  //      gets baked into the deploy snapshot, so the bundled APK ships pointing
+  //      at the published .replit.app domain).
+  //   2. REPLIT_DEPLOYMENT_DOMAIN — set inside the deployed container.
+  //   3. REPLIT_DEV_DOMAIN — set in the dev workspace.
   const host =
-    process.env.REPLIT_DEPLOYMENT_DOMAIN || process.env.REPLIT_DEV_DOMAIN;
+    getStoredTargetHost() ||
+    process.env.REPLIT_DEPLOYMENT_DOMAIN ||
+    process.env.REPLIT_DEV_DOMAIN;
   if (!host) {
     logger.info("No REPLIT_*_DOMAIN set; skipping APK auto-configure");
     return;

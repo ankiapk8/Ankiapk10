@@ -5,7 +5,9 @@ import {
   ensureApkForHost,
   getApkPath,
   getBuildState,
+  getStoredTargetHost,
   readApkMeta,
+  setStoredTargetHost,
   startRebuild,
 } from "../lib/apk-builder";
 
@@ -57,7 +59,23 @@ router.get("/download-apk/status", (req, res) => {
     apk: readApkMeta(),
     requestedHost: host,
     matches: host ? apkMatchesHost(host) : false,
+    publishedHost: getStoredTargetHost(),
   });
+});
+
+router.post("/download-apk/configure", (req, res) => {
+  const body = (req.body ?? {}) as { host?: unknown };
+  let raw = typeof body.host === "string" ? body.host.trim() : "";
+  raw = raw.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").replace(/:\d+$/, "");
+  if (!isPublicHost(raw)) {
+    res.status(400).json({
+      error: "Please provide a public hostname like myapp.replit.app",
+    });
+    return;
+  }
+  setStoredTargetHost(raw);
+  const build = startRebuild(raw);
+  res.status(202).json({ publishedHost: raw, build });
 });
 
 router.post("/download-apk/rebuild", (req, res) => {

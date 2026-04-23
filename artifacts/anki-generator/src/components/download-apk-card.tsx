@@ -7,6 +7,7 @@ import { apiUrl } from "@/lib/utils";
 const APK_URL = apiUrl("api/download-apk");
 const STATUS_URL = apiUrl("api/download-apk/status");
 const REBUILD_URL = apiUrl("api/download-apk/rebuild");
+const CONFIGURE_URL = apiUrl("api/download-apk/configure");
 const META_URL = `${import.meta.env.BASE_URL}anki-cards.apk.json`;
 
 type ApkMeta = {
@@ -33,12 +34,17 @@ type BuildStatus = {
   };
   apk: ApkMeta | null;
   matches: boolean;
+  publishedHost?: string | null;
 };
 
 export function DownloadApkCard() {
   const [downloading, setDownloading] = useState(false);
   const [meta, setMeta] = useState<ApkMeta | null>(null);
   const [build, setBuild] = useState<BuildStatus | null>(null);
+  const [showConfigure, setShowConfigure] = useState(false);
+  const [publishedInput, setPublishedInput] = useState("");
+  const [configureError, setConfigureError] = useState<string | null>(null);
+  const [configuring, setConfiguring] = useState(false);
   const pollRef = useRef<number | null>(null);
 
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
@@ -94,6 +100,31 @@ export function DownloadApkCard() {
       // ignore
     }
   };
+
+  const submitConfigure = async () => {
+    setConfigureError(null);
+    setConfiguring(true);
+    try {
+      const r = await fetch(CONFIGURE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: publishedInput }),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        setConfigureError((data as { error?: string }).error ?? "Failed to save");
+        return;
+      }
+      setShowConfigure(false);
+      await fetchStatus();
+    } catch (err) {
+      setConfigureError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setConfiguring(false);
+    }
+  };
+
+  const publishedHost = build?.publishedHost ?? null;
 
   const handleDownloadClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (targetMismatch && !isBuilding) {
@@ -215,6 +246,63 @@ export function DownloadApkCard() {
             </div>
           </div>
         )}
+        <div className="mt-4 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold">Published URL</p>
+              <p className="text-muted-foreground mt-0.5 leading-relaxed">
+                {publishedHost ? (
+                  <>
+                    The APK will be auto-built for{" "}
+                    <span className="font-mono">{publishedHost}</span> after every publish.
+                  </>
+                ) : (
+                  <>
+                    Set this to your <span className="font-mono">.replit.app</span> URL once
+                    so each publish ships an APK pointing at your live site.
+                  </>
+                )}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setPublishedInput(publishedHost ?? "");
+                setConfigureError(null);
+                setShowConfigure((v) => !v);
+              }}
+            >
+              {publishedHost ? "Change" : "Set published URL"}
+            </Button>
+          </div>
+          {showConfigure && (
+            <div className="mt-3 flex flex-col gap-2">
+              <input
+                type="text"
+                value={publishedInput}
+                onChange={(e) => setPublishedInput(e.target.value)}
+                placeholder="myapp.replit.app"
+                className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
+                autoFocus
+              />
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={submitConfigure} disabled={configuring || !publishedInput.trim()}>
+                  {configuring ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save & rebuild"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowConfigure(false)}>
+                  Cancel
+                </Button>
+                {configureError && (
+                  <span className="text-destructive text-[11px]">{configureError}</span>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground/70">
+                Saved on the server. After every publish, the deployed app reads this and auto-builds the APK targeting that URL.
+              </p>
+            </div>
+          )}
+        </div>
         {buildUnsupported && targetMismatch && (
           <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
