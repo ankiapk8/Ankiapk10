@@ -18,38 +18,50 @@ const APK_URL = apiUrl("api/download-apk");
 const STATUS_URL = apiUrl("api/download-apk/status");
 const REBUILD_URL = apiUrl("api/download-apk/rebuild");
 
-type ApkStatus = {
+type Slot = "dev" | "published";
+
+type SlotSummary = {
+  slot: Slot;
+  host: string | null;
+  apk: { host?: string; sourceHash?: string } | null;
+  matches: boolean;
+  upToDate: boolean;
   build: {
-    status: "idle" | "building" | "ready" | "failed" | "unsupported";
+    status: "idle" | "queued" | "building" | "ready" | "failed" | "unsupported";
     targetHost: string | null;
     error: string | null;
   };
-  apk: { host: string } | null;
-  matches: boolean;
-  publishedHost?: string | null;
 };
 
-type Target = "dev" | "published";
+type StatusResponse = {
+  sourceHash: string;
+  publishedHost: string | null;
+  slots: Record<Slot, SlotSummary>;
+};
 
 type TargetState = {
   host: string | null;
   building: boolean;
-  matches: boolean;
+  upToDate: boolean;
   unsupported: boolean;
 };
 
 const initialTarget: TargetState = {
   host: null,
   building: false,
-  matches: true,
+  upToDate: true,
   unsupported: false,
 };
 
-function isPublicHost(host: string): boolean {
-  if (!host) return false;
-  if (host === "localhost" || host === "127.0.0.1") return false;
-  if (host.startsWith("172.") || host.startsWith("10.") || host.startsWith("192.168.")) return false;
-  return host.includes(".");
+function summaryToTargetState(s: SlotSummary | undefined): TargetState {
+  if (!s) return initialTarget;
+  const status = s.build.status;
+  return {
+    host: s.host,
+    building: status === "building" || status === "queued",
+    upToDate: s.upToDate && !!s.apk,
+    unsupported: status === "unsupported",
+  };
 }
 
 export function HeaderApkButton() {
@@ -87,11 +99,6 @@ export function HeaderApkButton() {
       (navigator.platform === "MacIntel" &&
         (navigator as Navigator & { maxTouchPoints?: number }).maxTouchPoints! > 1);
     setIsIos(iOS);
-
-    const devHost = window.location.host.replace(/:\d+$/, "");
-    if (isPublicHost(devHost)) {
-      setDev((s) => ({ ...s, host: devHost }));
-    }
   }, []);
 
   // Click-outside / ESC close
@@ -111,105 +118,68 @@ export function HeaderApkButton() {
     };
   }, [open]);
 
-  const fetchStatus = async (host: string | null): Promise<ApkStatus | null> => {
+  const fetchStatus = async (): Promise<StatusResponse | null> => {
     try {
-      const url = host ? `${STATUS_URL}?host=${encodeURIComponent(host)}` : STATUS_URL;
-      const r = await fetch(url, { cache: "no-store" });
+      const r = await fetch(STATUS_URL, { cache: "no-store" });
       if (!r.ok) return null;
-      return (await r.json()) as ApkStatus;
+      return (await r.json()) as StatusResponse;
     } catch {
       return null;
     }
   };
 
-  // Initial load: discover the published host (from server) and fetch status for both.
+  const applyStatus = (s: StatusResponse) => {
+    setDev(summaryToTargetState(s.slots?.dev));
+    setPub(summaryToTargetState(s.slots?.published));
+  };
+
+  // Initial load
   useEffect(() => {
     if (!mounted || isInApk) return;
     let cancelled = false;
     (async () => {
-      const initial = await fetchStatus(null);
-      if (cancelled || !initial) return;
-      const publishedHost = initial.publishedHost ?? null;
-      if (publishedHost) {
-        setPub((s) => ({ ...s, host: publishedHost }));
-        const ps = await fetchStatus(publishedHost);
-        if (!cancelled && ps) {
-          setPub({
-            host: publishedHost,
-            building: ps.build.status === "building" && ps.build.targetHost === publishedHost,
-            matches: ps.matches,
-            unsupported: ps.build.status === "unsupported",
-          });
-        }
-      }
-      const devHost =
-        typeof window !== "undefined" ? window.location.host.replace(/:\d+$/, "") : null;
-      if (devHost && isPublicHost(devHost)) {
-        const ds = await fetchStatus(devHost);
-        if (!cancelled && ds) {
-          setDev({
-            host: devHost,
-            building: ds.build.status === "building" && ds.build.targetHost === devHost,
-            matches: ds.matches,
-            unsupported: ds.build.status === "unsupported",
-          });
-        }
-      }
+      const s = await fetchStatus();
+      if (!cancelled && s) applyStatus(s);
     })();
     return () => {
       cancelled = true;
     };
   }, [mounted, isInApk]);
 
-  // Poll while either target is building.
+  // Poll while either target is building, OR every 30s while popover is open.
   useEffect(() => {
-    if (!dev.building && !pub.building) return;
+    const anyBuilding = dev.building || pub.building;
+    const interval = anyBuilding ? 4000 : open ? 15000 : 0;
+    if (!interval) return;
     const id = window.setInterval(async () => {
-      if (dev.building && dev.host) {
-        const s = await fetchStatus(dev.host);
-        if (s) {
-          setDev((prev) => ({
-            ...prev,
-            building: s.build.status === "building" && s.build.targetHost === dev.host,
-            matches: s.matches,
-            unsupported: s.build.status === "unsupported",
-          }));
-        }
-      }
-      if (pub.building && pub.host) {
-        const s = await fetchStatus(pub.host);
-        if (s) {
-          setPub((prev) => ({
-            ...prev,
-            building: s.build.status === "building" && s.build.targetHost === pub.host,
-            matches: s.matches,
-            unsupported: s.build.status === "unsupported",
-          }));
-        }
-      }
-    }, 4000);
+      const s = await fetchStatus();
+      if (s) applyStatus(s);
+    }, interval);
     return () => window.clearInterval(id);
-  }, [dev.building, pub.building, dev.host, pub.host]);
+  }, [dev.building, pub.building, open]);
 
-  const startDownload = async (target: Target) => {
-    const t = target === "dev" ? dev : pub;
-    if (!t.host) return;
-    if (t.unsupported) return;
-    if (!t.matches && !t.building) {
-      // Kick off rebuild for that specific host first.
+  const startDownload = async (slot: Slot) => {
+    const t = slot === "dev" ? dev : pub;
+    if (!t.host || t.unsupported) return;
+    if (!t.upToDate && !t.building) {
       try {
-        await fetch(`${REBUILD_URL}?host=${encodeURIComponent(t.host)}`, { method: "POST" });
+        await fetch(REBUILD_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ slot }),
+        });
       } catch {
         /* ignore */
       }
-      const setter = target === "dev" ? setDev : setPub;
+      const setter = slot === "dev" ? setDev : setPub;
       setter((s) => ({ ...s, building: true }));
+      const status = await fetchStatus();
+      if (status) applyStatus(status);
       return;
     }
-    // Trigger native download
     const a = document.createElement("a");
-    a.href = `${APK_URL}?host=${encodeURIComponent(t.host)}`;
-    a.download = "anki-cards.apk";
+    a.href = `${APK_URL}?slot=${slot}`;
+    a.download = `anki-cards-${slot}.apk`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -307,7 +277,7 @@ export function HeaderApkButton() {
                     Choose which build to install
                   </div>
                   <div className="text-[11px] text-emerald-700/80">
-                    Each APK includes the full app — pick the URL it should talk to.
+                    Each APK auto-rebuilds when the app changes — pick the URL it should talk to.
                   </div>
                 </div>
                 <div className="p-2 space-y-1.5">
@@ -357,9 +327,9 @@ function TargetRow({
   testid: string;
 }) {
   const disabled = !state.host || state.unsupported;
-  const showRebuild = !!state.host && !state.matches && !state.building && !state.unsupported;
+  const showRebuild = !!state.host && !state.upToDate && !state.building && !state.unsupported;
   const showBuilding = state.building;
-  const showReady = !!state.host && state.matches && !state.building && !state.unsupported;
+  const showReady = !!state.host && state.upToDate && !state.building && !state.unsupported;
 
   let badge: React.ReactNode = null;
   let badgeClass = "";

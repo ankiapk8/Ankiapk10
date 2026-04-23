@@ -2,14 +2,19 @@ import { Router, type IRouter } from "express";
 import { createReadStream, statSync } from "node:fs";
 import {
   apkMatchesHost,
-  ensureApkForHost,
+  computeSourceHash,
+  ensureApkForSlot,
+  getAllBuildStates,
   getApkPath,
   getBuildHistory,
   getBuildState,
   getStoredTargetHost,
   readApkMeta,
+  resolveHostForSlot,
   setStoredTargetHost,
   startRebuild,
+  SLOTS,
+  type Slot,
 } from "../lib/apk-builder";
 
 const router: IRouter = Router();
@@ -21,47 +26,34 @@ function isPublicHost(host: string | null): host is string {
   return host.includes(".");
 }
 
-function envHost(): string | null {
-  return (
-    process.env.REPLIT_DEPLOYMENT_DOMAIN ||
-    process.env.REPLIT_DEV_DOMAIN ||
-    null
-  );
+function parseSlot(value: unknown, fallback: Slot = "dev"): Slot {
+  return value === "published" || value === "dev" ? value : fallback;
 }
 
-function resolveTargetHost(
-  req: Express.Request & { headers?: Record<string, unknown>; query?: Record<string, unknown> },
-): string | null {
-  const queryHost =
-    typeof req.query?.host === "string" ? (req.query.host as string) : null;
-  const fwd = req.headers?.["x-forwarded-host"];
-  const hostHeader = req.headers?.host;
-  const candidates = [
-    queryHost,
-    typeof fwd === "string" ? fwd.split(",")[0].trim() : Array.isArray(fwd) ? (fwd[0] as string) : null,
-    typeof hostHeader === "string" ? hostHeader : null,
-  ]
-    .filter((v): v is string => typeof v === "string" && v.length > 0)
-    .map((v) => v.replace(/:\d+$/, ""));
-
-  for (const c of candidates) {
-    if (isPublicHost(c)) return c;
-  }
-  // Fall back to the Replit-provided public domain so internal/loopback
-  // callers (curl, health checks) don't poison the bundled APK with
-  // "localhost" or a private LAN address.
-  return envHost();
+function slotSummary(slot: Slot) {
+  const host = resolveHostForSlot(slot);
+  const meta = readApkMeta(slot);
+  const sourceHash = computeSourceHash();
+  return {
+    slot,
+    host,
+    apk: meta,
+    matches: host ? apkMatchesHost(slot, host) : false,
+    upToDate: !!meta?.sourceHash && meta.sourceHash === sourceHash && (!host || meta?.host === host),
+    build: getBuildState(slot),
+    history: getBuildHistory(3, slot),
+  };
 }
 
-router.get("/download-apk/status", (req, res) => {
-  const host = resolveTargetHost(req as never);
+router.get("/download-apk/status", (_req, res) => {
   res.json({
-    build: getBuildState(),
-    apk: readApkMeta(),
-    requestedHost: host,
-    matches: host ? apkMatchesHost(host) : false,
+    sourceHash: computeSourceHash(),
     publishedHost: getStoredTargetHost(),
-    history: getBuildHistory(3),
+    builds: getAllBuildStates(),
+    slots: SLOTS.reduce((acc, s) => {
+      acc[s] = slotSummary(s);
+      return acc;
+    }, {} as Record<Slot, ReturnType<typeof slotSummary>>),
   });
 });
 
@@ -70,48 +62,47 @@ router.post("/download-apk/configure", (req, res) => {
   let raw = typeof body.host === "string" ? body.host.trim() : "";
   raw = raw.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").replace(/:\d+$/, "");
   if (!isPublicHost(raw)) {
-    res.status(400).json({
-      error: "Please provide a public hostname like myapp.replit.app",
-    });
+    res.status(400).json({ error: "Please provide a public hostname like myapp.replit.app" });
     return;
   }
   setStoredTargetHost(raw);
-  const build = startRebuild(raw);
+  const build = startRebuild("published", raw);
   res.status(202).json({ publishedHost: raw, build });
 });
 
 router.post("/download-apk/rebuild", (req, res) => {
-  const host = resolveTargetHost(req as never);
+  const slot = parseSlot((req.body as Record<string, unknown> | undefined)?.slot ?? req.query?.slot, "dev");
+  const host = resolveHostForSlot(slot);
   if (!host) {
-    res.status(400).json({ error: "Could not determine target host" });
+    res.status(400).json({ error: `No host configured for slot "${slot}"` });
     return;
   }
-  const state = startRebuild(host);
-  res.status(202).json({ build: state });
+  const state = startRebuild(slot, host);
+  res.status(202).json({ slot, host, build: state });
 });
 
 router.get("/download-apk", (req, res) => {
-  const host = resolveTargetHost(req as never);
+  const slot = parseSlot(req.query?.slot, "published");
+  const host = resolveHostForSlot(slot);
 
-  if (host) {
-    ensureApkForHost(host);
-  }
+  if (host) ensureApkForSlot(slot, host);
 
-  const buildState = getBuildState();
-  const apkPath = getApkPath();
-  const matches = host ? apkMatchesHost(host) : true;
+  const buildState = getBuildState(slot);
+  const apkPath = getApkPath(slot);
+  const matches = host ? apkMatchesHost(slot, host) : true;
 
   if (host && !matches && buildState.status === "building") {
     res.status(202).json({
       status: "building",
-      message: "APK is being prepared for this URL. Try again in a minute.",
+      slot,
+      message: "APK is being prepared. Try again in a minute.",
       build: buildState,
     });
     return;
   }
 
   if (!apkPath) {
-    res.status(404).json({ error: "APK not found" });
+    res.status(404).json({ error: `APK not found for slot "${slot}"` });
     return;
   }
 
@@ -119,14 +110,12 @@ router.get("/download-apk", (req, res) => {
   res.setHeader("Content-Type", "application/vnd.android.package-archive");
   res.setHeader(
     "Content-Disposition",
-    'attachment; filename="anki-cards.apk"',
+    `attachment; filename="anki-cards-${slot}.apk"`,
   );
   res.setHeader("Content-Length", String(stat.size));
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  if (host && !matches) {
-    res.setHeader("X-APK-Host-Mismatch", "true");
-  }
+  if (host && !matches) res.setHeader("X-APK-Host-Mismatch", "true");
   createReadStream(apkPath).pipe(res);
 });
 
