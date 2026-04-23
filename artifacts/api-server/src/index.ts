@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { ensureDatabaseSchema } from "@workspace/db";
+import { autoConfigureFromEnv } from "./lib/apk-builder";
 
 const rawPort = process.env["PORT"];
 
@@ -26,6 +27,11 @@ async function main(): Promise<void> {
     }
 
     logger.info({ port }, "Server listening");
+    try {
+      autoConfigureFromEnv();
+    } catch (err) {
+      logger.warn({ err }, "APK auto-configure failed (non-fatal)");
+    }
   });
 }
 

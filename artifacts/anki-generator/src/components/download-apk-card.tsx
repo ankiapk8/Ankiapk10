@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Smartphone, Download, ShieldCheck, Sparkles, AlertTriangle } from "lucide-react";
+import { Smartphone, Download, ShieldCheck, Sparkles, AlertTriangle, Loader2 } from "lucide-react";
 import { apiUrl } from "@/lib/utils";
 
 const APK_URL = apiUrl("api/download-apk");
+const STATUS_URL = apiUrl("api/download-apk/status");
+const REBUILD_URL = apiUrl("api/download-apk/rebuild");
 const META_URL = `${import.meta.env.BASE_URL}anki-cards.apk.json`;
 
 type ApkMeta = {
@@ -23,23 +25,84 @@ function formatSize(bytes: number) {
   return `${mb.toFixed(1)} MB`;
 }
 
+type BuildStatus = {
+  build: {
+    status: "idle" | "building" | "ready" | "failed" | "unsupported";
+    targetHost: string | null;
+    error: string | null;
+  };
+  apk: ApkMeta | null;
+  matches: boolean;
+};
+
 export function DownloadApkCard() {
   const [downloading, setDownloading] = useState(false);
   const [meta, setMeta] = useState<ApkMeta | null>(null);
+  const [build, setBuild] = useState<BuildStatus | null>(null);
+  const pollRef = useRef<number | null>(null);
 
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
-  const currentHost = typeof window !== "undefined" ? window.location.host : "";
-  const trustedHosts = meta ? [meta.host, ...(meta.additionalHosts ?? [])] : [];
+  const currentHost = typeof window !== "undefined" ? window.location.host.replace(/:\d+$/, "") : "";
+  const liveMeta = build?.apk ?? meta;
+  const trustedHosts = liveMeta ? [liveMeta.host, ...(liveMeta.additionalHosts ?? [])] : [];
   const targetMismatch = !!(
-    meta && currentHost && !trustedHosts.includes(currentHost)
+    liveMeta && currentHost && !trustedHosts.includes(currentHost)
   );
+  const buildStatus = build?.build.status ?? "idle";
+  const isBuilding = buildStatus === "building";
+  const buildUnsupported = buildStatus === "unsupported";
+  const buildFailed = buildStatus === "failed";
+
+  const fetchStatus = async () => {
+    try {
+      const r = await fetch(STATUS_URL, { cache: "no-store" });
+      if (r.ok) {
+        const data: BuildStatus = await r.json();
+        setBuild(data);
+        if (data.apk) setMeta(data.apk);
+        return data;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  };
 
   useEffect(() => {
     fetch(META_URL)
       .then(r => r.ok ? r.json() : null)
-      .then(setMeta)
-      .catch(() => setMeta(null));
+      .then(d => { if (d) setMeta(d); })
+      .catch(() => {});
+    fetchStatus();
   }, []);
+
+  useEffect(() => {
+    if (isBuilding) {
+      pollRef.current = window.setInterval(fetchStatus, 4000);
+      return () => {
+        if (pollRef.current) window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      };
+    }
+  }, [isBuilding]);
+
+  const triggerRebuild = async () => {
+    try {
+      await fetch(REBUILD_URL, { method: "POST" });
+      await fetchStatus();
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleDownloadClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (targetMismatch && !isBuilding) {
+      e.preventDefault();
+      await triggerRebuild();
+      return;
+    }
+    setDownloading(true);
+  };
 
   return (
     <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background shadow-sm">
@@ -89,44 +152,83 @@ export function DownloadApkCard() {
           </div>
 
           <div className="flex flex-col gap-2 md:items-end">
-            <Button
-              asChild
-              size="lg"
-              className="gap-2 shadow-md shadow-primary/20"
-              onClick={() => setDownloading(true)}
-            >
-              <a href={APK_URL} download="anki-cards.apk">
-                <Download className="h-4 w-4" />
-                Download APK
-              </a>
-            </Button>
-            {!isAndroid && !downloading && (
+            {isBuilding ? (
+              <Button size="lg" className="gap-2 shadow-md shadow-primary/20" disabled>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Preparing your APK…
+              </Button>
+            ) : targetMismatch && !buildUnsupported ? (
+              <Button
+                size="lg"
+                className="gap-2 shadow-md shadow-primary/20"
+                onClick={triggerRebuild}
+              >
+                <Sparkles className="h-4 w-4" />
+                Build APK for this URL
+              </Button>
+            ) : (
+              <Button
+                asChild
+                size="lg"
+                className="gap-2 shadow-md shadow-primary/20"
+              >
+                <a href={APK_URL} download="anki-cards.apk" onClick={handleDownloadClick}>
+                  <Download className="h-4 w-4" />
+                  Download APK
+                </a>
+              </Button>
+            )}
+            {isBuilding && (
+              <p className="text-[11px] text-muted-foreground md:text-right">
+                Auto-configuring for <span className="font-mono">{currentHost}</span> · usually 1–2 min
+              </p>
+            )}
+            {!isBuilding && !isAndroid && !downloading && !targetMismatch && (
               <p className="text-[11px] text-muted-foreground md:text-right">
                 Open this page on Android to install
               </p>
             )}
-            {downloading && (
+            {!isBuilding && downloading && (
               <p className="text-[11px] text-primary md:text-right">
                 Tap the file to install · enable "Unknown sources" if prompted
+              </p>
+            )}
+            {buildFailed && (
+              <p className="text-[11px] text-destructive md:text-right">
+                Build failed. Check server logs.
               </p>
             )}
           </div>
         </div>
 
-        {targetMismatch && (
+        {targetMismatch && !isBuilding && !buildUnsupported && (
           <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs">
-            <AlertTriangle className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+            <Sparkles className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-emerald-700 dark:text-emerald-500">
-                APK was built for a different URL
+                Auto-configure available
               </p>
               <p className="text-emerald-700/80 dark:text-emerald-500/80 mt-0.5 leading-relaxed">
-                This APK opens <span className="font-mono">{meta?.host}</span>, but you're on{" "}
-                <span className="font-mono">{currentHost}</span>. After deploying, run{" "}
-                <span className="font-mono bg-emerald-500/15 px-1 py-0.5 rounded">
-                  APK_TARGET_URL=https://{currentHost} node build-apk/build.mjs
-                </span>{" "}
-                to rebuild.
+                The cached APK targets <span className="font-mono">{liveMeta?.host}</span>, but you're on{" "}
+                <span className="font-mono">{currentHost}</span>. Click "Build APK for this URL" to auto-build a copy that opens this site.
+              </p>
+            </div>
+          </div>
+        )}
+        {buildUnsupported && targetMismatch && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-amber-700 dark:text-amber-500">
+                APK targets a different URL
+              </p>
+              <p className="text-amber-700/80 dark:text-amber-500/80 mt-0.5 leading-relaxed">
+                This APK opens <span className="font-mono">{liveMeta?.host}</span>. To rebuild for{" "}
+                <span className="font-mono">{currentHost}</span>, run{" "}
+                <span className="font-mono bg-amber-500/15 px-1 py-0.5 rounded">
+                  API_BASE=https://{currentHost}/api ./build-apk/build-bundled.sh
+                </span>
+                {" "}in an environment with the Android SDK installed.
               </p>
             </div>
           </div>
