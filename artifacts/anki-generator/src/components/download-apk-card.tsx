@@ -26,6 +26,16 @@ function formatSize(bytes: number) {
   return `${mb.toFixed(1)} MB`;
 }
 
+type BuildHistoryEntry = {
+  host: string;
+  status: "ready" | "failed";
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  error: string | null;
+  sizeBytes: number | null;
+};
+
 type BuildStatus = {
   build: {
     status: "idle" | "building" | "ready" | "failed" | "unsupported";
@@ -35,7 +45,25 @@ type BuildStatus = {
   apk: ApkMeta | null;
   matches: boolean;
   publishedHost?: string | null;
+  history?: BuildHistoryEntry[];
 };
+
+function formatRelative(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "—";
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  if (s < 86400) return `${Math.round(s / 3600)}h ago`;
+  return `${Math.round(s / 86400)}d ago`;
+}
+
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "—";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
 
 export function DownloadApkCard() {
   const [downloading, setDownloading] = useState(false);
@@ -343,6 +371,38 @@ export function DownloadApkCard() {
             <p className="mt-2 text-[11px] text-destructive break-words">
               Last build failed: {build.build.error}
             </p>
+          )}
+          {build?.history && build.history.length > 0 && (
+            <div className="mt-3 border-t border-border/50 pt-2.5">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                Recent builds
+              </p>
+              <ul className="space-y-1">
+                {build.history.map((h, idx) => (
+                  <li
+                    key={`${h.startedAt}-${idx}`}
+                    className="flex items-center gap-2 text-[11px] leading-tight"
+                    title={`${new Date(h.startedAt).toLocaleString()} → ${new Date(h.finishedAt).toLocaleString()}${h.error ? ` · ${h.error}` : ""}`}
+                  >
+                    <span
+                      className={`shrink-0 inline-block h-1.5 w-1.5 rounded-full ${
+                        h.status === "ready" ? "bg-emerald-500" : "bg-destructive"
+                      }`}
+                    />
+                    <span className="text-muted-foreground tabular-nums w-14 shrink-0">
+                      {formatRelative(h.finishedAt)}
+                    </span>
+                    <span className="font-mono truncate flex-1 min-w-0 text-foreground/80">
+                      {h.host}
+                    </span>
+                    <span className="text-muted-foreground/70 shrink-0 tabular-nums">
+                      {formatDuration(h.durationMs)}
+                      {h.sizeBytes ? ` · ${formatSize(h.sizeBytes)}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
         {buildUnsupported && targetMismatch && (

@@ -4,6 +4,7 @@ import {
   apkMatchesHost,
   ensureApkForHost,
   getApkPath,
+  getBuildHistory,
   getBuildState,
   getStoredTargetHost,
   readApkMeta,
@@ -60,6 +61,7 @@ router.get("/download-apk/status", (req, res) => {
     requestedHost: host,
     matches: host ? apkMatchesHost(host) : false,
     publishedHost: getStoredTargetHost(),
+    history: getBuildHistory(3),
   });
 });
 

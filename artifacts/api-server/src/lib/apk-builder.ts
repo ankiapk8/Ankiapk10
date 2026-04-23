@@ -32,6 +32,47 @@ const TARGET_CONFIG_PATH = path.join(
   PROJECT_ROOT,
   "artifacts/anki-generator/public/apk-target.json",
 );
+const HISTORY_PATH = path.join(
+  PROJECT_ROOT,
+  "artifacts/anki-generator/public/apk-history.json",
+);
+const HISTORY_MAX = 10;
+
+export type BuildHistoryEntry = {
+  host: string;
+  status: "ready" | "failed";
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  error: string | null;
+  sizeBytes: number | null;
+};
+
+function readHistory(): BuildHistoryEntry[] {
+  try {
+    if (!existsSync(HISTORY_PATH)) return [];
+    const data = JSON.parse(readFileSync(HISTORY_PATH, "utf8"));
+    return Array.isArray(data) ? (data as BuildHistoryEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function appendHistory(entry: BuildHistoryEntry): void {
+  const list = readHistory();
+  list.unshift(entry);
+  while (list.length > HISTORY_MAX) list.pop();
+  try {
+    mkdirSync(path.dirname(HISTORY_PATH), { recursive: true });
+    writeFileSync(HISTORY_PATH, JSON.stringify(list, null, 2));
+  } catch (err) {
+    logger.warn({ err }, "Failed to persist APK build history");
+  }
+}
+
+export function getBuildHistory(limit = 3): BuildHistoryEntry[] {
+  return readHistory().slice(0, limit);
+}
 
 type TargetConfig = { host: string; updatedAt: string };
 
@@ -205,6 +246,23 @@ export function startRebuild(host: string): BuildState {
       appendLog(`Build exited with code ${code}`);
       logger.error({ code }, "APK rebuild failed");
     }
+    let sizeBytes: number | null = null;
+    try {
+      sizeBytes = state.status === "ready" ? statSync(APK_PATH).size : null;
+    } catch {
+      sizeBytes = null;
+    }
+    appendHistory({
+      host: state.targetHost ?? host,
+      status: state.status === "ready" ? "ready" : "failed",
+      startedAt: state.startedAt ?? new Date().toISOString(),
+      finishedAt: state.finishedAt,
+      durationMs:
+        new Date(state.finishedAt).getTime() -
+        new Date(state.startedAt ?? state.finishedAt).getTime(),
+      error: state.status === "ready" ? null : state.error,
+      sizeBytes,
+    });
     currentChild = null;
   });
 
