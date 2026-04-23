@@ -17,7 +17,7 @@ function buildPrompts(mode: ExplainMode, front: string, back: string): { system:
 
   if (mode === "full") {
     return {
-      maxTokens: 16000,
+      maxTokens: 1_000_000,
       system: `Act as a senior physician, medical professor, and clinical educator.
 
 Your response must be:
@@ -65,7 +65,7 @@ OPTIONAL (include if relevant):
 
   if (mode === "revision") {
     return {
-      maxTokens: 8192,
+      maxTokens: 1_000_000,
       system: `Act as a senior medical educator. Your task is to create a concise, high-yield 1-page revision sheet.
 
 FORMAT:

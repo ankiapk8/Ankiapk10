@@ -206,11 +206,11 @@ Rules:
 
 Respond ONLY with a JSON array of objects with "front" (question) and "back" (answer) fields. No markdown, no explanation.${customPromptBlock(customPrompt)}`;
 
-  const userContent = `Generate exactly ${maxCards} Anki flashcards from the following text:\n\n${text.slice(0, 20000)}`;
+  const userContent = `Generate exactly ${maxCards} Anki flashcards from the following text:\n\n${text.slice(0, 400000)}`;
 
   const response = await createChatCompletionWithRetry(openai, {
     model: "gpt-4.1-mini",
-    max_completion_tokens: 16384,
+    max_completion_tokens: 1_000_000,
     stream: false as const,
     messages: [
       { role: "system", content: systemPrompt },
@@ -269,7 +269,7 @@ No markdown, no explanation, just the JSON array.${customPromptBlock(customPromp
   try {
     const response = await createChatCompletionWithRetry(openai, {
       model: "gpt-4.1-mini",
-      max_completion_tokens: 4096,
+      max_completion_tokens: 1_000_000,
       stream: false as const,
       messages: [
         { role: "system", content: systemPrompt },

@@ -732,7 +732,7 @@ export function GenerateForm({
                             ~{estimatedCards(f.text, 0, f.cardCount)} likely
                           </span>
                         </Label>
-                        <Input type="number" value={f.cardCount} onChange={e => updateFile(f.id, { cardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" disabled={isGeneratingAll} />
+                        <Input type="number" value={f.cardCount} onChange={e => updateFile(f.id, { cardCount: e.target.value ? Math.min(Number(e.target.value), 1000) : "" })} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="1000" disabled={isGeneratingAll} />
                       </div>
                     )}
                     {(f.deckType === "visual" || f.deckType === "both") && f.pageImages.length > 0 && (
@@ -743,7 +743,7 @@ export function GenerateForm({
                             up to {Math.min(f.pageImages.length * 3, 500)}
                           </span>
                         </Label>
-                        <Input type="number" value={f.visualCardCount} onChange={e => updateFile(f.id, { visualCardCount: e.target.value ? Number(e.target.value) : "" })} className="h-7 text-xs" placeholder={`e.g. ${Math.min(f.pageImages.length * 2, 30)}`} min="1" disabled={isGeneratingAll} />
+                        <Input type="number" value={f.visualCardCount} onChange={e => updateFile(f.id, { visualCardCount: e.target.value ? Math.min(Number(e.target.value), 1000) : "" })} className="h-7 text-xs" placeholder={`e.g. ${Math.min(f.pageImages.length * 2, 30)}`} min="1" max="1000" disabled={isGeneratingAll} />
                       </div>
                     )}
                   </div>
@@ -824,7 +824,7 @@ export function GenerateForm({
                     ~{estimatedCards(manualText, 0, manualCardCount)} likely
                   </span>
                 </Label>
-                <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Number(e.target.value) : "")} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" disabled={isGeneratingAll} />
+                <Input type="number" value={manualCardCount} onChange={e => setManualCardCount(e.target.value ? Math.min(Number(e.target.value), 1000) : "")} className="h-7 text-xs" placeholder={`e.g. ${DEFAULT_TARGET_CARDS}`} min="1" max="1000" disabled={isGeneratingAll} />
               </div>
             </div>
             {(() => {
