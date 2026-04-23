@@ -11,11 +11,8 @@
         </shape>
     </item>
     <item
-        android:width="120dp"
-        android:height="120dp"
-        android:gravity="center">
-        <bitmap
-            android:src="@mipmap/ic_launcher"
-            android:gravity="center" />
-    </item>
+        android:width="180dp"
+        android:height="180dp"
+        android:gravity="center"
+        android:drawable="@drawable/brand_mark" />
 </layer-list>
