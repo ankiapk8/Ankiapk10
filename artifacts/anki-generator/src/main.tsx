@@ -30,6 +30,39 @@ if (!promiseConstructor.withResolvers) {
   };
 }
 
+// Force a desktop-like viewport ratio inside the installed APK so the layout
+// matches the desktop website (scaled to fit the phone's screen).
+function applyApkViewport() {
+  if (typeof window === "undefined") return;
+  const w = window as unknown as {
+    Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string };
+  };
+  const inApk =
+    !!w.Capacitor?.isNativePlatform?.() ||
+    w.Capacitor?.getPlatform?.() === "android" ||
+    w.Capacitor?.getPlatform?.() === "ios" ||
+    document.referrer.startsWith("android-app://") ||
+    window.matchMedia?.("(display-mode: standalone)").matches ||
+    window.matchMedia?.("(display-mode: fullscreen)").matches ||
+    // @ts-expect-error iOS only
+    window.navigator.standalone === true ||
+    /\bwv\b|AnkiGen/.test(navigator.userAgent);
+  if (!inApk) return;
+  const meta = document.querySelector('meta[name="viewport"]');
+  if (meta) {
+    meta.setAttribute(
+      "content",
+      "width=1280, initial-scale=" +
+        (window.innerWidth / 1280).toFixed(4) +
+        ", minimum-scale=" +
+        (window.innerWidth / 1280).toFixed(4) +
+        ", maximum-scale=1, user-scalable=yes, viewport-fit=cover",
+    );
+  }
+  document.documentElement.dataset.apk = "1";
+}
+applyApkViewport();
+
 const { default: App } = await import("./App");
 
 createRoot(document.getElementById("root")!).render(<App />);
