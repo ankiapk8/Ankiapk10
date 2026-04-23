@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Smartphone, Download, ShieldCheck, Sparkles, AlertTriangle, Loader2, Hammer, Share2, Check } from "lucide-react";
 import { apiUrl } from "@/lib/utils";
+import { ApkBuildOverlay } from "@/components/apk-build-overlay";
 
 const APK_URL = apiUrl("api/download-apk");
 const STATUS_URL = apiUrl("api/download-apk/status");
@@ -40,6 +41,7 @@ type BuildStatus = {
   build: {
     status: "idle" | "building" | "ready" | "failed" | "unsupported";
     targetHost: string | null;
+    startedAt?: string | null;
     error: string | null;
   };
   apk: ApkMeta | null;
@@ -209,6 +211,14 @@ export function DownloadApkCard() {
   };
 
   return (
+    <>
+    <ApkBuildOverlay
+      isBuilding={isBuilding}
+      buildFailed={buildFailed}
+      startedAt={build?.build.startedAt ?? null}
+      targetHost={build?.build.targetHost ?? null}
+      errorMessage={build?.build.error ?? null}
+    />
     <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background shadow-sm">
       <div
         aria-hidden
@@ -497,5 +507,6 @@ export function DownloadApkCard() {
         )}
       </CardContent>
     </Card>
+    </>
   );
 }
