@@ -5,21 +5,27 @@ const APK_URL = `${import.meta.env.BASE_URL}anki-cards.apk`;
 
 export function HeaderApkButton() {
   const [mounted, setMounted] = useState(false);
-  const [isStandalone, setIsStandalone] = useState(false);
+  const [isInApk, setIsInApk] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
-      const standalone =
+      const w = window as unknown as { Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string } };
+      const inApk =
+        !!w.Capacitor?.isNativePlatform?.() ||
+        w.Capacitor?.getPlatform?.() === "android" ||
+        w.Capacitor?.getPlatform?.() === "ios" ||
+        document.referrer.startsWith("android-app://") ||
         window.matchMedia?.("(display-mode: standalone)").matches ||
+        window.matchMedia?.("(display-mode: fullscreen)").matches ||
         // @ts-expect-error iOS only
         window.navigator.standalone === true ||
-        document.referrer.startsWith("android-app://");
-      setIsStandalone(standalone);
+        /\bwv\b|AnkiGen/.test(navigator.userAgent);
+      setIsInApk(inApk);
     }
   }, []);
 
-  if (!mounted || isStandalone) return null;
+  if (!mounted || isInApk) return null;
 
   return (
     <a
@@ -29,7 +35,7 @@ export function HeaderApkButton() {
       className="group relative inline-flex items-center gap-1.5 sm:gap-2 h-9 px-2.5 sm:px-3.5 rounded-full overflow-hidden text-white text-xs sm:text-sm font-semibold tracking-tight shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
       style={{
         background:
-          "linear-gradient(120deg, hsl(15 100% 50%) 0%, hsl(25 100% 55%) 45%, hsl(15 100% 50%) 100%)",
+          "linear-gradient(120deg, hsl(142 71% 38%) 0%, hsl(152 76% 45%) 45%, hsl(142 71% 38%) 100%)",
       }}
     >
       <span
