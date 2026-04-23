@@ -48,7 +48,8 @@ function slotSummary(slot: Slot) {
 router.get("/download-apk/status", (_req, res) => {
   res.json({
     sourceHash: computeSourceHash(),
-    publishedHost: getStoredTargetHost(),
+    publishedHost: getStoredTargetHost("published"),
+    devHost: getStoredTargetHost("dev"),
     builds: getAllBuildStates(),
     slots: SLOTS.reduce((acc, s) => {
       acc[s] = slotSummary(s);
@@ -58,16 +59,17 @@ router.get("/download-apk/status", (_req, res) => {
 });
 
 router.post("/download-apk/configure", (req, res) => {
-  const body = (req.body ?? {}) as { host?: unknown };
+  const body = (req.body ?? {}) as { host?: unknown; slot?: unknown };
+  const slot = parseSlot(body.slot, "published");
   let raw = typeof body.host === "string" ? body.host.trim() : "";
   raw = raw.replace(/^https?:\/\//i, "").replace(/\/.*$/, "").replace(/:\d+$/, "");
   if (!isPublicHost(raw)) {
     res.status(400).json({ error: "Please provide a public hostname like myapp.replit.app" });
     return;
   }
-  setStoredTargetHost(raw);
-  const build = startRebuild("published", raw);
-  res.status(202).json({ publishedHost: raw, build });
+  setStoredTargetHost(raw, slot);
+  const build = startRebuild(slot, raw);
+  res.status(202).json({ slot, host: raw, publishedHost: getStoredTargetHost("published"), devHost: getStoredTargetHost("dev"), build });
 });
 
 router.post("/download-apk/rebuild", (req, res) => {

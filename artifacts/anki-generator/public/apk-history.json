@@ -3,6 +3,26 @@
     "slot": "dev",
     "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
     "status": "ready",
+    "startedAt": "2026-04-23T14:55:11.251Z",
+    "finishedAt": "2026-04-23T14:55:44.694Z",
+    "durationMs": 33443,
+    "error": null,
+    "sizeBytes": 8255260
+  },
+  {
+    "slot": "published",
+    "host": "anki-1--ankiapk5.replit.app",
+    "status": "ready",
+    "startedAt": "2026-04-23T14:52:51.912Z",
+    "finishedAt": "2026-04-23T14:53:10.125Z",
+    "durationMs": 18213,
+    "error": null,
+    "sizeBytes": 8255156
+  },
+  {
+    "slot": "dev",
+    "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
+    "status": "ready",
     "startedAt": "2026-04-23T14:52:31.134Z",
     "finishedAt": "2026-04-23T14:52:49.672Z",
     "durationMs": 18538,
@@ -178,24 +198,5 @@
     "durationMs": 106450,
     "error": null,
     "sizeBytes": 8249045
-  },
-  {
-    "slot": "dev",
-    "host": "5b2c2488-ba7f-43ea-ac47-e992ede8db6d-00-52ot6g66hfc.pike.replit.dev",
-    "status": "failed",
-    "startedAt": "2026-04-23T13:35:49.935Z",
-    "finishedAt": "2026-04-23T13:37:41.789Z",
-    "durationMs": 111854,
-    "error": "Build exited with code 1",
-    "sizeBytes": null
-  },
-  {
-    "host": "78fadb61-c310-467c-82d1-7ea5e8b0fb67-00-20xzgjeqw18rj.pike.replit.dev",
-    "status": "ready",
-    "startedAt": "2026-04-23T12:23:02.010Z",
-    "finishedAt": "2026-04-23T12:23:20.053Z",
-    "durationMs": 18043,
-    "error": null,
-    "sizeBytes": 6057197
   }
 ]

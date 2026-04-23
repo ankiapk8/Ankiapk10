@@ -1,4 +1,7 @@
 {
-  "host": "anki-1--ankiapk5.replit.app",
-  "updatedAt": "2026-04-23T14:28:44.906Z"
+  "hosts": {
+    "published": "anki-1--ankiapk5.replit.app",
+    "dev": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev"
+  },
+  "updatedAt": "2026-04-23T14:55:26.472Z"
 }

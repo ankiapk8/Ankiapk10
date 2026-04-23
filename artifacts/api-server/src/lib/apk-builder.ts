@@ -78,21 +78,38 @@ export function getBuildHistory(limit = 5, slot?: Slot): BuildHistoryEntry[] {
   return (slot ? all.filter(e => e.slot === slot) : all).slice(0, limit);
 }
 
-type TargetConfig = { host: string; updatedAt: string };
+type TargetConfig = {
+  host?: string;
+  hosts?: Partial<Record<Slot, string>>;
+  updatedAt: string;
+};
 
-export function getStoredTargetHost(): string | null {
+function readTargetConfig(): TargetConfig | null {
   try {
     if (!existsSync(TARGET_CONFIG_PATH)) return null;
-    const data = JSON.parse(readFileSync(TARGET_CONFIG_PATH, "utf8")) as TargetConfig;
-    return data.host || null;
+    return JSON.parse(readFileSync(TARGET_CONFIG_PATH, "utf8")) as TargetConfig;
   } catch {
     return null;
   }
 }
 
-export function setStoredTargetHost(host: string): void {
+export function getStoredTargetHost(slot: Slot = "published"): string | null {
+  const cfg = readTargetConfig();
+  if (!cfg) return null;
+  const fromMap = cfg.hosts?.[slot];
+  if (fromMap) return fromMap;
+  // Backwards compat: legacy single-host config means published.
+  if (slot === "published" && cfg.host) return cfg.host;
+  return null;
+}
+
+export function setStoredTargetHost(host: string, slot: Slot = "published"): void {
   mkdirSync(path.dirname(TARGET_CONFIG_PATH), { recursive: true });
-  const data: TargetConfig = { host, updatedAt: new Date().toISOString() };
+  const existing = readTargetConfig();
+  const hosts: Partial<Record<Slot, string>> = { ...(existing?.hosts ?? {}) };
+  if (existing?.host && !hosts.published) hosts.published = existing.host;
+  hosts[slot] = host;
+  const data: TargetConfig = { hosts, updatedAt: new Date().toISOString() };
   writeFileSync(TARGET_CONFIG_PATH, JSON.stringify(data, null, 2));
 }
 
@@ -376,11 +393,11 @@ export function ensureApkForSlot(slot: Slot, host: string): BuildState {
 }
 
 function devHostFromEnv(): string | null {
-  return process.env.REPLIT_DEV_DOMAIN || null;
+  return getStoredTargetHost("dev") || process.env.REPLIT_DEV_DOMAIN || null;
 }
 
 function publishedHostFromEnv(): string | null {
-  return getStoredTargetHost() || process.env.REPLIT_DEPLOYMENT_DOMAIN || null;
+  return getStoredTargetHost("published") || process.env.REPLIT_DEPLOYMENT_DOMAIN || null;
 }
 
 export function resolveHostForSlot(slot: Slot): string | null {

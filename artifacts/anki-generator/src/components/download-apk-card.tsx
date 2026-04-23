@@ -47,6 +47,7 @@ type BuildStatus = {
   matches: boolean;
   upToDate?: boolean;
   publishedHost?: string | null;
+  devHost?: string | null;
   history?: BuildHistoryEntry[];
 };
 
@@ -75,6 +76,10 @@ export function DownloadApkCard() {
   const [publishedInput, setPublishedInput] = useState("");
   const [configureError, setConfigureError] = useState<string | null>(null);
   const [configuring, setConfiguring] = useState(false);
+  const [showDevConfigure, setShowDevConfigure] = useState(false);
+  const [devInput, setDevInput] = useState("");
+  const [devConfigureError, setDevConfigureError] = useState<string | null>(null);
+  const [devConfiguring, setDevConfiguring] = useState(false);
   const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
   const pollRef = useRef<number | null>(null);
 
@@ -141,7 +146,7 @@ export function DownloadApkCard() {
       const r = await fetch(CONFIGURE_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host: publishedInput }),
+        body: JSON.stringify({ host: publishedInput, slot: "published" }),
       });
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
@@ -156,6 +161,31 @@ export function DownloadApkCard() {
       setConfiguring(false);
     }
   };
+
+  const submitDevConfigure = async () => {
+    setDevConfigureError(null);
+    setDevConfiguring(true);
+    try {
+      const r = await fetch(CONFIGURE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host: devInput, slot: "dev" }),
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        setDevConfigureError((data as { error?: string }).error ?? "Failed to save");
+        return;
+      }
+      setShowDevConfigure(false);
+      await fetchStatus();
+    } catch (err) {
+      setDevConfigureError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setDevConfiguring(false);
+    }
+  };
+
+  const devHost = build?.devHost ?? null;
 
   const publishedHost = build?.publishedHost ?? null;
   const shareUrl = publishedHost
@@ -353,7 +383,75 @@ export function DownloadApkCard() {
             </div>
           </div>
         )}
-        <div className="mt-4 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
+        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold flex items-center gap-1.5">
+                <Hammer className="h-3.5 w-3.5 text-amber-600" />
+                Dev URL (test build)
+              </p>
+              <p className="text-muted-foreground mt-0.5 leading-relaxed">
+                {devHost ? (
+                  <>
+                    Dev APK currently targets{" "}
+                    <span className="font-mono">{devHost}</span>. Enter another code/URL below to retarget it.
+                  </>
+                ) : (
+                  <>
+                    Enter any host code (e.g. <span className="font-mono">my-branch.replit.dev</span>) to build a dev APK pointing at it. Defaults to this site.
+                  </>
+                )}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setDevInput(devHost ?? currentHost ?? "");
+                setDevConfigureError(null);
+                setShowDevConfigure((v) => !v);
+              }}
+            >
+              {devHost ? "Change" : "Enter code"}
+            </Button>
+          </div>
+          {showDevConfigure && (
+            <div className="mt-3 flex flex-col gap-2">
+              <input
+                type="text"
+                value={devInput}
+                onChange={(e) => setDevInput(e.target.value)}
+                placeholder="my-branch.replit.dev"
+                className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter" && devInput.trim()) submitDevConfigure(); }}
+              />
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" onClick={submitDevConfigure} disabled={devConfiguring || !devInput.trim()}>
+                  {devConfiguring ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save & build dev APK"}
+                </Button>
+                <a
+                  href={`${APK_URL}?slot=dev`}
+                  className="inline-flex items-center gap-1 text-[11px] underline text-amber-700 dark:text-amber-500 hover:no-underline"
+                  download="anki-cards-dev.apk"
+                >
+                  <Download className="h-3 w-3" /> Download dev APK
+                </a>
+                <Button size="sm" variant="ghost" onClick={() => setShowDevConfigure(false)}>
+                  Cancel
+                </Button>
+                {devConfigureError && (
+                  <span className="text-destructive text-[11px]">{devConfigureError}</span>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground/70">
+                The dev APK will call <span className="font-mono">https://{devInput || "&lt;your-host&gt;"}/api</span> for AI, decks, etc. Build takes ~20–30 s.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 rounded-lg border border-border/60 bg-muted/30 p-3 text-xs">
           <div className="flex items-start justify-between gap-3 flex-wrap">
             <div className="flex-1 min-w-0">
               <p className="font-semibold">Published URL</p>
