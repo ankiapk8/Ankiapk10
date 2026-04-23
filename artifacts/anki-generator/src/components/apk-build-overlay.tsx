@@ -15,15 +15,20 @@ export function ApkBuildOverlay({
   startedAt,
   targetHost,
   errorMessage,
+  optimisticBuildToken,
 }: {
   isBuilding: boolean;
   buildFailed: boolean;
   startedAt: string | null;
   targetHost: string | null;
   errorMessage: string | null;
+  optimisticBuildToken?: number;
 }) {
   const [phase, setPhase] = useState<Phase | null>(null);
   const [progress, setProgress] = useState(0);
+  const [optimisticStartedAt, setOptimisticStartedAt] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (isBuilding) {
@@ -32,9 +37,22 @@ export function ApkBuildOverlay({
     }
   }, [isBuilding, startedAt]);
 
+  // Show immediately when the user clicks rebuild (optimistic) so the popup
+  // doesn't have to wait for the next status poll to pick up "building".
+  useEffect(() => {
+    if (!optimisticBuildToken) return;
+    setPhase("building");
+    setProgress(0);
+    setOptimisticStartedAt(new Date().toISOString());
+  }, [optimisticBuildToken]);
+
+  const effectiveStartedAt = startedAt ?? optimisticStartedAt;
+
   useEffect(() => {
     if (phase !== "building") return;
-    const start = startedAt ? new Date(startedAt).getTime() : Date.now();
+    const start = effectiveStartedAt
+      ? new Date(effectiveStartedAt).getTime()
+      : Date.now();
     const tick = () => {
       const elapsed = Date.now() - start;
       const pct = Math.min(98, (elapsed / ESTIMATED_BUILD_MS) * 100);
@@ -43,7 +61,7 @@ export function ApkBuildOverlay({
     tick();
     const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
-  }, [phase, startedAt]);
+  }, [phase, effectiveStartedAt]);
 
   useEffect(() => {
     if (phase !== "building") return;

@@ -76,6 +76,7 @@ export function DownloadApkCard() {
   const [configureError, setConfigureError] = useState<string | null>(null);
   const [configuring, setConfiguring] = useState(false);
   const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
+  const [optimisticBuildToken, setOptimisticBuildToken] = useState(0);
   const pollRef = useRef<number | null>(null);
 
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
@@ -123,6 +124,7 @@ export function DownloadApkCard() {
   }, [isBuilding]);
 
   const triggerRebuild = async (host?: string) => {
+    setOptimisticBuildToken((t) => t + 1);
     try {
       const url = host
         ? `${REBUILD_URL}?host=${encodeURIComponent(host)}`
@@ -218,6 +220,7 @@ export function DownloadApkCard() {
       startedAt={build?.build.startedAt ?? null}
       targetHost={build?.build.targetHost ?? null}
       errorMessage={build?.build.error ?? null}
+      optimisticBuildToken={optimisticBuildToken}
     />
     <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background shadow-sm">
       <div
