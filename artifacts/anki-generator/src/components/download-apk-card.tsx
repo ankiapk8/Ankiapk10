@@ -157,6 +157,12 @@ export function DownloadApkCard() {
 
   const publishedHost = build?.publishedHost ?? null;
 
+  // Cache-bust the download URL whenever the APK is rebuilt so users always
+  // get the latest APK (with the newest features) instead of a cached copy.
+  const downloadHref = liveMeta?.builtAt
+    ? `${APK_URL}?v=${encodeURIComponent(liveMeta.builtAt)}`
+    : APK_URL;
+
   const handleDownloadClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (targetMismatch && !isBuilding) {
       e.preventDefault();
@@ -234,7 +240,7 @@ export function DownloadApkCard() {
                 size="lg"
                 className="gap-2 shadow-md shadow-primary/20"
               >
-                <a href={APK_URL} download="anki-cards.apk" onClick={handleDownloadClick}>
+                <a href={downloadHref} download="anki-cards.apk" onClick={handleDownloadClick}>
                   <Download className="h-4 w-4" />
                   Download APK
                 </a>
