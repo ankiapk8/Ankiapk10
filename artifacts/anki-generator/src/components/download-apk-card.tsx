@@ -74,7 +74,7 @@ export function DownloadApkCard() {
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
-                Trusted Web Activity
+                Self-contained app
               </span>
               <span className="text-muted-foreground/70">
                 v{meta?.versionName ?? "1.0.0"} · {meta ? formatSize(meta.sizeBytes) : "~3 MB"}
