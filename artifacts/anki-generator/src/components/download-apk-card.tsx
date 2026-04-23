@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Smartphone, Download, ShieldCheck, Sparkles, AlertTriangle, Loader2, Hammer } from "lucide-react";
+import { Smartphone, Download, ShieldCheck, Sparkles, AlertTriangle, Loader2, Hammer, Share2, Check } from "lucide-react";
 import { apiUrl } from "@/lib/utils";
 
 const APK_URL = apiUrl("api/download-apk");
@@ -73,6 +73,7 @@ export function DownloadApkCard() {
   const [publishedInput, setPublishedInput] = useState("");
   const [configureError, setConfigureError] = useState<string | null>(null);
   const [configuring, setConfiguring] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "copied" | "error">("idle");
   const pollRef = useRef<number | null>(null);
 
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
@@ -155,6 +156,42 @@ export function DownloadApkCard() {
   };
 
   const publishedHost = build?.publishedHost ?? null;
+  const shareUrl = publishedHost
+    ? `https://${publishedHost}/api/download-apk?slot=published`
+    : null;
+
+  const handleShare = async () => {
+    if (!shareUrl) return;
+    const shareData = {
+      title: "AnkiGen Android app",
+      text: "Install the AnkiGen Android app:",
+      url: shareUrl,
+    };
+    try {
+      const nav = navigator as Navigator & {
+        share?: (data: ShareData) => Promise<void>;
+        canShare?: (data: ShareData) => boolean;
+      };
+      if (nav.share && (!nav.canShare || nav.canShare(shareData))) {
+        await nav.share(shareData);
+        return;
+      }
+      await navigator.clipboard.writeText(shareUrl);
+      setShareState("copied");
+      window.setTimeout(() => setShareState("idle"), 2000);
+    } catch (err) {
+      const aborted = err instanceof Error && err.name === "AbortError";
+      if (aborted) return;
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareState("copied");
+        window.setTimeout(() => setShareState("idle"), 2000);
+      } catch {
+        setShareState("error");
+        window.setTimeout(() => setShareState("idle"), 2500);
+      }
+    }
+  };
 
   // Cache-bust the download URL whenever the APK is rebuilt so users always
   // get the latest APK (with the newest features) instead of a cached copy.
@@ -234,16 +271,46 @@ export function DownloadApkCard() {
                 Build APK for this URL
               </Button>
             ) : (
-              <Button
-                asChild
-                size="lg"
-                className="gap-2 shadow-md shadow-primary/20"
-              >
-                <a href={downloadHref} download="anki-cards.apk" onClick={handleDownloadClick}>
-                  <Download className="h-4 w-4" />
-                  Download APK
-                </a>
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 md:items-end">
+                <Button
+                  asChild
+                  size="lg"
+                  className="gap-2 shadow-md shadow-primary/20"
+                >
+                  <a href={downloadHref} download="anki-cards.apk" onClick={handleDownloadClick}>
+                    <Download className="h-4 w-4" />
+                    Download APK
+                  </a>
+                </Button>
+                {shareUrl && (
+                  <Button
+                    type="button"
+                    size="lg"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={handleShare}
+                    data-testid="share-apk-button"
+                    title={shareUrl}
+                  >
+                    {shareState === "copied" ? (
+                      <>
+                        <Check className="h-4 w-4 text-emerald-600" />
+                        Link copied!
+                      </>
+                    ) : shareState === "error" ? (
+                      <>
+                        <AlertTriangle className="h-4 w-4 text-destructive" />
+                        Couldn't copy
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="h-4 w-4" />
+                        Share APK
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             )}
             {isBuilding && (
               <p className="text-[11px] text-muted-foreground md:text-right">
