@@ -1,4 +1,4 @@
-const CACHE = "anki-shell-v1";
+const CACHE = "anki-shell-v3";
 const SHELL = ["/", "/manifest.webmanifest", "/favicon.svg"];
 
 self.addEventListener("install", (e) => {
