@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { Sparkles, FileText, ImageIcon, Layers, ArrowRight } from "lucide-react";
+import { Sparkles, FileText, ImageIcon, Layers, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { GenerateSheet } from "@/components/generate-sheet";
+import { GenerateForm } from "@/components/generate-form";
 
 const features = [
   {
@@ -32,27 +31,10 @@ const features = [
 
 export default function Generate() {
   const [, setLocation] = useLocation();
-  const [sheetOpen, setSheetOpen] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setSheetOpen(true), 350);
-    return () => clearTimeout(t);
-  }, []);
-
-  const handleSheetChange = (open: boolean) => {
-    setSheetOpen(open);
-    if (!open) {
-      setTimeout(() => setLocation("/"), 200);
-    }
-  };
-
-  const handleDone = () => {
-    setSheetOpen(false);
-    setTimeout(() => setLocation("/decks"), 200);
-  };
 
   return (
     <div className="relative min-h-[60vh] pb-12">
+      {/* Animated background */}
       <motion.div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 overflow-hidden"
@@ -80,8 +62,35 @@ export default function Generate() {
           animate={{ scale: [1.1, 1, 1.1], opacity: [0.4, 0.7, 0.4] }}
           transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
         />
+        {[...Array(10)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full"
+            style={{
+              width: 4 + (i % 3) * 3,
+              height: 4 + (i % 3) * 3,
+              background:
+                i % 2
+                  ? "hsl(150 50% 55% / 0.35)"
+                  : "hsl(140 70% 50% / 0.35)",
+              left: `${(i * 73) % 100}%`,
+              top: `${10 + ((i * 47) % 70)}%`,
+            }}
+            animate={{
+              y: [0, -20, 0],
+              opacity: [0.2, 0.7, 0.2],
+            }}
+            transition={{
+              duration: 4 + (i % 3),
+              repeat: Infinity,
+              delay: i * 0.3,
+              ease: "easeInOut",
+            }}
+          />
+        ))}
       </motion.div>
 
+      {/* Hero */}
       <div className="text-center max-w-2xl mx-auto pt-6">
         <motion.div
           initial={{ scale: 0.5, opacity: 0, rotate: -15 }}
@@ -122,46 +131,23 @@ export default function Generate() {
         >
           Turn any PDF, text, or topic into a polished study deck in seconds.
         </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, duration: 0.6 }}
-          className="mt-6 flex items-center justify-center gap-3 flex-wrap"
-        >
-          <Button
-            size="lg"
-            className="gap-2 shadow-md shadow-primary/20"
-            onClick={() => setSheetOpen(true)}
-          >
-            <Sparkles className="h-4 w-4" />
-            Start Generating
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-          <Button
-            size="lg"
-            variant="outline"
-            onClick={() => setLocation("/decks")}
-          >
-            Browse Library
-          </Button>
-        </motion.div>
       </div>
 
-      <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
+      {/* Feature highlights */}
+      <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
         {features.map(({ icon: Icon, title, desc, color, bg }, idx) => (
           <motion.div
             key={title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{
-              delay: 0.5 + idx * 0.1,
+              delay: 0.4 + idx * 0.1,
               duration: 0.5,
               ease: [0.22, 1, 0.36, 1],
             }}
             whileHover={{ y: -4, transition: { duration: 0.2 } }}
           >
-            <Card className="h-full border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all">
+            <Card className="h-full border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all bg-background/70 backdrop-blur-sm">
               <CardContent className="p-5">
                 <div
                   className={`h-10 w-10 rounded-lg ${bg} flex items-center justify-center mb-3`}
@@ -176,11 +162,48 @@ export default function Generate() {
         ))}
       </div>
 
-      <GenerateSheet
-        open={sheetOpen}
-        onOpenChange={handleSheetChange}
-        onDone={handleDone}
-      />
+      {/* Inline generation form */}
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        className="mt-10 max-w-2xl mx-auto"
+      >
+        <Card className="border-border/60 shadow-md bg-card/85 backdrop-blur-md overflow-hidden">
+          <CardContent className="p-5 md:p-6">
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shrink-0">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-serif text-lg font-semibold leading-tight truncate">
+                    Build with AI
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Upload files, paste notes, or both.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 shrink-0"
+                onClick={() => setLocation("/decks?new=1")}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Empty deck
+              </Button>
+            </div>
+
+            <GenerateForm
+              variant="page"
+              animated
+              onDone={() => setLocation("/decks")}
+            />
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }
