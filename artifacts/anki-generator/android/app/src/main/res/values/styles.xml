@@ -3,7 +3,6 @@
 
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
-        <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
@@ -15,8 +14,17 @@
         <item name="android:background">@null</item>
     </style>
 
-
+    <!-- Cold-start splash. Uses Android 12+ SplashScreen API where available
+         (windowSplashScreen* attributes) and falls back to windowBackground
+         for older devices. The drawable is a green gradient with the launcher
+         icon centered, matching the in-app HTML splash so the transition is
+         seamless. -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
-        <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">@color/brandGreen</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <item name="android:windowBackground">@drawable/splash</item>
+        <item name="android:statusBarColor">@color/brandGreen</item>
+        <item name="android:navigationBarColor">@color/brandGreen</item>
     </style>
 </resources>
