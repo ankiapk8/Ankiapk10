@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import confetti from "canvas-confetti";
 import { useParams, Link } from "wouter";
 import { 
   useGetDeck, 
@@ -147,6 +148,29 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
         unknown: unknown.size,
         completedAt: new Date().toISOString(),
       });
+      const pct = (known.size + unknown.size) > 0 ? known.size / (known.size + unknown.size) : 0;
+      const colors = pct >= 0.8
+        ? ["#22c55e", "#10b981", "#84cc16", "#FF3C00", "#facc15"]
+        : ["#FF3C00", "#f97316", "#facc15", "#a3a3a3"];
+      const burst = (originX: number) => {
+        confetti({
+          particleCount: pct >= 0.8 ? 80 : 50,
+          spread: 75,
+          startVelocity: 45,
+          origin: { x: originX, y: 0.7 },
+          colors,
+          scalar: 1.05,
+          ticks: 220,
+        });
+      };
+      burst(0.2);
+      setTimeout(() => burst(0.8), 120);
+      if (pct >= 0.9) {
+        setTimeout(() => confetti({
+          particleCount: 120, spread: 100, startVelocity: 55,
+          origin: { x: 0.5, y: 0.5 }, colors, scalar: 1.2, ticks: 260,
+        }), 280);
+      }
     }
   }, [done, known.size, unknown.size, deckId, deckName]);
 
@@ -329,9 +353,20 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
       </div>
 
       <div
-        className={`transition-all duration-150 ${flipping ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}
+        className={`relative transition-all duration-150 ${flipping ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}
       >
-        <CardUI className="min-h-[280px] sm:min-h-[320px] border-border/50 shadow-lg overflow-hidden">
+        {revealed && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -inset-px rounded-xl opacity-60 blur-xl animate-in fade-in duration-500"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(255,60,0,0.18), rgba(34,197,94,0.18))",
+              zIndex: -1,
+            }}
+          />
+        )}
+        <CardUI className="min-h-[280px] sm:min-h-[320px] border-border/50 shadow-lg overflow-hidden relative">
           <CardContent className="p-0 flex flex-col h-full min-h-[280px] sm:min-h-[320px]">
             <div className="flex-1 flex flex-col p-6 sm:p-8">
               <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
