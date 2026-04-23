@@ -3,6 +3,26 @@
     "slot": "dev",
     "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
     "status": "ready",
+    "startedAt": "2026-04-23T14:48:00.249Z",
+    "finishedAt": "2026-04-23T14:48:19.385Z",
+    "durationMs": 19136,
+    "error": null,
+    "sizeBytes": 8253356
+  },
+  {
+    "slot": "published",
+    "host": "anki-1--ankiapk5.replit.app",
+    "status": "ready",
+    "startedAt": "2026-04-23T14:47:41.030Z",
+    "finishedAt": "2026-04-23T14:48:00.249Z",
+    "durationMs": 19219,
+    "error": null,
+    "sizeBytes": 8253236
+  },
+  {
+    "slot": "dev",
+    "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
+    "status": "ready",
     "startedAt": "2026-04-23T14:47:21.821Z",
     "finishedAt": "2026-04-23T14:47:41.021Z",
     "durationMs": 19200,
