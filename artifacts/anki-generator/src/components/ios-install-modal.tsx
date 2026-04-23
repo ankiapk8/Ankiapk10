@@ -96,7 +96,7 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
       {open && (
         <motion.div
           key="ios-install-backdrop"
-          className="fixed inset-0 z-[90] flex items-center justify-center px-4 py-6 overflow-hidden"
+          className="fixed inset-0 z-[90] flex items-center justify-center px-4 py-6 overflow-y-auto"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -137,7 +137,7 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
           ))}
 
           <motion.div
-            className="relative w-full max-w-md rounded-3xl bg-white text-slate-800 shadow-2xl overflow-hidden"
+            className="relative w-full max-w-md my-auto rounded-3xl bg-white text-slate-800 shadow-2xl overflow-hidden max-h-[calc(100vh-3rem)] flex flex-col"
             initial={{ scale: 0.85, y: 30, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.9, y: 20, opacity: 0 }}
