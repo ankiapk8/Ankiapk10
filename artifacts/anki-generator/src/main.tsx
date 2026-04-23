@@ -67,6 +67,17 @@ const { default: App } = await import("./App");
 
 createRoot(document.getElementById("root")!).render(<App />);
 
+function hideSplash() {
+  const el = document.getElementById("app-splash");
+  if (!el) return;
+  el.classList.add("is-hidden");
+  window.setTimeout(() => el.remove(), 700);
+}
+const SPLASH_MIN_MS = 1400;
+const startedAt = (window as unknown as { __splashStart?: number }).__splashStart ?? performance.now();
+const remaining = Math.max(0, SPLASH_MIN_MS - (performance.now() - startedAt));
+window.setTimeout(() => requestAnimationFrame(hideSplash), remaining);
+
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
     const swUrl = `${import.meta.env.BASE_URL}sw.js`;
