@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { BookOpen, LayoutDashboard, Library, Sparkles } from "lucide-react";
+import { HeaderApkButton } from "@/components/header-apk-button";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -13,12 +14,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center px-4 md:px-6 max-w-5xl mx-auto">
-          <Link href="/" className="flex items-center gap-2 mr-8">
+        <div className="container flex h-14 items-center gap-2 px-4 md:px-6 max-w-5xl mx-auto">
+          <Link href="/" className="flex items-center gap-2 mr-2 md:mr-6 shrink-0">
             <BookOpen className="h-6 w-6 text-primary" />
-            <span className="font-serif text-lg font-bold tracking-tight">AnkiGen</span>
+            <span className="font-serif text-lg font-bold tracking-tight hidden sm:inline">AnkiGen</span>
           </Link>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center gap-1 min-w-0">
             {navLinks.map(({ href, label, icon: Icon }) => {
               const path = href.split("?")[0];
               const isActive = path === "/"
@@ -42,6 +43,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
+          <div className="ml-auto pl-2">
+            <HeaderApkButton />
+          </div>
         </div>
       </header>
       <main className="flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-8">

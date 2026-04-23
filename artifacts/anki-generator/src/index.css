@@ -311,3 +311,19 @@
     inset: -1px;
   }
 }
+@keyframes apk-shine {
+  0% { transform: translateX(-150%) skewX(-20deg); }
+  60% { transform: translateX(380%) skewX(-20deg); }
+  100% { transform: translateX(380%) skewX(-20deg); }
+}
+.apk-shine {
+  animation: apk-shine 3.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes apk-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.08); opacity: 0; }
+}
+.apk-pulse {
+  animation: apk-pulse 2.4s ease-out infinite;
+}
