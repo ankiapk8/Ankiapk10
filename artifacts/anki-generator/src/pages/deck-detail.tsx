@@ -150,8 +150,8 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
       });
       const pct = (known.size + unknown.size) > 0 ? known.size / (known.size + unknown.size) : 0;
       const colors = pct >= 0.8
-        ? ["#22c55e", "#10b981", "#84cc16", "#FF3C00", "#facc15"]
-        : ["#FF3C00", "#f97316", "#facc15", "#a3a3a3"];
+        ? ["#22c55e", "#10b981", "#84cc16", "#16a34a", "#4ade80"]
+        : ["#16a34a", "#84cc16", "#facc15", "#a3a3a3"];
       const burst = (originX: number) => {
         confetti({
           particleCount: pct >= 0.8 ? 80 : 50,

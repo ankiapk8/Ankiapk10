@@ -52,7 +52,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 }`}
                 style={{
                   background:
-                    "linear-gradient(120deg, hsl(150 60% 45%) 0%, hsl(160 60% 40%) 50%, hsl(20 90% 55%) 100%)",
+                    "linear-gradient(120deg, hsl(150 60% 45%) 0%, hsl(140 65% 42%) 50%, hsl(95 65% 45%) 100%)",
                 }}
                 aria-label="Generate flashcards"
               >

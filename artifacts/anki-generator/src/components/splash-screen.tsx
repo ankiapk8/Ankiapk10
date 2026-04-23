@@ -52,7 +52,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                   background:
                     i % 2
                       ? "hsl(150 50% 55% / 0.45)"
-                      : "hsl(20 90% 60% / 0.45)",
+                      : "hsl(140 70% 50% / 0.45)",
                   left: `${(i * 83) % 100}%`,
                   top: `${(i * 47) % 100}%`,
                 }}
@@ -98,7 +98,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                   className="absolute -inset-4 rounded-3xl"
                   style={{
                     background:
-                      "conic-gradient(from 0deg, hsl(150 60% 55%), hsl(20 90% 60%), hsl(150 60% 55%))",
+                      "conic-gradient(from 0deg, hsl(150 60% 55%), hsl(95 65% 50%), hsl(160 60% 40%), hsl(150 60% 55%))",
                     filter: "blur(14px)",
                     opacity: 0.45,
                   }}
@@ -113,7 +113,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                     animate={{ scale: 1, rotate: 0 }}
                     transition={{ delay: 0.6, duration: 0.5, ease: "backOut" }}
                   >
-                    <Sparkles className="h-5 w-5 text-orange-500 fill-orange-500/30" />
+                    <Sparkles className="h-5 w-5 text-emerald-500 fill-emerald-500/30" />
                   </motion.div>
                 </div>
               </motion.div>
@@ -124,7 +124,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                 transition={{ delay: 0.35, duration: 0.6 }}
                 className="text-center"
               >
-                <h1 className="font-serif text-4xl font-bold tracking-tight bg-gradient-to-br from-primary via-emerald-600 to-orange-500 bg-clip-text text-transparent">
+                <h1 className="font-serif text-4xl font-bold tracking-tight bg-gradient-to-br from-primary via-emerald-500 to-lime-500 bg-clip-text text-transparent">
                   AnkiGen
                 </h1>
                 <motion.p
@@ -145,7 +145,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                 className="h-[3px] w-40 rounded-full overflow-hidden bg-muted"
               >
                 <motion.div
-                  className="h-full w-1/3 bg-gradient-to-r from-primary to-orange-500 rounded-full"
+                  className="h-full w-1/3 bg-gradient-to-r from-primary to-lime-500 rounded-full"
                   animate={{ x: ["-100%", "300%"] }}
                   transition={{
                     duration: 1.4,

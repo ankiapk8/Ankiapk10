@@ -74,7 +74,7 @@ export default function Generate() {
           className="absolute -bottom-32 right-1/4 h-[360px] w-[360px] rounded-full"
           style={{
             background:
-              "radial-gradient(circle, hsl(20 90% 60% / 0.14) 0%, transparent 70%)",
+              "radial-gradient(circle, hsl(140 70% 50% / 0.16) 0%, transparent 70%)",
             filter: "blur(20px)",
           }}
           animate={{ scale: [1.1, 1, 1.1], opacity: [0.4, 0.7, 0.4] }}
@@ -93,7 +93,7 @@ export default function Generate() {
             className="absolute -inset-3 rounded-2xl"
             style={{
               background:
-                "conic-gradient(from 0deg, hsl(150 60% 55%), hsl(20 90% 60%), hsl(150 60% 55%))",
+                "conic-gradient(from 0deg, hsl(150 60% 55%), hsl(95 65% 50%), hsl(160 60% 40%), hsl(150 60% 55%))",
               filter: "blur(12px)",
               opacity: 0.5,
             }}
@@ -109,7 +109,7 @@ export default function Generate() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.6 }}
-          className="mt-5 font-serif text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-br from-primary via-emerald-600 to-orange-500 bg-clip-text text-transparent"
+          className="mt-5 font-serif text-4xl md:text-5xl font-bold tracking-tight bg-gradient-to-br from-primary via-emerald-500 to-lime-500 bg-clip-text text-transparent"
         >
           Generate Flashcards
         </motion.h1>

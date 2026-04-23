@@ -11,9 +11,9 @@ type Ripple = {
 
 const COLORS = [
   "hsl(150 60% 55%)",
-  "hsl(20 90% 60%)",
+  "hsl(140 70% 50%)",
   "hsl(160 55% 50%)",
-  "hsl(35 85% 55%)",
+  "hsl(95 65% 50%)",
 ];
 
 function isInteractive(target: EventTarget | null): boolean {
