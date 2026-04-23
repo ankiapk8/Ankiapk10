@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Hammer, CheckCircle2, AlertTriangle, Sparkles } from "lucide-react";
 
@@ -63,29 +64,51 @@ export function ApkBuildOverlay({
     Math.round((ESTIMATED_BUILD_MS * (100 - progress)) / 100 / 1000),
   );
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  const overlay = (
     <AnimatePresence>
       {phase && (
         <motion.div
           key="apk-build-overlay"
-          className="fixed inset-0 z-[95] flex items-center justify-center px-4 pointer-events-none"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.25 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "100dvh",
+            width: "100vw",
+            zIndex: 2147483646,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+            pointerEvents: "none",
+          }}
           aria-live="polite"
           role="status"
           data-testid="apk-build-overlay"
         >
           <motion.div
-            className="absolute inset-0 bg-black/35 backdrop-blur-[2px]"
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "rgba(0,0,0,0.35)",
+              backdropFilter: "blur(2px)",
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           />
 
           <motion.div
-            className="relative w-full max-w-sm rounded-3xl bg-white text-slate-800 shadow-2xl overflow-hidden pointer-events-auto"
+            className="relative w-full max-w-sm rounded-3xl bg-white text-slate-800 shadow-2xl overflow-hidden"
+            style={{ pointerEvents: "auto", maxHeight: "calc(100dvh - 2rem)" }}
             initial={{ scale: 0.85, y: 20, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.92, y: -12, opacity: 0 }}
@@ -105,6 +128,8 @@ export function ApkBuildOverlay({
       )}
     </AnimatePresence>
   );
+
+  return createPortal(overlay, document.body);
 }
 
 function BuildingBody({
