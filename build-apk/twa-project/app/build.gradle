@@ -22,7 +22,7 @@ plugins {
 
 def twaManifest = [
     applicationId: 'app.replit.ankicards',
-    hostName: '2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev', // The domain being opened in the TWA.
+    hostName: 'e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev', // The domain being opened in the TWA.
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: 'Anki Card Generator', // The application name.
     launcherName: 'Anki Cards', // The name shown on the Android Launcher.
@@ -76,17 +76,17 @@ android {
             // The URL the Web Manifest for the Progressive Web App that the TWA points to. This
             // is used by Chrome OS and Meta Quest to open the Web version of the PWA instead of
             // the TWA, as it will probably give a better user experience for non-mobile devices.
-            resValue "string", "webManifestUrl", 'https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/manifest.webmanifest'
+            resValue "string", "webManifestUrl", 'https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/manifest.webmanifest'
         
 
         
             // This is used by Meta Quest.
-            resValue "string", "fullScopeUrl", 'https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/'
+            resValue "string", "fullScopeUrl", 'https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/'
         
 
         
             // The data for the app to support web share target.
-            resValue "string", "shareTarget", '{\\"action\\":\\"https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/decks?new=1\\",\\"method\\":\\"GET\\",\\"params\\":{\\"title\\":\\"shared_title\\",\\"text\\":\\"shared_text\\",\\"url\\":\\"shared_url\\"}}'
+            resValue "string", "shareTarget", '{\\"action\\":\\"https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/decks?new=1\\",\\"method\\":\\"GET\\",\\"params\\":{\\"title\\":\\"shared_title\\",\\"text\\":\\"shared_text\\",\\"url\\":\\"shared_url\\"}}'
         
 
         // The hostname is used when building the intent-filter, so the TWA is able to

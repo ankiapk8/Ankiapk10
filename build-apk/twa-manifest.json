@@ -1,6 +1,6 @@
 {
   "packageId": "app.replit.ankicards",
-  "host": "2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev",
+  "host": "e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev",
   "name": "Anki Card Generator",
   "launcherName": "Anki Cards",
   "display": "standalone",
@@ -13,8 +13,8 @@
   "backgroundColor": "#0B0B0F",
   "enableNotifications": false,
   "startUrl": "/",
-  "iconUrl": "https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/icons/icon-512.png",
-  "maskableIconUrl": "https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/icons/icon-maskable-512.png",
+  "iconUrl": "https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/icons/icon-512.png",
+  "maskableIconUrl": "https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/icons/icon-maskable-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "/home/runner/workspace/build-apk/android.keystore",
@@ -24,7 +24,7 @@
   "appVersionCode": 1,
   "shortcuts": [],
   "generatorApp": "unknown",
-  "webManifestUrl": "https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/manifest.webmanifest",
+  "webManifestUrl": "https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {
@@ -33,10 +33,10 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/",
+  "fullScopeUrl": "https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/",
   "minSdkVersion": 21,
   "shareTarget": {
-    "action": "https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/decks?new=1",
+    "action": "https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/decks?new=1",
     "method": "GET",
     "params": {
       "title": "shared_title",
