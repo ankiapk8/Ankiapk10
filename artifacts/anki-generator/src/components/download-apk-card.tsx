@@ -46,6 +46,7 @@ type BuildStatus = {
   };
   apk: ApkMeta | null;
   matches: boolean;
+  upToDate?: boolean;
   publishedHost?: string | null;
   history?: BuildHistoryEntry[];
 };
@@ -203,10 +204,12 @@ export function DownloadApkCard() {
     ? `${APK_URL}?v=${encodeURIComponent(liveMeta.builtAt)}`
     : APK_URL;
 
+  const isStale = build ? build.upToDate === false : false;
+
   const handleDownloadClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (targetMismatch && !isBuilding) {
+    if ((targetMismatch || isStale) && !isBuilding && !buildUnsupported) {
       e.preventDefault();
-      await triggerRebuild();
+      await triggerRebuild(currentHost || undefined);
       return;
     }
     setDownloading(true);

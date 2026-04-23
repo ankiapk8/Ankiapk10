@@ -407,4 +407,37 @@ export function autoConfigureFromEnv(): void {
   if (!dev && !published) {
     logger.info("No REPLIT_*_DOMAIN set; skipping APK auto-configure");
   }
+
+  startSourceHashWatcher();
+}
+
+// Periodically re-check the source hash; if it changed since the last build
+// for any slot, kick off a fresh build so the served APK never goes stale.
+let watcherStarted = false;
+let lastSeenHash: string | null = null;
+function startSourceHashWatcher(): void {
+  if (watcherStarted) return;
+  watcherStarted = true;
+  lastSeenHash = computeSourceHash();
+  setInterval(() => {
+    if (!buildSupported()) return;
+    let current: string;
+    try {
+      current = computeSourceHash();
+    } catch {
+      return;
+    }
+    if (current === lastSeenHash) return;
+    lastSeenHash = current;
+    for (const slot of SLOTS) {
+      const host = resolveHostForSlot(slot);
+      if (!host) continue;
+      const meta = readApkMeta(slot);
+      if (meta?.sourceHash === current && meta?.host === host) continue;
+      const state = slotStates[slot];
+      if (state.status === "building") continue;
+      logger.info({ slot, host, sourceHash: current }, "Source changed; auto-rebuilding APK");
+      startRebuild(slot, host);
+    }
+  }, 30_000).unref();
 }
