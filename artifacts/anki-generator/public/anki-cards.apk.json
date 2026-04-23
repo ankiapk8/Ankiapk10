@@ -1,12 +1,12 @@
 {
-  "targetUrl": "https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev",
-  "host": "e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev",
+  "targetUrl": "https://localhost",
+  "host": "localhost",
   "additionalHosts": [],
   "packageId": "app.replit.ankigen",
   "versionName": "2.0-bundled",
   "versionCode": 2,
-  "sizeBytes": 6023369,
-  "builtAt": "2026-04-23T10:25:48Z",
+  "sizeBytes": 6126649,
+  "builtAt": "2026-04-23T11:43:21Z",
   "kind": "bundled",
-  "apiBase": "https://e0d03730-9c60-4ce3-a3fe-ac3b48fe480e-00-hl437y7bdnbc.sisko.replit.dev/api"
+  "apiBase": "https://localhost/api"
 }
