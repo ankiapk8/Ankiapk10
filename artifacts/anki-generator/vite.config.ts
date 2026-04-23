@@ -26,12 +26,35 @@ if (!basePath) {
   );
 }
 
+function apkMimePlugin() {
+  return {
+    name: "apk-mime",
+    configureServer(server: any) {
+      server.middlewares.use((req: any, res: any, next: any) => {
+        if (req.url && /\.apk(\?|$)/i.test(req.url)) {
+          res.setHeader("Content-Type", "application/vnd.android.package-archive");
+        }
+        next();
+      });
+    },
+    configurePreviewServer(server: any) {
+      server.middlewares.use((req: any, res: any, next: any) => {
+        if (req.url && /\.apk(\?|$)/i.test(req.url)) {
+          res.setHeader("Content-Type", "application/vnd.android.package-archive");
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    apkMimePlugin(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
