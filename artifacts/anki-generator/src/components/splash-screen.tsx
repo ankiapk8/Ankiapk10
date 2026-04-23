@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
+
+const LOGO_URL = `${import.meta.env.BASE_URL}favicon.svg`;
 
 // Welcome splash now appears on every launch (no session gate) and runs
 // long enough to feel cinematic.
@@ -94,18 +96,23 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                   transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
                 />
                 <motion.div
-                  className="relative w-28 h-28 rounded-3xl bg-white shadow-2xl flex items-center justify-center border border-primary/10"
+                  className="relative w-32 h-32 rounded-3xl shadow-2xl overflow-hidden flex items-center justify-center"
                   animate={{ scale: [1, 1.04, 1] }}
                   transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
                 >
-                  <BookOpen className="h-14 w-14 text-primary" strokeWidth={2.2} />
+                  <img
+                    src={LOGO_URL}
+                    alt="AnkiGen"
+                    className="w-full h-full object-cover"
+                    draggable={false}
+                  />
                   <motion.div
                     className="absolute -top-1.5 -right-1.5"
                     initial={{ scale: 0, rotate: -45 }}
                     animate={{ scale: 1, rotate: 0 }}
                     transition={{ delay: 0.85, duration: 0.7, ease: "backOut" }}
                   >
-                    <Sparkles className="h-6 w-6 text-emerald-500 fill-emerald-500/30" />
+                    <Sparkles className="h-6 w-6 text-emerald-500 fill-emerald-500/30 drop-shadow" />
                   </motion.div>
                 </motion.div>
               </motion.div>

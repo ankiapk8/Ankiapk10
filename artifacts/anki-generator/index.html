@@ -63,9 +63,8 @@
       .splash-card.c2 { --r: 0deg; }
       .splash-card.c3 { --r: 8deg; }
       .splash-glyph {
-        font-weight: 700; font-size: 72px; letter-spacing: -2px;
-        background: linear-gradient(135deg,#16A34A,#22C55E);
-        -webkit-background-clip: text; background-clip: text; color: transparent;
+        width: 92px; height: 92px; display: block;
+        filter: drop-shadow(0 6px 14px rgba(21,128,61,0.35));
         animation: splashPulse 2.4s ease-in-out infinite;
       }
       @keyframes splashPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.06);} }
@@ -99,7 +98,7 @@
       <div class="splash-stack">
         <div class="splash-card c1"></div>
         <div class="splash-card c2"></div>
-        <div class="splash-card c3"><span class="splash-glyph">A</span></div>
+        <div class="splash-card c3"><img class="splash-glyph" src="/favicon.svg" alt="" /></div>
       </div>
       <div class="splash-title">Welcome to AnkiGen</div>
       <div class="splash-sub">Turning your notes into flashcards…</div>
