@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Apple,
@@ -87,21 +88,50 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
     }, 1400);
   };
 
+  // Lock body scroll while modal is open so iOS Safari won't scroll the page
+  // behind it and we can fully control the modal's vertical position.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
+  }, [open]);
+
   const steps = device === "ipad" ? IPAD_STEPS : IPHONE_STEPS;
   const heading =
     device === "ipad" ? "Install on your iPad" : "Install on your iPhone";
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  const overlay = (
     <AnimatePresence>
       {open && (
         <motion.div
           key="ios-install-backdrop"
-          className="fixed inset-0 z-[90] flex items-center justify-center px-4 py-6 overflow-y-auto"
+          className="ios-install-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.35 }}
           style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "100dvh",
+            zIndex: 2147483600,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1.5rem 1rem",
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
             background:
               "radial-gradient(ellipse at top, rgba(22,163,74,0.95) 0%, rgba(6,78,59,0.95) 70%, rgba(0,0,0,0.85) 100%)",
             backdropFilter: "blur(8px)",
@@ -137,7 +167,12 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
           ))}
 
           <motion.div
-            className="relative w-full max-w-md my-auto rounded-3xl bg-white text-slate-800 shadow-2xl overflow-hidden max-h-[calc(100vh-3rem)] flex flex-col"
+            className="relative w-full max-w-md rounded-3xl bg-white text-slate-800 shadow-2xl overflow-hidden flex flex-col"
+            style={{
+              marginTop: "auto",
+              marginBottom: "auto",
+              maxHeight: "calc(100dvh - 3rem)",
+            }}
             initial={{ scale: 0.85, y: 30, opacity: 0 }}
             animate={{ scale: 1, y: 0, opacity: 1 }}
             exit={{ scale: 0.9, y: 20, opacity: 0 }}
@@ -324,6 +359,8 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
       )}
     </AnimatePresence>
   );
+
+  return createPortal(overlay, document.body);
 }
 
 function DeviceTab({

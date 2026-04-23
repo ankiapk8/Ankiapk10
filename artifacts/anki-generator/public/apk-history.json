@@ -1,5 +1,25 @@
 [
   {
+    "slot": "published",
+    "host": "anki-1--ankiapk5.replit.app",
+    "status": "ready",
+    "startedAt": "2026-04-23T14:36:51.576Z",
+    "finishedAt": "2026-04-23T14:37:10.914Z",
+    "durationMs": 19338,
+    "error": null,
+    "sizeBytes": 8251548
+  },
+  {
+    "slot": "dev",
+    "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
+    "status": "ready",
+    "startedAt": "2026-04-23T14:36:30.271Z",
+    "finishedAt": "2026-04-23T14:36:51.575Z",
+    "durationMs": 21304,
+    "error": null,
+    "sizeBytes": 8253172
+  },
+  {
     "slot": "dev",
     "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
     "status": "ready",
