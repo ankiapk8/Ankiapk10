@@ -115,7 +115,7 @@ export function CropCompare({ image, sourceImage, bbox, onLightbox, className, d
           {open ? "Hide source page" : "Compare to source page"}
         </button>
         {open && warning && (
-          <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-500">
+          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-500">
             <AlertCircle className="h-3 w-3" /> {warning}
           </span>
         )}

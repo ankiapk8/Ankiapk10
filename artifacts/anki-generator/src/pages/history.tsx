@@ -38,7 +38,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (status === "cancelled") {
     return (
-      <Badge variant="outline" className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+      <Badge variant="outline" className="gap-1 border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
         <Ban className="h-3 w-3" /> Cancelled
       </Badge>
     );

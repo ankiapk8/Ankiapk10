@@ -784,7 +784,7 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId, pre
                         const target = typeof f.cardCount === "number" ? f.cardCount : DEFAULT_TARGET_CARDS;
                         if (target > capacity && capacity > 0) {
                           return (
-                            <p className="text-[10px] text-amber-600 dark:text-amber-500">
+                            <p className="text-[10px] text-emerald-600 dark:text-emerald-500">
                               Text content likely only supports ~{capacity} cards — target will be capped.
                             </p>
                           );
@@ -853,7 +853,7 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId, pre
                   const target = typeof manualCardCount === "number" ? manualCardCount : DEFAULT_TARGET_CARDS;
                   if (target > capacity && capacity > 0) {
                     return (
-                      <p className="text-[10px] text-amber-600 dark:text-amber-500">
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-500">
                         Content likely only supports ~{capacity} cards — target will be capped.
                       </p>
                     );

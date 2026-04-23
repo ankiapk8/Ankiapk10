@@ -72,7 +72,7 @@ export default function Dashboard() {
           { label: "Total Decks", value: totalDecks, icon: Layers, color: "text-primary" },
           { label: "Total Cards", value: totalCards, icon: FileText, color: "text-blue-500" },
           { label: "Decks This Week", value: thisWeekDecks, icon: TrendingUp, color: "text-green-500" },
-          { label: "Study Streak", value: streak > 0 ? `${streak}d` : "—", icon: Flame, color: "text-amber-500" },
+          { label: "Study Streak", value: streak > 0 ? `${streak}d` : "—", icon: Flame, color: "text-emerald-500" },
         ].map(({ label, value, icon: Icon, color }, idx) => (
           <motion.div
             key={label}
@@ -181,7 +181,7 @@ export default function Dashboard() {
                               title={`${day.known} known`}
                             />
                             <div
-                              className="w-full rounded-t-sm bg-amber-400/70"
+                              className="w-full rounded-t-sm bg-emerald-400/70"
                               style={{ height: unknownH }}
                               title={`${day.total - day.known} still learning`}
                             />
@@ -199,7 +199,7 @@ export default function Dashboard() {
                   <span className="text-xs text-muted-foreground">Known</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="h-2.5 w-2.5 rounded-sm bg-amber-400/70" />
+                  <div className="h-2.5 w-2.5 rounded-sm bg-emerald-400/70" />
                   <span className="text-xs text-muted-foreground">Still learning</span>
                 </div>
               </div>
@@ -257,7 +257,7 @@ export default function Dashboard() {
                         <span className="font-medium text-green-600 bg-green-500/10 px-2 py-0.5 rounded-md">
                           {s.known} ✓
                         </span>
-                        <span className="font-medium text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-md">
+                        <span className="font-medium text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-md">
                           {s.unknown} ✗
                         </span>
                       </div>

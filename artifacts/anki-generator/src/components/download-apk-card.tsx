@@ -113,16 +113,16 @@ export function DownloadApkCard() {
         </div>
 
         {targetMismatch && (
-          <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
-            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs">
+            <AlertTriangle className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-amber-700 dark:text-amber-500">
+              <p className="font-semibold text-emerald-700 dark:text-emerald-500">
                 APK was built for a different URL
               </p>
-              <p className="text-amber-700/80 dark:text-amber-500/80 mt-0.5 leading-relaxed">
+              <p className="text-emerald-700/80 dark:text-emerald-500/80 mt-0.5 leading-relaxed">
                 This APK opens <span className="font-mono">{meta?.host}</span>, but you're on{" "}
                 <span className="font-mono">{currentHost}</span>. After deploying, run{" "}
-                <span className="font-mono bg-amber-500/15 px-1 py-0.5 rounded">
+                <span className="font-mono bg-emerald-500/15 px-1 py-0.5 rounded">
                   APK_TARGET_URL=https://{currentHost} node build-apk/build.mjs
                 </span>{" "}
                 to rebuild.
