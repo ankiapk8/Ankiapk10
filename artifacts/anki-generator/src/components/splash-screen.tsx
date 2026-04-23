@@ -23,7 +23,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
         sessionStorage.setItem(SPLASH_KEY, "1");
       } catch {}
       setShow(false);
-    }, 2200);
+    }, 700);
     return () => clearTimeout(t);
   }, [show]);
 
