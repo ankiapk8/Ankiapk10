@@ -89,6 +89,13 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    watch: {
+      ignored: [
+        "**/android/**",
+        "**/dist/**",
+        "**/node_modules/**",
+      ],
+    },
   },
   preview: {
     port,
