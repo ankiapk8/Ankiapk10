@@ -238,8 +238,12 @@ router.post("/export-apkg", async (req, res, next): Promise<void> => {
   const zipBuffer: Buffer = await apkg.save();
 
   const safeName = rootLabel.replace(/[^a-z0-9_\-]/gi, "_");
-  res.setHeader("Content-Type", "application/octet-stream");
-  res.setHeader("Content-Disposition", `attachment; filename="${safeName}.apkg"`);
+  res.setHeader("Content-Type", "application/vnd.anki");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${safeName}.apkg"; filename*=UTF-8''${encodeURIComponent(safeName)}.apkg`,
+  );
+  res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Content-Length", zipBuffer.length);
 
   req.log.info(
