@@ -9,6 +9,7 @@ import { SplashScreen } from "@/components/splash-screen";
 import { PageTransition } from "@/components/page-transition";
 import { ClickRipple } from "@/components/click-ripple";
 import { OfflineBanner } from "@/components/offline-indicator";
+import { UpdateBanner } from "@/components/update-banner";
 
 import Dashboard from "@/pages/dashboard";
 import Generate from "@/pages/generate";
@@ -84,6 +85,7 @@ function App() {
     >
       <TooltipProvider>
         <OfflineBanner />
+        <UpdateBanner />
         <SplashScreen>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
             <Router />
