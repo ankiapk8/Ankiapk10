@@ -105,8 +105,26 @@ function buildSupported(): boolean {
   return true;
 }
 
+function isUsableHost(host: string): boolean {
+  if (!host) return false;
+  if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") return false;
+  if (host.startsWith("172.") || host.startsWith("10.") || host.startsWith("192.168.")) return false;
+  return host.includes(".");
+}
+
 export function startRebuild(host: string): BuildState {
   if (state.status === "building") return getBuildState();
+
+  if (!isUsableHost(host)) {
+    state.status = "failed";
+    state.error = `Refusing to build APK for non-public host "${host}"`;
+    state.targetHost = host;
+    state.startedAt = new Date().toISOString();
+    state.finishedAt = state.startedAt;
+    appendLog(state.error);
+    logger.warn({ host }, "Refused APK rebuild for non-public host");
+    return getBuildState();
+  }
 
   if (!buildSupported()) {
     state.status = "unsupported";

@@ -11,17 +11,43 @@ import {
 
 const router: IRouter = Router();
 
-function resolveTargetHost(req: Express.Request & { headers?: Record<string, unknown>; query?: Record<string, unknown> }): string | null {
+function isPublicHost(host: string | null): host is string {
+  if (!host) return false;
+  if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") return false;
+  if (host.startsWith("172.") || host.startsWith("10.") || host.startsWith("192.168.")) return false;
+  return host.includes(".");
+}
+
+function envHost(): string | null {
+  return (
+    process.env.REPLIT_DEPLOYMENT_DOMAIN ||
+    process.env.REPLIT_DEV_DOMAIN ||
+    null
+  );
+}
+
+function resolveTargetHost(
+  req: Express.Request & { headers?: Record<string, unknown>; query?: Record<string, unknown> },
+): string | null {
   const queryHost =
     typeof req.query?.host === "string" ? (req.query.host as string) : null;
   const fwd = req.headers?.["x-forwarded-host"];
   const hostHeader = req.headers?.host;
-  const raw =
-    queryHost ||
-    (typeof fwd === "string" ? fwd.split(",")[0].trim() : Array.isArray(fwd) ? fwd[0] : null) ||
-    (typeof hostHeader === "string" ? hostHeader : null);
-  if (!raw) return null;
-  return raw.replace(/:\d+$/, "");
+  const candidates = [
+    queryHost,
+    typeof fwd === "string" ? fwd.split(",")[0].trim() : Array.isArray(fwd) ? (fwd[0] as string) : null,
+    typeof hostHeader === "string" ? hostHeader : null,
+  ]
+    .filter((v): v is string => typeof v === "string" && v.length > 0)
+    .map((v) => v.replace(/:\d+$/, ""));
+
+  for (const c of candidates) {
+    if (isPublicHost(c)) return c;
+  }
+  // Fall back to the Replit-provided public domain so internal/loopback
+  // callers (curl, health checks) don't poison the bundled APK with
+  // "localhost" or a private LAN address.
+  return envHost();
 }
 
 router.get("/download-apk/status", (req, res) => {
