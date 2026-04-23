@@ -9,8 +9,16 @@ import path from "path";
 import fs from "fs";
 
 const log = new ConsoleLog("build");
-const HOST = process.env.REPLIT_DEV_DOMAIN;
+const TARGET_URL = process.env.APK_TARGET_URL;
+const HOST = TARGET_URL
+  ? new URL(TARGET_URL).host
+  : process.env.REPLIT_DEV_DOMAIN;
+if (!HOST) {
+  console.error("ERROR: Set APK_TARGET_URL=https://your-domain or REPLIT_DEV_DOMAIN");
+  process.exit(1);
+}
 const ORIGIN = `https://${HOST}`;
+log.info(`Target host: ${HOST}`);
 const PROJECT_DIR = path.resolve("./twa-project");
 
 const config = new Config(
@@ -76,3 +84,23 @@ await androidSdk.apkSigner(
 );
 
 log.info("APK ready at", finalApk);
+
+const stat = fs.statSync(finalApk);
+const meta = {
+  targetUrl: ORIGIN,
+  host: HOST,
+  packageId: twaManifest.packageId,
+  versionName: twaManifest.appVersionName,
+  versionCode: twaManifest.appVersionCode,
+  sizeBytes: stat.size,
+  builtAt: new Date().toISOString(),
+};
+
+const publicDir = path.resolve("../artifacts/anki-generator/public");
+fs.copyFileSync(finalApk, path.join(publicDir, "anki-cards.apk"));
+fs.writeFileSync(
+  path.join(publicDir, "anki-cards.apk.json"),
+  JSON.stringify(meta, null, 2),
+);
+log.info("Copied APK + metadata to", publicDir);
+log.info(JSON.stringify(meta, null, 2));

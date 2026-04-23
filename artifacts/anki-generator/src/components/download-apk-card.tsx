@@ -1,14 +1,40 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Smartphone, Download, ShieldCheck, Sparkles } from "lucide-react";
+import { Smartphone, Download, ShieldCheck, Sparkles, AlertTriangle } from "lucide-react";
 
 const APK_URL = `${import.meta.env.BASE_URL}anki-cards.apk`;
+const META_URL = `${import.meta.env.BASE_URL}anki-cards.apk.json`;
+
+type ApkMeta = {
+  targetUrl: string;
+  host: string;
+  versionName: string;
+  versionCode: number;
+  sizeBytes: number;
+  builtAt: string;
+};
+
+function formatSize(bytes: number) {
+  if (!bytes) return "—";
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(1)} MB`;
+}
 
 export function DownloadApkCard() {
   const [downloading, setDownloading] = useState(false);
+  const [meta, setMeta] = useState<ApkMeta | null>(null);
 
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+  const currentHost = typeof window !== "undefined" ? window.location.host : "";
+  const targetMismatch = !!(meta && currentHost && meta.host !== currentHost);
+
+  useEffect(() => {
+    fetch(META_URL)
+      .then(r => r.ok ? r.json() : null)
+      .then(setMeta)
+      .catch(() => setMeta(null));
+  }, []);
 
   return (
     <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background shadow-sm">
@@ -32,12 +58,12 @@ export function DownloadApkCard() {
             </div>
           </div>
 
-          <div className="hidden md:block flex-1">
+          <div className="hidden md:block flex-1 min-w-0">
             <h3 className="text-xl font-serif font-bold tracking-tight">Get the Android app</h3>
             <p className="text-sm text-muted-foreground mt-0.5">
               Native experience — full screen, app icon on your home screen, no browser bar.
             </p>
-            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground flex-wrap">
               <span className="inline-flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                 Signed APK
@@ -46,8 +72,15 @@ export function DownloadApkCard() {
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
                 Trusted Web Activity
               </span>
-              <span className="text-muted-foreground/70">v1.0.0 · ~3 MB</span>
+              <span className="text-muted-foreground/70">
+                v{meta?.versionName ?? "1.0.0"} · {meta ? formatSize(meta.sizeBytes) : "~3 MB"}
+              </span>
             </div>
+            {meta && (
+              <p className="text-[10px] text-muted-foreground/60 mt-1.5 truncate">
+                Targets <span className="font-mono">{meta.host}</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-2 md:items-end">
@@ -62,7 +95,7 @@ export function DownloadApkCard() {
                 Download APK
               </a>
             </Button>
-            {!isAndroid && (
+            {!isAndroid && !downloading && (
               <p className="text-[11px] text-muted-foreground md:text-right">
                 Open this page on Android to install
               </p>
@@ -74,6 +107,25 @@ export function DownloadApkCard() {
             )}
           </div>
         </div>
+
+        {targetMismatch && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-amber-700 dark:text-amber-500">
+                APK was built for a different URL
+              </p>
+              <p className="text-amber-700/80 dark:text-amber-500/80 mt-0.5 leading-relaxed">
+                This APK opens <span className="font-mono">{meta?.host}</span>, but you're on{" "}
+                <span className="font-mono">{currentHost}</span>. After deploying, run{" "}
+                <span className="font-mono bg-amber-500/15 px-1 py-0.5 rounded">
+                  APK_TARGET_URL=https://{currentHost} node build-apk/build.mjs
+                </span>{" "}
+                to rebuild.
+              </p>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
