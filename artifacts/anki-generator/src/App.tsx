@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
+import { SplashScreen } from "@/components/splash-screen";
+import { PageTransition } from "@/components/page-transition";
 
 import Dashboard from "@/pages/dashboard";
 import Decks from "@/pages/decks";
@@ -16,14 +18,16 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <Layout>
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/generate">{() => <Redirect to="/decks?new=1" />}</Route>
-        <Route path="/decks" component={Decks} />
-        <Route path="/decks/:id" component={DeckDetail} />
-        <Route path="/history" component={History} />
-        <Route component={NotFound} />
-      </Switch>
+      <PageTransition>
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/generate">{() => <Redirect to="/decks?new=1" />}</Route>
+          <Route path="/decks" component={Decks} />
+          <Route path="/decks/:id" component={DeckDetail} />
+          <Route path="/history" component={History} />
+          <Route component={NotFound} />
+        </Switch>
+      </PageTransition>
     </Layout>
   );
 }
@@ -32,9 +36,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <SplashScreen>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </SplashScreen>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

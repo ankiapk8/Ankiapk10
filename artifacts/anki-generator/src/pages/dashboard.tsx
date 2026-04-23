@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
+import { motion } from "framer-motion";
 import { useListDecks } from "@workspace/api-client-react";
 import { format, isThisWeek } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -72,8 +73,15 @@ export default function Dashboard() {
           { label: "Total Cards", value: totalCards, icon: FileText, color: "text-blue-500" },
           { label: "Decks This Week", value: thisWeekDecks, icon: TrendingUp, color: "text-green-500" },
           { label: "Study Streak", value: streak > 0 ? `${streak}d` : "—", icon: Flame, color: "text-amber-500" },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <Card key={label} className="border-border/50 shadow-sm">
+        ].map(({ label, value, icon: Icon, color }, idx) => (
+          <motion.div
+            key={label}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 * idx, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            whileHover={{ y: -3, transition: { duration: 0.15 } }}
+          >
+          <Card className="border-border/50 shadow-sm h-full hover:shadow-md transition-shadow">
             <CardHeader className="pb-2 pt-4 px-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{label}</p>
@@ -88,6 +96,7 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
+          </motion.div>
         ))}
       </div>
 
