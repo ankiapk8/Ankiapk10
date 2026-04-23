@@ -7,11 +7,11 @@ import { SplashScreen } from "@/components/splash-screen";
 import { PageTransition } from "@/components/page-transition";
 
 import Dashboard from "@/pages/dashboard";
+import Generate from "@/pages/generate";
 import Decks from "@/pages/decks";
 import DeckDetail from "@/pages/deck-detail";
 import History from "@/pages/history";
 import NotFound from "@/pages/not-found";
-import { Redirect } from "wouter";
 
 const queryClient = new QueryClient();
 
@@ -21,7 +21,7 @@ function Router() {
       <PageTransition>
         <Switch>
           <Route path="/" component={Dashboard} />
-          <Route path="/generate">{() => <Redirect to="/decks?new=1" />}</Route>
+          <Route path="/generate" component={Generate} />
           <Route path="/decks" component={Decks} />
           <Route path="/decks/:id" component={DeckDetail} />
           <Route path="/history" component={History} />

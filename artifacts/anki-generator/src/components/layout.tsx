@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { motion } from "framer-motion";
 import { BookOpen, LayoutDashboard, Library, Sparkles } from "lucide-react";
 import { HeaderApkButton } from "@/components/header-apk-button";
 
@@ -7,9 +8,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const navLinks = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/decks?new=1", label: "Generate", icon: Sparkles },
     { href: "/decks", label: "Library", icon: Library },
   ];
+
+  const generateActive = location === "/generate";
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
@@ -21,12 +23,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="flex items-center gap-1 min-w-0">
             {navLinks.map(({ href, label, icon: Icon }) => {
-              const path = href.split("?")[0];
-              const isActive = path === "/"
+              const isActive = href === "/"
                 ? location === "/"
-                : path === "/decks"
-                ? location.startsWith("/decks")
-                : location === path;
+                : location.startsWith(href);
               return (
                 <Link key={href} href={href}>
                   <span
@@ -42,6 +41,52 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               );
             })}
+
+            <Link href="/generate">
+              <motion.span
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                className={`relative ml-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold overflow-hidden text-white shadow-sm shadow-primary/20 ${
+                  generateActive ? "ring-2 ring-primary/40 ring-offset-1 ring-offset-background" : ""
+                }`}
+                style={{
+                  background:
+                    "linear-gradient(120deg, hsl(150 60% 45%) 0%, hsl(160 60% 40%) 50%, hsl(20 90% 55%) 100%)",
+                }}
+                aria-label="Generate flashcards"
+              >
+                <motion.span
+                  aria-hidden
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.45) 50%, transparent 70%)",
+                  }}
+                  animate={{ x: ["-120%", "120%"] }}
+                  transition={{
+                    duration: 2.6,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    repeatDelay: 1.4,
+                  }}
+                />
+                <motion.span
+                  aria-hidden
+                  className="relative inline-flex"
+                  animate={{ rotate: [0, 14, -10, 0], scale: [1, 1.15, 1, 1] }}
+                  transition={{
+                    duration: 2.4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    repeatDelay: 0.6,
+                  }}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                </motion.span>
+                <span className="relative">Generate</span>
+              </motion.span>
+            </Link>
           </nav>
           <div className="ml-auto pl-2">
             <HeaderApkButton />

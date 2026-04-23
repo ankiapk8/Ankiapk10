@@ -58,7 +58,7 @@ export default function Dashboard() {
           <h1 className="text-3xl font-serif font-bold text-primary tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Your study progress at a glance.</p>
         </div>
-        <Link href="/decks?new=1">
+        <Link href="/generate">
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
             Generate Cards
@@ -289,7 +289,7 @@ export default function Dashboard() {
 
       {/* Quick actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Link href="/decks?new=1">
+        <Link href="/generate">
           <Card className="border-border/50 shadow-sm hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group">
             <CardContent className="flex items-center gap-4 p-5">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
