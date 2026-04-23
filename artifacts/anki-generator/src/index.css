@@ -327,3 +327,35 @@
 .apk-pulse {
   animation: apk-pulse 2.4s ease-out infinite;
 }
+
+/* Global tactile press feedback for clickable surfaces */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+a, button, [role="button"], [role="tab"], [role="menuitem"], [role="option"], label, summary {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+a:not([data-no-press]):active,
+[role="button"]:not([data-no-press]):active,
+[role="tab"]:not([data-no-press]):active,
+[role="menuitem"]:not([data-no-press]):active,
+label:not([data-no-press]):active {
+  transform: scale(0.97);
+  transition: transform 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-press {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease;
+}
+.card-press:active {
+  transform: scale(0.985);
+}
+
+/* Smoother default transitions for shared interactive primitives */
+[data-slot="card"],
+[data-radix-collection-item],
+[data-state] {
+  transition-property: transform, box-shadow, background-color, border-color, color;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}

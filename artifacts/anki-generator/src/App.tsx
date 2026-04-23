@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { SplashScreen } from "@/components/splash-screen";
 import { PageTransition } from "@/components/page-transition";
+import { ClickRipple } from "@/components/click-ripple";
 
 import Dashboard from "@/pages/dashboard";
 import Generate from "@/pages/generate";
@@ -41,6 +42,7 @@ function App() {
             <Router />
           </WouterRouter>
         </SplashScreen>
+        <ClickRipple />
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
