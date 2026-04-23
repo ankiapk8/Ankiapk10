@@ -63,6 +63,15 @@ function applyApkViewport() {
 }
 applyApkViewport();
 
+try {
+  const stored = localStorage.getItem("ankigen-appearance");
+  if (stored === "mobile" || stored === "desktop") {
+    document.documentElement.setAttribute("data-appearance", stored);
+  }
+} catch {
+  /* ignore */
+}
+
 const { default: App } = await import("./App");
 
 createRoot(document.getElementById("root")!).render(<App />);
