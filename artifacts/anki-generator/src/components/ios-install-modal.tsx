@@ -1,31 +1,82 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Apple, Share, Plus, Sparkles, X, PartyPopper } from "lucide-react";
+import {
+  Apple,
+  Share,
+  Plus,
+  Sparkles,
+  X,
+  PartyPopper,
+  Smartphone,
+  Tablet,
+} from "lucide-react";
 
-const STEPS = [
+type Device = "iphone" | "ipad";
+
+type Step = {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+};
+
+const IPHONE_STEPS: Step[] = [
   {
     icon: <Share className="w-6 h-6" />,
     title: "Tap the Share button",
-    desc: "In Safari's bottom toolbar, tap the square with an upward arrow.",
+    desc: "It's the square with an upward arrow in Safari's bottom toolbar.",
   },
   {
     icon: <Plus className="w-6 h-6" />,
     title: 'Choose "Add to Home Screen"',
-    desc: "Scroll the share sheet until you see this option, then tap it.",
+    desc: "Scroll the share sheet a little until you see this option, then tap it.",
   },
   {
     icon: <Sparkles className="w-6 h-6" />,
     title: 'Tap "Add"',
-    desc: "AnkiGen will appear on your home screen like a real app — works offline too!",
+    desc: "AnkiGen lands on your home screen like a real app — works offline too!",
   },
 ];
 
+const IPAD_STEPS: Step[] = [
+  {
+    icon: <Share className="w-6 h-6" />,
+    title: "Tap the Share button",
+    desc: "On iPad it lives in the top-right corner of Safari, next to the address bar.",
+  },
+  {
+    icon: <Plus className="w-6 h-6" />,
+    title: 'Pick "Add to Home Screen"',
+    desc: "It's in the second row of share-sheet actions. Swipe down if you don't see it.",
+  },
+  {
+    icon: <Sparkles className="w-6 h-6" />,
+    title: 'Confirm with "Add"',
+    desc: "AnkiGen will appear on your iPad home screen and open full-screen, just like a real app.",
+  },
+];
+
+function detectDevice(): Device {
+  if (typeof navigator === "undefined") return "iphone";
+  const ua = navigator.userAgent;
+  const isIPad =
+    /iPad/.test(ua) ||
+    (navigator.platform === "MacIntel" &&
+      (navigator as Navigator & { maxTouchPoints?: number }).maxTouchPoints! > 1);
+  return isIPad ? "ipad" : "iphone";
+}
+
 export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [exiting, setExiting] = useState(false);
+  const [device, setDevice] = useState<Device>("iphone");
+
+  const initialDevice = useMemo(() => detectDevice(), []);
 
   useEffect(() => {
-    if (!open) setExiting(false);
-  }, [open]);
+    if (open) {
+      setDevice(initialDevice);
+      setExiting(false);
+    }
+  }, [open, initialDevice]);
 
   const handleClose = () => {
     if (exiting) return;
@@ -35,6 +86,10 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
       onClose();
     }, 1400);
   };
+
+  const steps = device === "ipad" ? IPAD_STEPS : IPHONE_STEPS;
+  const heading =
+    device === "ipad" ? "Install on your iPad" : "Install on your iPhone";
 
   return (
     <AnimatePresence>
@@ -56,7 +111,6 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
           aria-label="Install on iPhone or iPad"
           onClick={handleClose}
         >
-          {/* Floating sparkles */}
           {Array.from({ length: 18 }).map((_, i) => (
             <motion.div
               key={i}
@@ -91,7 +145,6 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
             onClick={(e) => e.stopPropagation()}
             data-testid="ios-install-modal"
           >
-            {/* Close */}
             <button
               type="button"
               onClick={handleClose}
@@ -102,7 +155,6 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
               <X className="w-5 h-5" />
             </button>
 
-            {/* Header with treasure */}
             <div
               className="relative px-6 pt-8 pb-6 text-center text-white overflow-hidden"
               style={{
@@ -111,8 +163,8 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
               }}
             >
               <TreasureChest exiting={exiting} />
-              <h2 className="text-2xl font-bold tracking-tight mt-3">
-                Install on iPhone or iPad
+              <h2 className="text-2xl font-bold tracking-tight mt-3" data-testid="ios-install-heading">
+                {heading}
               </h2>
               <p className="text-white/85 text-sm mt-1">
                 <Apple className="inline w-3.5 h-3.5 -mt-0.5 mr-1" />
@@ -120,33 +172,74 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
               </p>
             </div>
 
-            {/* Steps */}
-            <div className="px-6 py-5 space-y-3">
-              {STEPS.map((step, i) => (
+            {/* Device tabs */}
+            <div className="px-6 pt-4">
+              <div
+                role="tablist"
+                aria-label="Choose your device"
+                className="relative flex p-1 rounded-full bg-emerald-50 border border-emerald-100"
+              >
                 <motion.div
-                  key={i}
-                  className="flex items-start gap-3 p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100"
-                  initial={{ opacity: 0, x: -16 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 + i * 0.12, duration: 0.4 }}
-                >
-                  <div className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center shadow-md">
-                    {step.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-emerald-700">
-                        STEP {i + 1}
-                      </span>
-                    </div>
-                    <div className="font-semibold text-sm">{step.title}</div>
-                    <div className="text-xs text-slate-600 mt-0.5">{step.desc}</div>
-                  </div>
-                </motion.div>
-              ))}
+                  aria-hidden
+                  className="absolute top-1 bottom-1 w-[calc(50%-0.25rem)] rounded-full bg-gradient-to-r from-emerald-500 to-green-600 shadow-md shadow-emerald-600/30"
+                  initial={false}
+                  animate={{ x: device === "iphone" ? 0 : "100%" }}
+                  transition={{ type: "spring", stiffness: 320, damping: 28 }}
+                />
+                <DeviceTab
+                  active={device === "iphone"}
+                  icon={<Smartphone className="w-4 h-4" />}
+                  label="iPhone"
+                  onClick={() => setDevice("iphone")}
+                  testid="ios-tab-iphone"
+                />
+                <DeviceTab
+                  active={device === "ipad"}
+                  icon={<Tablet className="w-4 h-4" />}
+                  label="iPad"
+                  onClick={() => setDevice("ipad")}
+                  testid="ios-tab-ipad"
+                />
+              </div>
             </div>
 
-            {/* Footer */}
+            <div className="px-6 py-4">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={device}
+                  className="space-y-3"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22 }}
+                >
+                  <DeviceHint device={device} />
+                  {steps.map((step, i) => (
+                    <motion.div
+                      key={i}
+                      className="flex items-start gap-3 p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100"
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.08 + i * 0.1, duration: 0.35 }}
+                    >
+                      <div className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center shadow-md">
+                        {step.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-emerald-700">
+                            STEP {i + 1}
+                          </span>
+                        </div>
+                        <div className="font-semibold text-sm">{step.title}</div>
+                        <div className="text-xs text-slate-600 mt-0.5">{step.desc}</div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
             <div className="px-6 pb-6">
               <p className="text-[11px] text-slate-500 text-center mb-3">
                 Tip: open this site in <strong>Safari</strong> (not Chrome) for the install option.
@@ -161,7 +254,6 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
               </button>
             </div>
 
-            {/* Exit overlay */}
             <AnimatePresence>
               {exiting && (
                 <motion.div
@@ -176,7 +268,6 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
                       "radial-gradient(circle at center, rgba(22,163,74,0.97) 0%, rgba(6,78,59,0.98) 100%)",
                   }}
                 >
-                  {/* Burst particles */}
                   {Array.from({ length: 22 }).map((_, i) => {
                     const angle = (i / 22) * Math.PI * 2;
                     const dist = 140 + (i % 4) * 30;
@@ -235,10 +326,111 @@ export function IosInstallModal({ open, onClose }: { open: boolean; onClose: () 
   );
 }
 
+function DeviceTab({
+  active,
+  icon,
+  label,
+  onClick,
+  testid,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  testid: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      data-testid={testid}
+      className={`relative z-10 flex-1 flex items-center justify-center gap-1.5 h-9 rounded-full text-sm font-semibold transition-colors ${
+        active ? "text-white" : "text-emerald-700 hover:text-emerald-900"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function DeviceHint({ device }: { device: Device }) {
+  const isIPad = device === "ipad";
+  return (
+    <div
+      className="relative flex items-center gap-3 p-3 rounded-2xl border bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-100 overflow-hidden"
+      data-testid={`ios-device-hint-${device}`}
+    >
+      <DeviceFrame variant={device} />
+      <div className="flex-1 min-w-0">
+        <div className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+          {isIPad ? "iPad Safari" : "iPhone Safari"}
+        </div>
+        <div className="text-sm font-semibold text-slate-800 leading-tight">
+          {isIPad
+            ? "Look for the share icon in the top-right corner."
+            : "Look for the share icon in the bottom toolbar."}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeviceFrame({ variant }: { variant: Device }) {
+  const isIPad = variant === "ipad";
+  const w = isIPad ? 56 : 36;
+  const h = isIPad ? 42 : 60;
+  const radius = isIPad ? 6 : 7;
+  const sharePos = isIPad
+    ? { top: 6, right: 6 }
+    : { bottom: 6, left: "50%" as const, transform: "translateX(-50%)" };
+
+  return (
+    <div
+      className="relative shrink-0 rounded-[10px] bg-gradient-to-br from-slate-800 to-slate-950 shadow-inner"
+      style={{ width: w, height: h, padding: 3 }}
+      aria-hidden
+    >
+      <div
+        className="relative w-full h-full bg-white overflow-hidden"
+        style={{ borderRadius: radius }}
+      >
+        <div className="absolute inset-x-0 top-0 h-2 bg-emerald-100" />
+        <div className="absolute inset-x-1 top-3 h-0.5 bg-slate-200 rounded" />
+        <div className="absolute inset-x-1 top-4 h-0.5 bg-slate-200 rounded" />
+        <div className="absolute inset-x-1 top-5 h-0.5 bg-slate-100 rounded" />
+
+        <motion.div
+          className="absolute flex items-center justify-center rounded-sm bg-emerald-500 text-white shadow"
+          style={{ width: 11, height: 11, ...sharePos }}
+          animate={{ scale: [1, 1.25, 1] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <Share className="w-2 h-2" strokeWidth={3} />
+        </motion.div>
+
+        <motion.span
+          aria-hidden
+          className="absolute w-2 h-2 rounded-full bg-yellow-300"
+          style={{
+            ...(isIPad
+              ? { top: 4, right: 4 }
+              : { bottom: 4, left: "50%" as const, marginLeft: -4 }),
+            boxShadow: "0 0 8px rgba(253,224,71,0.9)",
+          }}
+          animate={{ opacity: [0.2, 1, 0.2], scale: [0.6, 1.4, 0.6] }}
+          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function TreasureChest({ exiting }: { exiting: boolean }) {
   return (
     <div className="relative w-32 h-32 mx-auto">
-      {/* Glow */}
       <motion.div
         aria-hidden
         className="absolute inset-0 rounded-full"
@@ -249,7 +441,6 @@ function TreasureChest({ exiting }: { exiting: boolean }) {
         transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* Chest body */}
       <motion.div
         className="absolute left-1/2 -translate-x-1/2 bottom-2 w-24 h-14 rounded-md"
         style={{
@@ -260,14 +451,11 @@ function TreasureChest({ exiting }: { exiting: boolean }) {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5 }}
       >
-        {/* Lock */}
         <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-4 h-4 rounded-sm bg-yellow-400 border border-yellow-600" />
-        {/* Bands */}
         <div className="absolute inset-x-2 top-2 h-0.5 bg-yellow-500/80" />
         <div className="absolute inset-x-2 bottom-2 h-0.5 bg-yellow-500/80" />
       </motion.div>
 
-      {/* Lid */}
       <motion.div
         className="absolute left-1/2 -translate-x-1/2 bottom-[52px] w-24 h-8 rounded-t-[18px] origin-bottom"
         style={{
@@ -281,7 +469,6 @@ function TreasureChest({ exiting }: { exiting: boolean }) {
         <div className="absolute inset-x-2 top-1.5 h-0.5 bg-yellow-500/80" />
       </motion.div>
 
-      {/* Coins / sparkles bursting out */}
       {!exiting &&
         Array.from({ length: 8 }).map((_, i) => {
           const angle = -Math.PI / 2 + (i - 3.5) * 0.18;
