@@ -93,6 +93,8 @@ interface GenerateSheetProps {
   onOpenChange: (open: boolean) => void;
   onDone?: () => void;
   defaultParentId?: number | null;
+  prefilledText?: string;
+  prefilledDeckName?: string;
 }
 
 function buildParentOptions(allDecks: DeckWithParent[]): { id: number; label: string; depth: number }[] {
@@ -121,7 +123,7 @@ function buildParentOptions(allDecks: DeckWithParent[]): { id: number; label: st
   return result;
 }
 
-export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: GenerateSheetProps) {
+export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId, prefilledText, prefilledDeckName }: GenerateSheetProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createDeck = useCreateDeck();
@@ -152,6 +154,13 @@ export function GenerateSheet({ open, onOpenChange, onDone, defaultParentId }: G
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [isAnyGenerating]);
+
+  useEffect(() => {
+    if (open && (prefilledText || prefilledDeckName)) {
+      if (prefilledText) setManualText(prev => prev || prefilledText);
+      if (prefilledDeckName) setManualDeckName(prev => prev || prefilledDeckName);
+    }
+  }, [open, prefilledText, prefilledDeckName]);
 
   const isExtracting = files.some(f => f.status === "extracting");
   const readyFiles = files.filter(f => f.status === "ready");

@@ -30,5 +30,6 @@
     <string name="launcherName" translatable="false">Anki Cards</string>
     <string name="orientation" translatable="false">portrait</string>
     <string name="providerAuthority" translatable="false">app.replit.ankicards.fileprovider</string>
+    <string name="shareTarget" translatable="false">{\"action\":\"https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/decks?new=1\",\"method\":\"GET\",\"params\":{\"title\":\"shared_title\",\"text\":\"shared_text\",\"url\":\"shared_url\"}}</string>
     <string name="webManifestUrl" translatable="false">https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/manifest.webmanifest</string>
 </resources>

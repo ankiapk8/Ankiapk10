@@ -85,6 +85,9 @@ android {
         
 
         
+            // The data for the app to support web share target.
+            resValue "string", "shareTarget", '{\\"action\\":\\"https://2eedf879-ae94-44aa-8bec-683f98340dff-00-2b8ku7fhxcnj2.pike.replit.dev/decks?new=1\\",\\"method\\":\\"GET\\",\\"params\\":{\\"title\\":\\"shared_title\\",\\"text\\":\\"shared_text\\",\\"url\\":\\"shared_url\\"}}'
+        
 
         // The hostname is used when building the intent-filter, so the TWA is able to
         // handle Intents to open host url of the application.

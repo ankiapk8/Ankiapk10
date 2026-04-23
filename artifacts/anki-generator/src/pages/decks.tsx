@@ -257,13 +257,22 @@ export default function Decks() {
   const { toast } = useToast();
 
   const [generateSheetOpen, setGenerateSheetOpen] = useState(false);
+  const [sharedText, setSharedText] = useState<string | undefined>(undefined);
+  const [sharedTitle, setSharedTitle] = useState<string | undefined>(undefined);
   const search_ = useSearch();
   useEffect(() => {
     const params = new URLSearchParams(search_);
-    if (params.get("new") === "1") {
+    const wantsNew = params.get("new") === "1";
+    const t = params.get("shared_text") ?? undefined;
+    const u = params.get("shared_url") ?? undefined;
+    const title = params.get("shared_title") ?? undefined;
+    const combined = [t, u].filter(Boolean).join("\n\n") || undefined;
+    if (wantsNew || combined || title) {
       setGenerateSheetOpen(true);
+      if (combined) setSharedText(combined);
+      if (title) setSharedTitle(title);
       const url = new URL(window.location.href);
-      url.searchParams.delete("new");
+      ["new", "shared_text", "shared_url", "shared_title"].forEach(k => url.searchParams.delete(k));
       window.history.replaceState({}, "", url.pathname + (url.search || ""));
     }
   }, [search_]);
@@ -705,7 +714,15 @@ export default function Decks() {
         </div>
       )}
 
-      <GenerateSheet open={generateSheetOpen} onOpenChange={setGenerateSheetOpen} />
+      <GenerateSheet
+        open={generateSheetOpen}
+        onOpenChange={(o) => {
+          setGenerateSheetOpen(o);
+          if (!o) { setSharedText(undefined); setSharedTitle(undefined); }
+        }}
+        prefilledText={sharedText}
+        prefilledDeckName={sharedTitle}
+      />
       <DeckFormSheet open={deckFormOpen} onOpenChange={setDeckFormOpen} mode={deckFormMode} />
 
       {selectMode && (

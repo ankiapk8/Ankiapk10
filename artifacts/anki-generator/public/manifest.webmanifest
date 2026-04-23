@@ -28,5 +28,38 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "Generate Cards",
+      "short_name": "Generate",
+      "description": "Create a new deck from text or PDFs",
+      "url": "/decks?new=1",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "My Decks",
+      "short_name": "Decks",
+      "description": "Browse your library",
+      "url": "/decks",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Study History",
+      "short_name": "History",
+      "description": "Review past sessions",
+      "url": "/history",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "share_target": {
+    "action": "/decks?new=1",
+    "method": "GET",
+    "params": {
+      "title": "shared_title",
+      "text": "shared_text",
+      "url": "shared_url"
+    }
+  },
+  "prefer_related_applications": false
 }

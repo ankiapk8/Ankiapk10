@@ -35,16 +35,16 @@
 34        <intent>
 34-->[com.google.androidbrowserhelper:androidbrowserhelper:2.6.2] /home/runner/.gradle/caches/8.11.1/transforms/5053e02be90783e54992393be394bb70/transformed/androidbrowserhelper-2.6.2/AndroidManifest.xml:23:9-29:18
 35            <action android:name="android.intent.action.VIEW" />
-35-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:146:17-68
-35-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:146:25-66
+35-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:160:17-68
+35-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:160:25-66
 36
 37            <category android:name="android.intent.category.BROWSABLE" />
-37-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:148:17-77
-37-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:148:27-75
+37-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:162:17-77
+37-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:162:27-75
 38
 39            <data android:scheme="https" />
-39-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:149:17-152:19
-39-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:149:23-45
+39-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:149:25-63
+39-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:163:23-45
 40        </intent>
 41    </queries>
 42
@@ -60,7 +60,7 @@
 47-->[androidx.core:core:1.13.0] /home/runner/.gradle/caches/8.11.1/transforms/a5429f7b20c607b890f08b5283ad4ec0/transformed/core-1.13.0/AndroidManifest.xml:26:22-94
 48
 49    <application
-49-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:33:5-191:19
+49-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:33:5-205:19
 50        android:name="app.replit.ankicards.Application"
 50-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:34:9-35
 51        android:allowBackup="true"
@@ -126,7 +126,7 @@
 82            </intent-filter>
 83        </activity>
 84        <activity
-84-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:77:9-158:20
+84-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:77:9-172:20
 85            android:name="app.replit.ankicards.LauncherActivity"
 85-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:77:19-50
 86            android:alwaysRetainTaskState="true"
@@ -214,157 +214,177 @@
 127                android:value="@string/fallbackType" />
 127-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:125:17-53
 128            <meta-data
-128-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:131:13-132:54
-129                android:name="android.support.customtabs.trusted.SCREEN_ORIENTATION"
-129-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:131:24-92
-130                android:value="@string/orientation" />
-130-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:132:17-52
-131
-132            <intent-filter>
-132-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:140:13-143:29
-133                <action android:name="android.intent.action.MAIN" />
-133-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:141:17-69
-133-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:141:25-66
+128-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:128:17-130:61
+129                android:name="android.support.customtabs.trusted.METADATA_SHARE_TARGET"
+129-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:129:21-92
+130                android:resource="@string/shareTarget" />
+130-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:130:21-59
+131            <meta-data
+131-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:135:13-136:54
+132                android:name="android.support.customtabs.trusted.SCREEN_ORIENTATION"
+132-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:135:24-92
+133                android:value="@string/orientation" />
+133-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:136:17-52
 134
-135                <category android:name="android.intent.category.LAUNCHER" />
-135-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:142:17-77
-135-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:142:27-74
-136            </intent-filter>
-137            <intent-filter android:autoVerify="true" >
-137-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:145:13-153:29
-137-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:145:28-53
-138                <action android:name="android.intent.action.VIEW" />
-138-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:146:17-68
-138-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:146:25-66
+135            <intent-filter>
+135-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:143:17-151:33
+136                <action android:name="android.intent.action.SEND" />
+136-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:145:25-77
+136-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:145:33-74
+137
+138                <category android:name="android.intent.category.DEFAULT" />
+138-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:21-80
+138-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:31-77
 139
-140                <category android:name="android.intent.category.DEFAULT" />
-140-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:21-80
-140-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:31-77
-141                <category android:name="android.intent.category.BROWSABLE" />
-141-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:148:17-77
-141-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:148:27-75
-142
-143                <data
-143-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:149:17-152:19
-144                    android:host="@string/hostName"
-144-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:150:21-52
-145                    android:scheme="https" />
-145-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:149:23-45
+140                <data android:mimeType="text/plain" />
+140-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:149:25-63
+140-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:149:31-60
+141            </intent-filter>
+142            <intent-filter>
+142-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:154:13-157:29
+143                <action android:name="android.intent.action.MAIN" />
+143-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:155:17-69
+143-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:155:25-66
+144
+145                <category android:name="android.intent.category.LAUNCHER" />
+145-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:156:17-77
+145-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:156:27-74
 146            </intent-filter>
-147        </activity>
-148        <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
-148-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:160:9-90
-148-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:160:19-87
-149        <activity
-149-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:162:9-163:62
-150            android:name="com.google.androidbrowserhelper.trusted.WebViewFallbackActivity"
-150-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:162:19-97
-151            android:configChanges="orientation|screenSize" />
-151-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:163:13-59
+147            <intent-filter android:autoVerify="true" >
+147-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:159:13-167:29
+147-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:159:28-53
+148                <action android:name="android.intent.action.VIEW" />
+148-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:160:17-68
+148-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:160:25-66
+149
+150                <category android:name="android.intent.category.DEFAULT" />
+150-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:21-80
+150-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:31-77
+151                <category android:name="android.intent.category.BROWSABLE" />
+151-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:162:17-77
+151-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:162:27-75
 152
-153        <provider
-153-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:165:9-173:20
-154            android:name="androidx.core.content.FileProvider"
-154-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:166:13-62
-155            android:authorities="@string/providerAuthority"
-155-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:167:13-60
-156            android:exported="false"
-156-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:169:13-37
-157            android:grantUriPermissions="true" >
-157-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:168:13-47
-158            <meta-data
-158-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:170:13-172:53
-159                android:name="android.support.FILE_PROVIDER_PATHS"
-159-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:171:17-67
-160                android:resource="@xml/filepaths" />
-160-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:172:17-50
-161        </provider>
+153                <data
+153-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:149:25-63
+154                    android:host="@string/hostName"
+154-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:164:21-52
+155                    android:scheme="https" />
+155-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:163:23-45
+156            </intent-filter>
+157        </activity>
+158        <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
+158-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:174:9-90
+158-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:174:19-87
+159        <activity
+159-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:176:9-177:62
+160            android:name="com.google.androidbrowserhelper.trusted.WebViewFallbackActivity"
+160-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:176:19-97
+161            android:configChanges="orientation|screenSize" />
+161-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:177:13-59
 162
-163        <service
-163-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:175:9-186:19
-164            android:name="app.replit.ankicards.DelegationService"
-164-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:176:13-46
-165            android:enabled="@bool/enableNotification"
-165-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:177:13-55
-166            android:exported="@bool/enableNotification" >
-166-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:178:13-56
-167            <intent-filter>
-167-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:182:13-185:29
-168                <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
-168-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:183:17-105
-168-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:183:25-103
-169
-170                <category android:name="android.intent.category.DEFAULT" />
-170-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:21-80
-170-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:31-77
-171            </intent-filter>
-172        </service>
-173
-174        <provider
-174-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
-175            android:name="androidx.startup.InitializationProvider"
-175-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
-176            android:authorities="app.replit.ankicards.androidx-startup"
-176-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
-177            android:exported="false" >
-177-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
-178            <meta-data
-178-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
-179                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-179-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
-180                android:value="androidx.startup" />
-180-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
-181            <meta-data
-181-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/runner/.gradle/caches/8.11.1/transforms/4bc52031417e9743197e36b704fe409f/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:29:13-31:52
-182                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-182-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/runner/.gradle/caches/8.11.1/transforms/4bc52031417e9743197e36b704fe409f/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:30:17-78
-183                android:value="androidx.startup" />
-183-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/runner/.gradle/caches/8.11.1/transforms/4bc52031417e9743197e36b704fe409f/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:31:17-49
-184            <meta-data
-184-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
-185                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-185-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
-186                android:value="androidx.startup" />
-186-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
-187        </provider>
-188
-189        <receiver
-189-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
-190            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-190-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
-191            android:directBootAware="false"
-191-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
-192            android:enabled="true"
-192-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
-193            android:exported="true"
-193-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
-194            android:permission="android.permission.DUMP" >
-194-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
-195            <intent-filter>
-195-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
-196                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-196-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
-196-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
-197            </intent-filter>
-198            <intent-filter>
-198-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
-199                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-199-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
-199-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
-200            </intent-filter>
-201            <intent-filter>
-201-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
-202                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-202-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
-202-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
-203            </intent-filter>
-204            <intent-filter>
-204-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
-205                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-205-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
-205-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
-206            </intent-filter>
-207        </receiver>
-208    </application>
-209
-210</manifest>
+163        <provider
+163-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:179:9-187:20
+164            android:name="androidx.core.content.FileProvider"
+164-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:180:13-62
+165            android:authorities="@string/providerAuthority"
+165-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:181:13-60
+166            android:exported="false"
+166-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:183:13-37
+167            android:grantUriPermissions="true" >
+167-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:182:13-47
+168            <meta-data
+168-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:184:13-186:53
+169                android:name="android.support.FILE_PROVIDER_PATHS"
+169-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:185:17-67
+170                android:resource="@xml/filepaths" />
+170-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:186:17-50
+171        </provider>
+172
+173        <service
+173-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:189:9-200:19
+174            android:name="app.replit.ankicards.DelegationService"
+174-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:190:13-46
+175            android:enabled="@bool/enableNotification"
+175-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:191:13-55
+176            android:exported="@bool/enableNotification" >
+176-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:192:13-56
+177            <intent-filter>
+177-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:196:13-199:29
+178                <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
+178-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:197:17-105
+178-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:197:25-103
+179
+180                <category android:name="android.intent.category.DEFAULT" />
+180-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:21-80
+180-->/home/runner/workspace/build-apk/twa-project/app/src/main/AndroidManifest.xml:72:31-77
+181            </intent-filter>
+182        </service>
+183
+184        <provider
+184-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+185            android:name="androidx.startup.InitializationProvider"
+185-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
+186            android:authorities="app.replit.ankicards.androidx-startup"
+186-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
+187            android:exported="false" >
+187-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
+188            <meta-data
+188-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+189                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+189-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+190                android:value="androidx.startup" />
+190-->[androidx.emoji2:emoji2:1.3.0] /home/runner/.gradle/caches/8.11.1/transforms/5cb7738f5242d8c4e38c8ffa2b265b31/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+191            <meta-data
+191-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/runner/.gradle/caches/8.11.1/transforms/4bc52031417e9743197e36b704fe409f/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:29:13-31:52
+192                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+192-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/runner/.gradle/caches/8.11.1/transforms/4bc52031417e9743197e36b704fe409f/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:30:17-78
+193                android:value="androidx.startup" />
+193-->[androidx.lifecycle:lifecycle-process:2.6.2] /home/runner/.gradle/caches/8.11.1/transforms/4bc52031417e9743197e36b704fe409f/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:31:17-49
+194            <meta-data
+194-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+195                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+195-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+196                android:value="androidx.startup" />
+196-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+197        </provider>
+198
+199        <receiver
+199-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+200            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+200-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+201            android:directBootAware="false"
+201-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+202            android:enabled="true"
+202-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+203            android:exported="true"
+203-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+204            android:permission="android.permission.DUMP" >
+204-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+205            <intent-filter>
+205-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+206                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+206-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+206-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+207            </intent-filter>
+208            <intent-filter>
+208-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+209                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+209-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+209-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+210            </intent-filter>
+211            <intent-filter>
+211-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+212                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+212-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+212-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
+213            </intent-filter>
+214            <intent-filter>
+214-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+215                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+215-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+215-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/runner/.gradle/caches/8.11.1/transforms/bb4a0d32d1b17a1dcea0cf71d2bde5e0/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
+216            </intent-filter>
+217        </receiver>
+218    </application>
+219
+220</manifest>
