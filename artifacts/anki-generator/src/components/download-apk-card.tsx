@@ -111,13 +111,12 @@ export function DownloadApkCard() {
   }, []);
 
   useEffect(() => {
-    if (isBuilding) {
-      pollRef.current = window.setInterval(fetchStatus, 4000);
-      return () => {
-        if (pollRef.current) window.clearInterval(pollRef.current);
-        pollRef.current = null;
-      };
-    }
+    if (!isBuilding) return;
+    pollRef.current = window.setInterval(fetchStatus, 4000);
+    return () => {
+      if (pollRef.current) window.clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
   }, [isBuilding]);
 
   const triggerRebuild = async (host?: string) => {
