@@ -76,6 +76,9 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "canvas-confetti": "^1.9.4",
     "pdfjs-dist": "^5.6.205",
     "radix-ui": "^1.4.3",

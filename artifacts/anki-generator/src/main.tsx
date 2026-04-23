@@ -1,5 +1,11 @@
 import { createRoot } from "react-dom/client";
+import { setBaseUrl } from "@workspace/api-client-react";
 import "./index.css";
+
+const apiBase = import.meta.env.VITE_API_BASE as string | undefined;
+if (apiBase && apiBase.trim()) {
+  setBaseUrl(apiBase.trim().replace(/\/$/, ""));
+}
 
 type PromiseWithResolversConstructor = PromiseConstructor & {
   withResolvers?: <T>() => {
