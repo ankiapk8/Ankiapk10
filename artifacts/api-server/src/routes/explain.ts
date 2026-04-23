@@ -84,7 +84,7 @@ STYLE: Concise, structured, exam-ready.`,
 
   // osce
   return {
-    maxTokens: 8192,
+    maxTokens: 1_000_000,
     system: `Act as a senior OSCE examiner and clinical educator. Generate realistic OSCE (Objective Structured Clinical Examination) questions.
 
 For each station include:
