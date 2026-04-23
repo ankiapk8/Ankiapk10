@@ -9,26 +9,80 @@ import path from "path";
 import fs from "fs";
 
 const log = new ConsoleLog("build");
-const TARGET_URL = process.env.APK_TARGET_URL;
-const HOST = TARGET_URL
-  ? new URL(TARGET_URL).host
-  : process.env.REPLIT_DEV_DOMAIN;
-if (!HOST) {
-  console.error("ERROR: Set APK_TARGET_URL=https://your-domain or REPLIT_DEV_DOMAIN");
+
+// ---------------------------------------------------------------------------
+// Resolve the URL the APK should point at.
+//
+// Priority (highest first):
+//   1. APK_TARGET_URL env var                    (one-off override)
+//   2. build-apk/deployment.json -> deployedUrl  (persisted, set after publish)
+//   3. REPLIT_DEPLOYMENT_DOMAIN env var          (set inside deployments)
+//   4. REPLIT_DEV_DOMAIN env var                 (dev fallback)
+//
+// Use `node build-apk/set-deployed-url.mjs https://your-app.replit.app` once
+// after publishing. From then on, every APK rebuild automatically targets
+// production with no flags required.
+// ---------------------------------------------------------------------------
+
+const DEPLOYMENT_CONFIG_PATH = path.resolve("./deployment.json");
+let storedDeployedUrl = null;
+if (fs.existsSync(DEPLOYMENT_CONFIG_PATH)) {
+  try {
+    const stored = JSON.parse(fs.readFileSync(DEPLOYMENT_CONFIG_PATH, "utf8"));
+    if (stored && typeof stored.deployedUrl === "string" && stored.deployedUrl.trim()) {
+      storedDeployedUrl = stored.deployedUrl.trim();
+    }
+  } catch (err) {
+    log.warn(`Could not read ${DEPLOYMENT_CONFIG_PATH}: ${err.message}`);
+  }
+}
+
+const RESOLVED_URL =
+  process.env.APK_TARGET_URL?.trim() ||
+  storedDeployedUrl ||
+  (process.env.REPLIT_DEPLOYMENT_DOMAIN
+    ? `https://${process.env.REPLIT_DEPLOYMENT_DOMAIN}`
+    : null) ||
+  (process.env.REPLIT_DEV_DOMAIN
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+    : null);
+
+if (!RESOLVED_URL) {
+  console.error(
+    "ERROR: Could not resolve a target URL.\n" +
+      "  Set one with:  node build-apk/set-deployed-url.mjs https://your-app.replit.app\n" +
+      "  Or override:   APK_TARGET_URL=https://your-domain node build-apk/build.mjs",
+  );
   process.exit(1);
 }
+
+const TARGET_URL = RESOLVED_URL;
+const HOST = new URL(TARGET_URL).host;
 const ORIGIN = `https://${HOST}`;
+
+const sourceLabel = process.env.APK_TARGET_URL
+  ? "APK_TARGET_URL env"
+  : storedDeployedUrl
+  ? "build-apk/deployment.json"
+  : process.env.REPLIT_DEPLOYMENT_DOMAIN
+  ? "REPLIT_DEPLOYMENT_DOMAIN env"
+  : "REPLIT_DEV_DOMAIN env";
+log.info(`Target URL: ${ORIGIN}  (source: ${sourceLabel})`);
 
 // Additional hosts the APK should also trust (so the same APK works on both
 // the deployed .replit.app URL and the development preview URL). Provide via
-// APK_ADDITIONAL_HOSTS as a comma-separated list. The current dev domain is
-// auto-included if it differs from the primary host.
+// APK_ADDITIONAL_HOSTS as a comma-separated list. The current dev domain and
+// stored deployed host are auto-included if they differ from the primary host.
 const extraHostsRaw = (process.env.APK_ADDITIONAL_HOSTS ?? "")
   .split(",")
   .map((h) => h.trim())
   .filter(Boolean);
 if (process.env.REPLIT_DEV_DOMAIN && process.env.REPLIT_DEV_DOMAIN !== HOST) {
   extraHostsRaw.push(process.env.REPLIT_DEV_DOMAIN);
+}
+if (storedDeployedUrl) {
+  const storedHost = new URL(storedDeployedUrl).host;
+  if (storedHost !== HOST) extraHostsRaw.push(storedHost);
 }
 const ADDITIONAL_ORIGINS = Array.from(
   new Set(extraHostsRaw.map((h) => `https://${h.replace(/^https?:\/\//, "")}`)),
