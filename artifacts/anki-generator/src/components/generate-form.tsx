@@ -144,6 +144,7 @@ export function GenerateForm({
   const [isDragging, setIsDragging] = useState(false);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [successOverlay, setSuccessOverlay] = useState<{ open: boolean; decks: number; cards: number }>({ open: false, decks: 0, cards: 0 });
+  const pendingDoneRef = useRef<(() => void) | null>(null);
   const [manualText, setManualText] = useState("");
   const [manualDeckName, setManualDeckName] = useState("");
   const [manualCardCount, setManualCardCount] = useState<number | "">("");
@@ -423,14 +424,18 @@ export function GenerateForm({
     }
 
     if (ok > 0) {
+      const cleanRun = fail === 0 && cancelled === 0;
       setSuccessOverlay({ open: true, decks: ok, cards: totalCards });
-      if (fail + cancelled > 0) {
+      if (cleanRun) {
+        // Defer the reset + onDone (which often navigates away) until after
+        // the celebration overlay finishes, so users actually see it.
+        pendingDoneRef.current = () => { resetState(); onDone?.(); };
+      } else {
         toast({
           title: ok === 1 ? "Deck generated!" : `${ok} decks generated!`,
           description: `${fail > 0 ? `${fail} failed` : ""}${fail > 0 && cancelled > 0 ? ", " : ""}${cancelled > 0 ? `${cancelled} cancelled` : ""}.`,
         });
       }
-      if (fail === 0 && cancelled === 0) { resetState(); onDone?.(); }
     } else {
       toast({ title: "Generation failed", variant: "destructive" });
     }
@@ -496,7 +501,12 @@ export function GenerateForm({
         open={successOverlay.open}
         deckCount={successOverlay.decks}
         cardCount={successOverlay.cards}
-        onClose={() => setSuccessOverlay((s) => ({ ...s, open: false }))}
+        onClose={() => {
+          setSuccessOverlay((s) => ({ ...s, open: false }));
+          const fn = pendingDoneRef.current;
+          pendingDoneRef.current = null;
+          if (fn) fn();
+        }}
       />
       <ParentSelector />
 
