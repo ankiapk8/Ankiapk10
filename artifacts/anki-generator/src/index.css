@@ -360,14 +360,3 @@ label:not([data-no-press]):active {
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Mobile appearance: phone-style narrow layout, even on big screens */
-html[data-appearance="mobile"] body {
-  background: linear-gradient(180deg, #ECFDF5 0%, #F8FAF6 100%);
-}
-html[data-appearance="mobile"] .max-w-5xl {
-  max-width: 28rem !important;
-}
-html[data-appearance="mobile"] main {
-  padding-left: 1rem !important;
-  padding-right: 1rem !important;
-}

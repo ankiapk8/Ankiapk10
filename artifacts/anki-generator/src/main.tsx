@@ -30,9 +30,9 @@ if (!promiseConstructor.withResolvers) {
   };
 }
 
-// Force a desktop-like viewport ratio inside the installed APK so the layout
-// matches the desktop website (scaled to fit the phone's screen).
-function applyApkViewport() {
+// Detect installed APK / standalone mode for any platform-specific styling,
+// but allow normal pinch-to-zoom in all environments.
+function detectApk() {
   if (typeof window === "undefined") return;
   const w = window as unknown as {
     Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string };
@@ -47,27 +47,12 @@ function applyApkViewport() {
     // @ts-expect-error iOS only
     window.navigator.standalone === true ||
     /\bwv\b|AnkiGen/.test(navigator.userAgent);
-  if (!inApk) return;
-  const meta = document.querySelector('meta[name="viewport"]');
-  if (meta) {
-    meta.setAttribute(
-      "content",
-      "width=1280, initial-scale=" +
-        (window.innerWidth / 1280).toFixed(4) +
-        ", minimum-scale=" +
-        (window.innerWidth / 1280).toFixed(4) +
-        ", maximum-scale=1, user-scalable=yes, viewport-fit=cover",
-    );
-  }
-  document.documentElement.dataset.apk = "1";
+  if (inApk) document.documentElement.dataset.apk = "1";
 }
-applyApkViewport();
+detectApk();
 
 try {
-  const stored = localStorage.getItem("ankigen-appearance");
-  if (stored === "mobile" || stored === "desktop") {
-    document.documentElement.setAttribute("data-appearance", stored);
-  }
+  localStorage.removeItem("ankigen-appearance");
 } catch {
   /* ignore */
 }

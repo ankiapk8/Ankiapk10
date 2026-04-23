@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
 import { SplashScreen } from "@/components/splash-screen";
-import { AppearanceChooser } from "@/components/appearance-chooser";
 import { PageTransition } from "@/components/page-transition";
 import { ClickRipple } from "@/components/click-ripple";
 import { OfflineBanner } from "@/components/offline-indicator";
@@ -86,11 +85,9 @@ function App() {
       <TooltipProvider>
         <OfflineBanner />
         <SplashScreen>
-          <AppearanceChooser>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Router />
-            </WouterRouter>
-          </AppearanceChooser>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
         </SplashScreen>
         <ClickRipple />
         <Toaster />
