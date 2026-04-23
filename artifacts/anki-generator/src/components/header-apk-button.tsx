@@ -231,7 +231,7 @@ export function HeaderApkButton() {
   };
 
   const anyBuilding = dev.building || pub.building;
-  const mainLabel = isIos ? "Install on iPhone" : anyBuilding ? "Building APK…" : "Get the App";
+  const mainLabel = isIos ? "Install on iPhone/iPad" : anyBuilding ? "Building APK…" : "Get the App";
   const mainBadge = isIos ? "iOS" : anyBuilding ? "WAIT" : "APK";
 
   return (
