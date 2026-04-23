@@ -18,7 +18,25 @@ if (!HOST) {
   process.exit(1);
 }
 const ORIGIN = `https://${HOST}`;
-log.info(`Target host: ${HOST}`);
+
+// Additional hosts the APK should also trust (so the same APK works on both
+// the deployed .replit.app URL and the development preview URL). Provide via
+// APK_ADDITIONAL_HOSTS as a comma-separated list. The current dev domain is
+// auto-included if it differs from the primary host.
+const extraHostsRaw = (process.env.APK_ADDITIONAL_HOSTS ?? "")
+  .split(",")
+  .map((h) => h.trim())
+  .filter(Boolean);
+if (process.env.REPLIT_DEV_DOMAIN && process.env.REPLIT_DEV_DOMAIN !== HOST) {
+  extraHostsRaw.push(process.env.REPLIT_DEV_DOMAIN);
+}
+const ADDITIONAL_ORIGINS = Array.from(
+  new Set(extraHostsRaw.map((h) => `https://${h.replace(/^https?:\/\//, "")}`)),
+);
+log.info(`Primary host: ${HOST}`);
+if (ADDITIONAL_ORIGINS.length > 0) {
+  log.info(`Additional trusted origins: ${ADDITIONAL_ORIGINS.join(", ")}`);
+}
 const PROJECT_DIR = path.resolve("./twa-project");
 
 const config = new Config(
@@ -50,6 +68,7 @@ twaManifest.enableNotifications = false;
 twaManifest.orientation = "portrait";
 twaManifest.display = "standalone";
 twaManifest.shortcuts = [];
+twaManifest.additionalTrustedOrigins = ADDITIONAL_ORIGINS;
 
 await twaManifest.saveToFile(path.resolve("./twa-manifest.json"));
 log.info("Saved twa-manifest.json");
@@ -89,6 +108,8 @@ const stat = fs.statSync(finalApk);
 const meta = {
   targetUrl: ORIGIN,
   host: HOST,
+  additionalOrigins: ADDITIONAL_ORIGINS,
+  additionalHosts: ADDITIONAL_ORIGINS.map((o) => new URL(o).host),
   packageId: twaManifest.packageId,
   versionName: twaManifest.appVersionName,
   versionCode: twaManifest.appVersionCode,

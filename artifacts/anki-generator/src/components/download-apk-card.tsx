@@ -9,6 +9,7 @@ const META_URL = `${import.meta.env.BASE_URL}anki-cards.apk.json`;
 type ApkMeta = {
   targetUrl: string;
   host: string;
+  additionalHosts?: string[];
   versionName: string;
   versionCode: number;
   sizeBytes: number;
@@ -27,7 +28,10 @@ export function DownloadApkCard() {
 
   const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
   const currentHost = typeof window !== "undefined" ? window.location.host : "";
-  const targetMismatch = !!(meta && currentHost && meta.host !== currentHost);
+  const trustedHosts = meta ? [meta.host, ...(meta.additionalHosts ?? [])] : [];
+  const targetMismatch = !!(
+    meta && currentHost && !trustedHosts.includes(currentHost)
+  );
 
   useEffect(() => {
     fetch(META_URL)
