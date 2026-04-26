@@ -82,3 +82,17 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Deleting a parent nullifies `parentId` on children (they become standalone)
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## .apkg Export (iOS-Compatible)
+
+- `artifacts/api-server/src/routes/export-apkg.ts` builds the `.apkg` zip by hand with JSZip (`anki-apkg-export` is only used to bootstrap the SQLite template and `col` row).
+- Notes/cards use monotonic IDs (`baseId + index*2`) and sort by `pageNumber ASC NULLS LAST, createdAt ASC` so the deck reads in source-document order.
+- Card content runs through `toAnkiHtml` (HTML-escapes, then converts `\n` -> `<br>`). MCQs render as A/B/C/D with the correct option bolded; cards display a `p. N` page badge on the front when a `pageNumber` is present.
+- Visual cards' image data URLs are decoded via `decodeDataUrlImage` and added through `apkg.addMedia(filename, buffer)` so AnkiMobile (iOS) can resolve them; the `media` JSON manifest and the corresponding numeric-named files are written explicitly into the zip.
+- `jszip` is now an explicit dependency of `@workspace/api-server` (don't rely on it being a transitive of `anki-apkg-export`).
+
+## Mobile Responsiveness
+
+- Header/nav (`components/layout.tsx`): tighter gaps + larger touch targets on `<sm`; nav labels stay visible (icons get a small bump). Generate button also uses `py-2` on mobile for a 44px tap area.
+- Library list (`pages/decks.tsx`): nested indents drop from `ml-6/ml-5` to `ml-3/ml-2` on `<sm`, and the per-row card-count badge collapses to just the number on phones to keep Edit/Delete reachable.
+- Deck detail AI Tools (`pages/deck-detail.tsx`): switched from `grid-cols-3` to `grid-cols-1 sm:grid-cols-3` so the three AI buttons stack on phones instead of clipping their labels.

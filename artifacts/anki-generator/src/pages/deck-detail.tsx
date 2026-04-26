@@ -528,7 +528,7 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
             <Sparkles className="h-3 w-3" /> AI Tools
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
               onClick={() => handleExplain("full")}
               disabled={isExplaining}

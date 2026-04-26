@@ -102,8 +102,8 @@ function DeckRow({
   const indentClass = depth === 0
     ? ""
     : depth === 1
-    ? "ml-6 mt-1.5 space-y-1 border-l-2 border-primary/20 pl-4"
-    : "ml-5 mt-1 space-y-1 border-l-2 border-blue-200/40 pl-3";
+    ? "ml-3 sm:ml-6 mt-1.5 space-y-1 border-l-2 border-primary/20 pl-2 sm:pl-4"
+    : "ml-2 sm:ml-5 mt-1 space-y-1 border-l-2 border-blue-200/40 pl-2 sm:pl-3";
 
   const addBtnHover = depth <= 1
     ? "hover:text-primary hover:bg-primary/5"
@@ -175,9 +175,9 @@ function DeckRow({
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-auto">
                   <span className={cardCountClass}>
-                    {cardCount} card{cardCount !== 1 ? "s" : ""}
+                    {cardCount}<span className="hidden xs:inline sm:inline"> card{cardCount !== 1 ? "s" : ""}</span>
                   </span>
                   {!selectMode && (
                     <div className="flex items-center gap-0.5">
