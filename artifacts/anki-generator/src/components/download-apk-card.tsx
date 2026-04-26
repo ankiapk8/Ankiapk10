@@ -36,13 +36,25 @@ type BuildHistoryEntry = {
   sizeBytes: number | null;
 };
 
+type BuildState = {
+  status: "idle" | "building" | "ready" | "failed" | "unsupported";
+  targetHost: string | null;
+  startedAt?: string | null;
+  error: string | null;
+};
+
+type SlotSummary = {
+  slot: "dev" | "published";
+  host: string | null;
+  apk: ApkMeta | null;
+  matches: boolean;
+  upToDate?: boolean;
+  build: BuildState;
+  history?: BuildHistoryEntry[];
+};
+
 type BuildStatus = {
-  build: {
-    status: "idle" | "building" | "ready" | "failed" | "unsupported";
-    targetHost: string | null;
-    startedAt?: string | null;
-    error: string | null;
-  };
+  build: BuildState;
   apk: ApkMeta | null;
   matches: boolean;
   upToDate?: boolean;
@@ -50,6 +62,68 @@ type BuildStatus = {
   devHost?: string | null;
   history?: BuildHistoryEntry[];
 };
+
+type RawStatusResponse = {
+  publishedHost?: string | null;
+  devHost?: string | null;
+  builds?: Partial<Record<"dev" | "published", BuildState>>;
+  slots?: Partial<Record<"dev" | "published", SlotSummary>>;
+  // Legacy single-slot shape (kept for older servers)
+  build?: BuildState;
+  apk?: ApkMeta | null;
+  matches?: boolean;
+  upToDate?: boolean;
+  history?: BuildHistoryEntry[];
+};
+
+function pickSlotForHost(
+  raw: RawStatusResponse,
+  currentHost: string,
+): "dev" | "published" {
+  if (raw.publishedHost && currentHost === raw.publishedHost) return "published";
+  if (raw.devHost && currentHost === raw.devHost) return "dev";
+  // Heuristic: published deployments use *.replit.app, dev uses *.replit.dev / *.pike.replit.dev
+  if (currentHost.endsWith(".replit.app")) return "published";
+  if (currentHost.includes(".replit.dev")) return "dev";
+  return "published";
+}
+
+function adaptStatus(
+  raw: RawStatusResponse,
+  currentHost: string,
+): BuildStatus {
+  // New shape: slots + builds
+  if (raw.slots && raw.builds) {
+    const slot = pickSlotForHost(raw, currentHost);
+    const summary = raw.slots[slot];
+    const buildState =
+      raw.builds[slot] ??
+      summary?.build ?? {
+        status: "idle",
+        targetHost: null,
+        error: null,
+      };
+    return {
+      build: buildState,
+      apk: summary?.apk ?? null,
+      matches: summary?.matches ?? false,
+      upToDate: summary?.upToDate,
+      publishedHost: raw.publishedHost ?? null,
+      devHost: raw.devHost ?? null,
+      history: summary?.history ?? [],
+    };
+  }
+  // Legacy shape
+  return {
+    build: raw.build ?? { status: "idle", targetHost: null, error: null },
+    apk: raw.apk ?? null,
+    matches: raw.matches ?? false,
+    upToDate: raw.upToDate,
+    publishedHost: raw.publishedHost ?? null,
+    devHost: raw.devHost ?? null,
+    history: raw.history ?? [],
+  };
+}
 
 function formatRelative(iso: string): string {
   const t = new Date(iso).getTime();
@@ -99,7 +173,12 @@ export function DownloadApkCard() {
     try {
       const r = await fetch(STATUS_URL, { cache: "no-store" });
       if (r.ok) {
-        const data: BuildStatus = await r.json();
+        const raw: RawStatusResponse = await r.json();
+        const host =
+          typeof window !== "undefined"
+            ? window.location.host.replace(/:\d+$/, "")
+            : "";
+        const data = adaptStatus(raw, host);
         setBuild(data);
         if (data.apk) setMeta(data.apk);
         return data;
