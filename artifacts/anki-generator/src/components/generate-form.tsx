@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { BatteryProgress } from "@/components/ui/battery-progress";
 import {
   UploadCloud, X, CheckCircle2, AlertCircle, Loader2, FileText, Sparkles,
   FolderOpen, ImageIcon, Type, Layers, StopCircle,
@@ -687,7 +688,7 @@ export function GenerateForm({
                       </span>
                     </span>
                   </div>
-                  <Progress value={pct} className="h-1.5" />
+                  <BatteryProgress value={pct} />
                   <button
                     type="button"
                     onClick={() => cancelOne(f.id)}
