@@ -10,9 +10,17 @@ const MAX_PAGE_IMAGES = Number.MAX_SAFE_INTEGER;
 const VISUAL_BATCH_SIZE = 6;
 const MAX_VISUAL_PAGES = Number.MAX_SAFE_INTEGER;
 const MAX_CARD_TARGET = Number.MAX_SAFE_INTEGER;
-const CROP_PADDING = 0.085;
-const MIN_CROP_DIMENSION = 0.18;
+const CROP_PADDING = 0.04;
+const MIN_CROP_DIMENSION = 0.12;
 const VISUAL_CONCURRENCY = 2;
+// Reject any visual card whose bbox covers more than this fraction of the page
+// area. Full-page bboxes are almost always the model giving up and screenshotting
+// the whole page instead of finding a real figure on it. The user explicitly does
+// not want full-page screenshots.
+const MAX_VISUAL_BBOX_AREA = 0.78;
+// Also reject bboxes that span almost the entire width AND almost the entire
+// height (which produce a "whole page" feel even if area is just under the cap).
+const MAX_VISUAL_BBOX_DIM = 0.92;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -104,8 +112,26 @@ type RawCard = {
   correctIndex?: number;
 };
 type Bbox = { x: number; y: number; w: number; h: number };
-type VisualRawCard = { pageIndex: number; front: string; back: string; bbox?: Bbox };
-type VisualCardResult = { front: string; back: string; image: string; sourceImage: string; bbox: Bbox | null };
+type FigureType = "chart" | "table" | "radiology" | "flowchart" | "diagram" | "photomicrograph" | "trace" | "equation";
+type VisualRawCard = { pageIndex: number; front: string; back: string; bbox?: Bbox; figureType?: FigureType };
+type VisualCardResult = { front: string; back: string; image: string; sourceImage: string; bbox: Bbox | null; figureType: FigureType | null };
+
+const FIGURE_TYPES: FigureType[] = ["chart", "table", "radiology", "flowchart", "diagram", "photomicrograph", "trace", "equation"];
+
+function normalizeFigureType(raw: unknown): FigureType | null {
+  if (typeof raw !== "string") return null;
+  const v = raw.toLowerCase().trim();
+  if ((FIGURE_TYPES as string[]).includes(v)) return v as FigureType;
+  // Map common aliases
+  if (v === "graph" || v === "plot") return "chart";
+  if (v === "xray" || v === "x-ray" || v === "ct" || v === "mri" || v === "ultrasound" || v === "imaging") return "radiology";
+  if (v === "algorithm" || v === "decision-tree" || v === "decision_tree" || v === "pathway") return "flowchart";
+  if (v === "schematic" || v === "anatomy" || v === "illustration") return "diagram";
+  if (v === "histology" || v === "micrograph" || v === "photo" || v === "clinical-photo") return "photomicrograph";
+  if (v === "ecg" || v === "eeg" || v === "trace" || v === "waveform") return "trace";
+  if (v === "formula" || v === "math") return "equation";
+  return null;
+}
 
 function normalizeCard(c: unknown): RawCard | null {
   if (!c || typeof c !== "object") return null;
@@ -198,8 +224,8 @@ async function cropImage(dataUrlOrB64: string, bbox: Bbox | null): Promise<strin
   if (!bbox) return src;
   try {
     const img = await loadImage(src);
-    // If the box already covers most of the page, just return the original — avoids re-encoding loss.
-    if (bbox.w >= 0.9 && bbox.h >= 0.9) return src;
+    // Always crop — bboxes covering most of the page are already filtered out
+    // upstream so the user never sees a "whole page screenshot".
     const padded = expandBbox(bbox, CROP_PADDING);
     const sx = Math.round(padded.x * img.width);
     const sy = Math.round(padded.y * img.height);
@@ -432,80 +458,78 @@ async function generateVisualCardsForBatch(
 
   const cardsRange = cardsPerPage <= 1 ? "1" : `1–${cardsPerPage}`;
 
-  const systemPrompt = `You are an expert visual learning designer and clinical/scientific illustrator. You convert PDF page images into Anki flashcards centered on the figures shown on each page. You will receive ${batchImages.length} page image(s) (pages ${batchStart + 1}–${batchStart + batchImages.length}).
+  const systemPrompt = `You are an expert visual learning designer and clinical/scientific illustrator. You convert PDF page images into Anki flashcards centred on the FIGURES shown on each page (NOT on the surrounding prose). You will receive ${batchImages.length} page image(s) (pages ${batchStart + 1}–${batchStart + batchImages.length}).
 
 ═══════════════════════════════════════════════
-STEP 1 — DETECT EVERY VISUAL ON EACH PAGE
+STEP 1 — DETECT REAL FIGURES ONLY
 ═══════════════════════════════════════════════
-Carefully scan each page like a librarian indexing it. Identify EVERY distinct visual element. Do not miss any. Visuals include (non-exhaustive):
-  • Diagrams, schematics, flowcharts, algorithms, decision trees
-  • Anatomical drawings, cross-sections, organ illustrations, embryology stages
-  • Medical imaging: X-ray, CT, MRI, ultrasound, PET, angiography, fluoroscopy
-  • Histology / cytology / microscopy slides, gross pathology photos
-  • Dermatology, ophthalmology, ENT clinical photos
-  • ECG / EEG / EMG / spirometry / capnography traces
-  • Tables that present clinical/scientific data visually (drug doses, classifications, scoring systems, criteria, differential lists)
-  • Charts, graphs, dose-response curves, Kaplan-Meier curves, growth charts
-  • Chemical structures, biochemical pathways, cell signalling diagrams
-  • Mathematical/physics equations, derivations, vector diagrams, circuits, free-body diagrams
-  • Maps, geological cross-sections, engineering blueprints
-  • Photographs, micrographs, electrophoresis gels, Western blots
+Scan each page and identify ONLY genuine visual elements that have inherent visual content a learner needs to look at. The qualifying categories are:
+
+  📊 CHARTS & GRAPHS — bar/line/pie/scatter charts, dose-response curves, Kaplan-Meier curves, growth charts, histograms, Forest plots, ROC curves, box plots.
+  📋 TABLES — any tabular data: drug doses, classifications, scoring systems, criteria, differential lists, comparison tables, lab values, pharmacology tables.
+  🩻 RADIOLOGICAL IMAGES — X-ray, CT, MRI, ultrasound, PET, angiography, fluoroscopy, mammography, nuclear scans, DEXA, echocardiography stills.
+  🔀 FLOWCHARTS, ALGORITHMS & DECISION TREES — clinical pathways, treatment algorithms, diagnostic flowcharts, signalling cascades drawn as flow diagrams.
+  🧬 DIAGRAMS & SCHEMATICS — anatomical drawings, cross-sections, organ illustrations, embryology stages, chemical structures, biochemical pathways, cell signalling, circuits, free-body diagrams, engineering blueprints, maps.
+  🔬 PHOTOMICROGRAPHS / CLINICAL PHOTOS — histology / cytology / microscopy slides, gross pathology, dermatology, ophthalmology, ENT photos, electrophoresis gels, Western blots.
+  📈 PHYSIOLOGICAL TRACES — ECG, EEG, EMG, spirometry, capnography, arterial line traces, pressure-volume loops.
+  ➗ EQUATIONS — only when the equation is rendered as a typeset visual block (e.g. boxed formulas, multi-line derivations) and not as inline text.
+
+❌ DO NOT make a card for: pure prose paragraphs, headings/titles alone, page numbers, footnotes, bullet lists of plain text, references, table-of-contents pages, blank pages, copyright notices.
+
+If a page has NO qualifying figure from the categories above, output ZERO cards for that page. Empty pages are acceptable and expected — the learner does not want a "screenshot of the whole page" when there is no real figure on it.
 
 If a page has multiple distinct figures (e.g., Figure 5.1 and Figure 5.2), each gets its OWN card with its OWN bounding box. Do not lump them.
 
-If a single figure has multiple sub-panels (A, B, C, D) AND each panel teaches a clearly different concept, you may make one card per panel with a tight bbox around just that panel — but always include that panel's individual label/caption inside the bbox.
-
-If the entire page is one large visual (a full-page diagram), use {"x":0,"y":0,"w":1,"h":1}.
-
-Skip a page only if it genuinely contains no meaningful visual learning content (pure prose, table of contents, copyright notice, blank page).
+If a single figure has multiple sub-panels (A, B, C, D) and each panel teaches a clearly different concept, make one card per panel with a tight bbox around just that panel.
 
 ═══════════════════════════════════════════════
-STEP 2 — DRAW BOUNDING BOXES PROFESSIONALLY
+STEP 2 — DRAW TIGHT, PROFESSIONAL BOUNDING BOXES
 ═══════════════════════════════════════════════
 Coordinates are NORMALIZED 0..1 where (0,0) is the TOP-LEFT of the page and (1,1) is the BOTTOM-RIGHT. The bbox is {"x", "y", "w", "h"}.
 
-Hard rules — every box MUST include:
-  1. The entire figure body (no clipping of arms, branches, edges, ROI, organ borders).
-  2. ALL labels, arrows, leader lines, callouts, sub-panel letters (A/B/C/D), and the structures they point to.
-  3. The figure's caption / title / footnote (e.g., "Figure 5.1: Cardiac conduction system").
-  4. Axis labels, axis numbers/units, tick marks, legends, colour keys, scale bars, and orientation markers (R/L, anterior/posterior).
-  5. Any annotation directly describing the visual (e.g., "Note the ST-segment elevation in II, III, aVF").
-  6. ~6–10% of empty/white margin on EACH side of the visual content. Generous breathing room is REQUIRED.
+🚫 ABSOLUTELY FORBIDDEN — DO NOT do any of the following:
+  ✗ Do NOT return {"x":0,"y":0,"w":1,"h":1} or any bbox covering most of the page. The user does NOT want full-page screenshots. If you cannot find a focused figure, OMIT the card.
+  ✗ Do NOT box surrounding paragraphs of prose. The bbox must contain the figure (and its caption/labels) — NOT the body text above or below it.
+  ✗ Do NOT make a bbox wider than 0.9 of the page width AND taller than 0.9 of the page height simultaneously. Even genuine large figures usually have margins.
+  ✗ Do NOT make a bbox whose area exceeds 0.75 of the page (w × h > 0.75). If the real figure is that large, double-check you aren't including non-figure content; tighten the box to the figure itself.
+  ✗ Do NOT clip text mid-line, mid-word, or mid-character.
+  ✗ Do NOT cut through arrows, leader lines, or anatomical structures.
+  ✗ Do NOT omit a referenced sub-panel.
+  ✗ Do NOT miss the figure number/caption.
 
-Hard rules — every box MUST NEVER:
-  ✗ Clip text mid-line, mid-word, or mid-character.
-  ✗ Cut through arrows, leader lines, or anatomical structures.
-  ✗ Omit any sub-panel of a multi-part figure that you're referencing.
-  ✗ Miss the figure number/caption — these orient the learner.
-  ✗ Be tight to the visible pixels of the diagram. Always pad outward to clean white space.
+✅ REQUIRED — every box MUST include:
+  1. The entire figure body (no clipping).
+  2. ALL labels, arrows, leader lines, callouts, sub-panel letters (A/B/C/D), and the structures they point to.
+  3. The figure's caption / title / footnote (e.g., "Figure 5.1: Cardiac conduction system") if it is directly under or above the figure.
+  4. Axis labels, axis numbers/units, tick marks, legends, colour keys, scale bars, and orientation markers (R/L, anterior/posterior).
+  5. ~3–5% of whitespace margin on each side — TIGHT around the figure, not around the whole page.
 
 Decision algorithm for each box:
-  a. Find the visible bounding rectangle of all ink belonging to this figure (lines, labels, captions, leaders, legends).
-  b. Expand outward to the nearest margin of true whitespace on each side.
-  c. Add an extra ~6–10% safety margin in every direction.
-  d. Snap to page edges if you reach them.
-  e. When in doubt, make the box LARGER, not smaller. A slightly oversized box is professional; a tight box that clips a label is unusable.
+  a. Locate the actual visible ink/pixels belonging to this figure (lines, labels, captions, leaders, legends).
+  b. Find the smallest rectangle that fully contains all of those pixels.
+  c. Add a small 3–5% safety margin in every direction.
+  d. STOP. Do not expand further. Do not include surrounding paragraphs.
 
 ═══════════════════════════════════════════════
 STEP 3 — WRITE FOCUSED VISUAL CARDS
 ═══════════════════════════════════════════════
 Each card must be:
-  • Image-first: the question should require the learner to look at the cropped image (identify, label, interpret, diagnose, name the structure, calculate from the graph, recognise the pattern).
+  • Image-first: the question should REQUIRE the learner to look at the cropped image (identify, label, interpret, diagnose, name the structure, calculate from the graph, recognise the pattern, read off a value from the chart, complete the next step in the flowchart).
   • Self-contained: do not say "as shown above" or "from the previous figure". Reference what's in the cropped image itself.
   • Specific: prefer "Identify the structure indicated by arrow A in this CT scan" over "What is this?".
   • Concise on the back: a clear answer + 1–2 lines of context if useful (e.g., "Right middle lobe consolidation — typical for community-acquired pneumonia").
-  • Free of trivial questions ("What colour is this?" unless colour is diagnostic).
 
 ═══════════════════════════════════════════════
 OUTPUT FORMAT (STRICT)
 ═══════════════════════════════════════════════
 Return ONLY a JSON array. Each item must have exactly:
   - "pageIndex": integer (0-based index within the images you received, so 0 = first image in this batch)
+  - "figureType": one of "chart" | "table" | "radiology" | "flowchart" | "diagram" | "photomicrograph" | "trace" | "equation" — used by the system to verify your detection. Use the closest fit.
   - "front": string (question)
   - "back": string (answer)
-  - "bbox": object {"x": number, "y": number, "w": number, "h": number} — all between 0 and 1, following STEP 2 strictly.
+  - "bbox": object {"x": number, "y": number, "w": number, "h": number} — all between 0 and 1, following STEP 2 strictly. Must satisfy w * h ≤ 0.75 and (w ≤ 0.9 OR h ≤ 0.9).
 
-Aim for ${cardsRange} card(s) per page when there is meaningful visual content. If a page has more distinct figures than that, you MAY exceed the upper bound up to one card per distinct figure (do not invent cards for non-existent visuals).
+Aim for ${cardsRange} card(s) per page WHEN qualifying figures exist. Pages without qualifying figures contribute zero cards. If a page has more distinct figures than ${cardsRange}, you MAY exceed it (one card per distinct figure). Do NOT invent cards for non-existent visuals.
 
 No markdown, no commentary, no \`\`\` fences — just the JSON array.${customPromptBlock(customPrompt)}`;
 
@@ -528,9 +552,30 @@ No markdown, no commentary, no \`\`\` fences — just the JSON array.${customPro
 
     const raw = (response as { choices: Array<{ message: { content: string | null } }> })
       .choices[0]?.message?.content ?? "[]";
-    return parseJson<VisualRawCard>(raw)
-      .filter(c => typeof c.pageIndex === "number" && typeof c.front === "string" && typeof c.back === "string")
-      .map(c => ({ ...c, bbox: normalizeBbox(c.bbox) ?? undefined }));
+    const parsed = parseJson<Record<string, unknown>>(raw);
+    const result: VisualRawCard[] = [];
+    for (const c of parsed) {
+      if (typeof c.pageIndex !== "number" || typeof c.front !== "string" || typeof c.back !== "string") continue;
+      const bbox = normalizeBbox(c.bbox);
+      // Drop cards without a usable focused bbox — the user does not want full-page screenshots.
+      if (!bbox) {
+        requestLog.warn({ pageIndex: c.pageIndex }, "Visual card dropped: no usable bbox");
+        continue;
+      }
+      const area = bbox.w * bbox.h;
+      if (area > MAX_VISUAL_BBOX_AREA || (bbox.w > MAX_VISUAL_BBOX_DIM && bbox.h > MAX_VISUAL_BBOX_DIM)) {
+        requestLog.warn({ pageIndex: c.pageIndex, area, w: bbox.w, h: bbox.h }, "Visual card dropped: bbox too large (looks like a full-page screenshot)");
+        continue;
+      }
+      result.push({
+        pageIndex: c.pageIndex,
+        front: c.front,
+        back: c.back,
+        bbox,
+        figureType: normalizeFigureType(c.figureType) ?? undefined,
+      });
+    }
+    return result;
   } catch (error) {
     if (isAbortError(error) || signal?.aborted) throw error;
     return [];
@@ -572,6 +617,7 @@ async function generateAllVisualCards(
         const thumbCache = new Map<number, string>();
         for (const c of cards) {
           if (c.pageIndex < 0 || c.pageIndex >= b.imgs.length) continue;
+          // We already rejected oversize bboxes upstream — every card here has a focused bbox.
           const cropped = await cropImage(b.imgs[c.pageIndex], c.bbox ?? null);
           let thumb = thumbCache.get(c.pageIndex);
           if (!thumb) {
@@ -584,6 +630,7 @@ async function generateAllVisualCards(
             image: cropped,
             sourceImage: thumb,
             bbox: c.bbox ?? null,
+            figureType: c.figureType ?? null,
           });
         }
         return out;

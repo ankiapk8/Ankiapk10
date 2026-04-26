@@ -57,6 +57,13 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - `choices`: JSON-stringified array of MCQ option strings (only when cardType='mcq')
   - `correctIndex`: 0-based index into `choices` for the correct answer
 
+## AI Visual-Card Generation
+
+- The visual prompt explicitly enumerates qualifying figure categories (charts, tables, radiology, flowcharts, diagrams, photomicrographs, traces, equations) and instructs the model to **skip pages with no real figure** instead of screenshotting them.
+- The model must return a `figureType` tag and a TIGHT bbox (3–5% margin); it is forbidden from returning `{0,0,1,1}` or any near-full-page bbox.
+- Server-side filter (`MAX_VISUAL_BBOX_AREA = 0.78`, `MAX_VISUAL_BBOX_DIM = 0.92`) drops any card whose bbox covers more than 78 % of the page area or spans >92 % in both width and height — the user does not want full-page screenshots, so those get logged and discarded.
+- `cropImage` always crops to the bbox; `CROP_PADDING` is 4 % and `MIN_CROP_DIMENSION` is 12 %.
+
 ## AI Text-Card Generation
 
 - Long text is split into ~6000-char chunks with 300-char overlap so dense PDFs are covered exhaustively (no summarising). Each chunk is processed with concurrency 3 and proportional card targets with a density floor.
