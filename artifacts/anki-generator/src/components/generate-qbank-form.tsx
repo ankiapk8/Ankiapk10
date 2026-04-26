@@ -53,6 +53,8 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
   const [customPrompt, setCustomPrompt] = useState("");
   const [parentId, setParentId] = useState<string>(defaultParentId?.toString() ?? "none");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [progressMessage, setProgressMessage] = useState<string>("");
+  const [progressPercent, setProgressPercent] = useState<number>(0);
 
   const parentOptions = buildParentOptions((allDecks as DeckWithParent[]) ?? []);
   const selectedParent = parentOptions.find(o => o.id.toString() === parentId);
@@ -67,8 +69,10 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
       return;
     }
     setIsGenerating(true);
+    setProgressMessage("Starting…");
+    setProgressPercent(0);
     try {
-      const resp = await fetch(apiUrl("api/generate-qbank"), {
+      const resp = await fetch(apiUrl("api/generate-qbank/stream"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -79,20 +83,58 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
           customPrompt: customPrompt.trim() || undefined,
         }),
       });
-      if (!resp.ok) {
+      if (!resp.ok || !resp.body) {
         const err = await resp.json().catch(() => ({}));
         throw new Error(err.error ?? `Generation failed (${resp.status})`);
       }
-      const data = (await resp.json()) as { deck: { id: number }; generatedCount: number };
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let result: { deck?: { id: number }; generatedCount?: number } | null = null;
+      let streamError: string | null = null;
+
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          try {
+            const event = JSON.parse(line.slice(5).trim()) as {
+              type: string; percent?: number; message?: string;
+              generatedCount?: number; deck?: { id: number };
+            };
+            if (event.type === "progress") {
+              if (typeof event.percent === "number") setProgressPercent(event.percent);
+              if (event.message) setProgressMessage(event.message);
+            } else if (event.type === "done") {
+              result = { deck: event.deck, generatedCount: event.generatedCount };
+              break outer;
+            } else if (event.type === "error") {
+              streamError = event.message ?? "Generation failed";
+              break outer;
+            }
+          } catch { continue; }
+        }
+      }
+
+      if (streamError) throw new Error(streamError);
+      if (!result || !result.deck) {
+        throw new Error("Connection dropped before generation finished. Please try again.");
+      }
+
       queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
       toast({
         title: "Question bank ready",
-        description: `${data.generatedCount} MCQ${data.generatedCount === 1 ? "" : "s"} created.`,
+        description: `${result.generatedCount ?? 0} MCQ${result.generatedCount === 1 ? "" : "s"} created.`,
       });
       setText("");
       setDeckName("");
       setCustomPrompt("");
-      onDone?.(data.deck.id);
+      onDone?.(result.deck.id);
     } catch (e) {
       toast({
         title: "Could not generate question bank",
@@ -101,6 +143,8 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
       });
     } finally {
       setIsGenerating(false);
+      setProgressMessage("");
+      setProgressPercent(0);
     }
   };
 
@@ -218,10 +262,18 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
         disabled={isGenerating || !text.trim() || !deckName.trim()}
       >
         {isGenerating
-          ? <><Loader2 className="h-4 w-4 animate-spin" />Generating MCQs…</>
+          ? <><Loader2 className="h-4 w-4 animate-spin" />{progressMessage || "Generating MCQs…"}{progressPercent > 0 ? ` · ${progressPercent}%` : ""}</>
           : <><Stethoscope className="h-4 w-4" />Generate Question Bank</>
         }
       </Button>
+      {isGenerating && (
+        <div className="h-1.5 rounded-full bg-violet-500/10 overflow-hidden">
+          <div
+            className="h-full bg-violet-500 transition-all duration-500 ease-out"
+            style={{ width: `${Math.max(2, progressPercent)}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }

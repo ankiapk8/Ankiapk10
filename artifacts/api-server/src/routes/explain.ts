@@ -129,6 +129,11 @@ router.post("/explain", async (req, res): Promise<void> => {
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Transfer-Encoding", "chunked");
   res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof (res as { flushHeaders?: () => void }).flushHeaders === "function") {
+    (res as { flushHeaders: () => void }).flushHeaders();
+  }
 
   try {
     const stream = await openai.chat.completions.create({

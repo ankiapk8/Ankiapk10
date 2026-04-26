@@ -1186,6 +1186,125 @@ router.post("/generate-qbank", async (req, res, next): Promise<void> => {
   }
 });
 
+router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
+  const body = (req.body ?? {}) as {
+    text?: unknown;
+    deckName?: unknown;
+    questionCount?: unknown;
+    parentId?: unknown;
+    customPrompt?: unknown;
+  };
+
+  const text = typeof body.text === "string" ? body.text : "";
+  const deckName = typeof body.deckName === "string" ? body.deckName.trim() : "";
+  const questionCount = typeof body.questionCount === "number" && Number.isFinite(body.questionCount)
+    ? Math.max(1, Math.floor(body.questionCount))
+    : 20;
+  const parentId = typeof body.parentId === "number" && Number.isFinite(body.parentId)
+    ? body.parentId
+    : null;
+  const customPrompt = typeof body.customPrompt === "string" ? body.customPrompt : undefined;
+
+  if (!text || text.trim().length < 10) {
+    res.status(400).json({ error: "Text is too short to generate questions from." });
+    return;
+  }
+  if (!deckName) {
+    res.status(400).json({ error: "Question bank name is required." });
+    return;
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  const heartbeat = setInterval(() => {
+    try { res.write(`: ping ${Date.now()}\n\n`); } catch { /* socket closed */ }
+  }, 12_000);
+  const stopHeartbeat = () => clearInterval(heartbeat);
+  res.on("close", stopHeartbeat);
+  res.on("finish", stopHeartbeat);
+
+  const abortController = new AbortController();
+  req.on("close", () => abortController.abort());
+
+  sseEmit(res, { type: "progress", percent: 5, message: "Connecting to AI…" });
+
+  let openai: Awaited<ReturnType<typeof getOpenAIClient>>;
+  try {
+    openai = await getOpenAIClient();
+  } catch (error) {
+    sseEmit(res, { type: "error", message: error instanceof Error ? error.message : "AI not configured." });
+    res.end();
+    return;
+  }
+
+  sseEmit(res, { type: "progress", percent: 15, message: "Writing MCQs…" });
+
+  let questions: RawCard[] = [];
+  try {
+    questions = await generateQbankCards(openai, text, questionCount, req.log, abortController.signal, customPrompt);
+  } catch (error) {
+    req.log.error({ err: error }, "AI question bank generation failed");
+    const status = getErrorStatus(error);
+    const code = getErrorCode(error);
+    const msg = (status === 429 || code === "too_many_requests")
+      ? "AI is temporarily rate-limited. Wait a minute and try again."
+      : (error instanceof Error ? error.message : "AI question bank generation failed.");
+    sseEmit(res, { type: "error", message: msg });
+    res.end();
+    return;
+  }
+
+  sseEmit(res, { type: "progress", percent: 85, message: "Saving question bank…" });
+
+  const filtered = questions.filter(c => c.type === "mcq" && Array.isArray(c.choices) && c.choices.length >= 2 && typeof c.correctIndex === "number");
+  if (filtered.length === 0) {
+    sseEmit(res, { type: "error", message: "AI did not generate any usable MCQs." });
+    res.end();
+    return;
+  }
+
+  try {
+    const [primaryDeck] = await db
+      .insert(decksTable)
+      .values({ name: deckName, parentId: parentId ?? null, kind: "qbank" })
+      .returning();
+
+    if (!primaryDeck) {
+      sseEmit(res, { type: "error", message: "Failed to save question bank." });
+      res.end();
+      return;
+    }
+
+    const cardRows: (typeof cardsTable.$inferInsert)[] = filtered.map(c => ({
+      deckId: primaryDeck.id,
+      front: c.front,
+      back: c.back,
+      image: null,
+      cardType: "mcq" as const,
+      choices: c.choices ? JSON.stringify(c.choices) : null,
+      correctIndex: typeof c.correctIndex === "number" ? c.correctIndex : null,
+      pageNumber: c.pageNumber ?? null,
+    }));
+
+    const inserted = await db.insert(cardsTable).values(cardRows).returning();
+
+    sseEmit(res, {
+      type: "done",
+      generatedCount: inserted.length,
+      deck: { ...primaryDeck, cardCount: inserted.length, createdAt: primaryDeck.createdAt.toISOString() },
+    });
+    res.end();
+  } catch (err) {
+    req.log.error({ err }, "Question bank insert failed");
+    sseEmit(res, { type: "error", message: err instanceof Error ? err.message : "Failed to save question bank." });
+    res.end();
+  }
+});
+
 router.post("/generate", async (req, res, next): Promise<void> => {
   const parsed = GenerateCardsBody.safeParse(req.body);
   if (!parsed.success) {

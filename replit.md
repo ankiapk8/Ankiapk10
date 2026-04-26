@@ -43,7 +43,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - AI generation uses `gpt-5.2` model via Replit AI Integrations (env vars: `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`)
 - The AI client is loaded lazily so missing AI configuration returns a 503 from `/api/generate` instead of crashing the server
 - `/api/generate` retries transient AI rate-limit/server failures with backoff, and the frontend pauses briefly between multi-file generations while surfacing per-file error details
-- Route `/api/extract-pdf` accepts both `multipart/form-data` (via multer, field name `file`) and raw `application/pdf` body; embedded text → server OCR fallback
+- Route `/api/extract-pdf` accepts both `multipart/form-data` (via multer, field name `file`) and raw `application/pdf` body; embedded text → server OCR fallback. Multer file size limit is **200 MB** to match the Express body limit so large PDFs don't get silently rejected.
+- All long-running AI endpoints stream over SSE with 12 s heartbeat comments and `X-Accel-Buffering: no` to keep the Replit edge / Cloudflare proxy from buffering or closing the connection: `/api/generate/stream`, `/api/generate-qbank/stream`, and `/api/explain` (chunked text). The frontend always uses the streamed variants for these.
 - The server runs a safe startup schema initializer from `@workspace/db` before listening, creating/updating `decks` and `cards` if needed for fresh databases
 - System dependency `util-linux` (provides `libuuid.so.1`) is required by the `canvas` npm package; installed via Nix
 - `canvas` and `tesseract.js` are listed in `pnpm.onlyBuiltDependencies` in the root `package.json` so their native build scripts run
