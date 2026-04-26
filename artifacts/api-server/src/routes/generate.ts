@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { db, decksTable, cardsTable, generationsTable } from "@workspace/db";
 import { GenerateCardsBody } from "@workspace/api-zod";
 import { createCanvas, loadImage } from "canvas";
+import { serializeCard } from "../lib/serialize-card";
 
 const router: IRouter = Router();
 
@@ -95,10 +96,51 @@ async function getOpenAIClient() {
   return openai;
 }
 
-type RawCard = { front: string; back: string };
+type RawCard = {
+  front: string;
+  back: string;
+  type?: "basic" | "mcq";
+  choices?: string[];
+  correctIndex?: number;
+};
 type Bbox = { x: number; y: number; w: number; h: number };
 type VisualRawCard = { pageIndex: number; front: string; back: string; bbox?: Bbox };
 type VisualCardResult = { front: string; back: string; image: string; sourceImage: string; bbox: Bbox | null };
+
+function normalizeCard(c: unknown): RawCard | null {
+  if (!c || typeof c !== "object") return null;
+  const r = c as Record<string, unknown>;
+  const front = typeof r.front === "string" ? r.front.trim() : "";
+  const back = typeof r.back === "string" ? r.back.trim() : "";
+  if (!front || !back) return null;
+
+  const rawType = typeof r.type === "string" ? r.type.toLowerCase().trim() : "basic";
+  const wantsMcq = rawType === "mcq" || rawType === "multiple_choice" || rawType === "multiple-choice";
+
+  if (wantsMcq && Array.isArray(r.choices)) {
+    const choices = r.choices
+      .map(c => (typeof c === "string" ? c.trim() : ""))
+      .filter(s => s.length > 0);
+    let correctIndex: number | undefined;
+    if (typeof r.correctIndex === "number" && Number.isFinite(r.correctIndex)) {
+      correctIndex = Math.floor(r.correctIndex);
+    } else if (typeof r.correct === "string") {
+      const letter = r.correct.trim().toUpperCase();
+      const idx = letter.charCodeAt(0) - "A".charCodeAt(0);
+      if (idx >= 0 && idx < choices.length) correctIndex = idx;
+    }
+    if (
+      choices.length >= 2 &&
+      typeof correctIndex === "number" &&
+      correctIndex >= 0 &&
+      correctIndex < choices.length
+    ) {
+      return { front, back, type: "mcq", choices, correctIndex };
+    }
+  }
+
+  return { front, back, type: "basic" };
+}
 
 function clamp01(n: unknown, fallback: number): number {
   const v = typeof n === "number" && Number.isFinite(n) ? n : fallback;
@@ -199,27 +241,98 @@ function customPromptBlock(customPrompt: string | undefined): string {
   return `\n\nADDITIONAL USER INSTRUCTIONS (these override the defaults above when they conflict, except for the JSON output format which is mandatory):\n"""\n${capped}\n"""`;
 }
 
-async function generateTextCards(
+// Chunking constants for exhaustive text generation. We split very long PDFs
+// into manageable pieces so the model can cover every paragraph instead of
+// summarising the whole text in a single call (which silently drops content).
+const TEXT_CHUNK_CHARS = 6000;
+const TEXT_CHUNK_OVERLAP = 300;
+const ABSOLUTE_TEXT_CARD_CAP = 1000;
+
+function chunkText(text: string, chunkSize: number, overlap: number): string[] {
+  const trimmed = text.trim();
+  if (trimmed.length <= chunkSize) return [trimmed];
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < trimmed.length) {
+    let end = Math.min(trimmed.length, start + chunkSize);
+    if (end < trimmed.length) {
+      // Snap end to a paragraph or sentence boundary inside the last 25% of the chunk
+      const window = trimmed.slice(start + Math.floor(chunkSize * 0.75), end);
+      const para = window.lastIndexOf("\n\n");
+      const sentence = window.lastIndexOf(". ");
+      const snap = para >= 0 ? para : sentence;
+      if (snap > 0) end = start + Math.floor(chunkSize * 0.75) + snap + (para >= 0 ? 2 : 2);
+    }
+    chunks.push(trimmed.slice(start, end).trim());
+    if (end >= trimmed.length) break;
+    start = Math.max(end - overlap, end);
+  }
+  return chunks;
+}
+
+const TEXT_CARD_SYSTEM_PROMPT_BASE = `You are a meticulous Anki flashcard creator. Your top priority is COMPLETE COVERAGE: every fact, definition, mechanism, classification, dose, value, name, criterion, side-effect, indication, contraindication, formula, step, comparison or relationship in the source text must end up on at least one card. Do not summarise. Do not skip details because they "feel minor". If the text mentions it, the deck must test it.
+
+═══════════════════════════════════════════════
+1) PRESERVE ANY MULTIPLE-CHOICE QUESTIONS YOU FIND
+═══════════════════════════════════════════════
+If the source text already contains a multiple-choice question (look for patterns like "Q1.", "Question 1:", numbered stems followed by options "A) … B) … C) … D) …" or "(a) (b) (c) (d)" or "1. 2. 3. 4." with an answer key like "Answer: B", "Ans: C", "Correct: D", "Key: A", or an explanation block), you MUST keep it as an MCQ card and preserve the EXACT wording of:
+  • the question stem
+  • every option (do not paraphrase, do not reorder, do not drop any)
+  • the original correct answer
+
+Output that card with:
+  "type": "mcq"
+  "front": the question stem ONLY (no options inside the stem text — options live in the "choices" array)
+  "choices": ["option A text", "option B text", ...] in the original order, WITHOUT the "A)" / "B)" prefix
+  "correctIndex": 0-based index of the correct option
+  "back": a concise explanation of why the correct option is right (and, if obvious from the source, why the distractors are wrong)
+
+If the source has an MCQ but the answer is not given, choose the most defensible answer based on the surrounding text and explain your reasoning in "back".
+
+═══════════════════════════════════════════════
+2) EXHAUSTIVE Q&A FOR EVERYTHING ELSE
+═══════════════════════════════════════════════
+For any non-MCQ content, create as many "type": "basic" cards as needed so that NO information is missed. A reader who masters the deck must know everything the source text taught.
+
+Card-writing rules:
+  • One atomic fact per card — split compound statements into multiple cards.
+  • Questions are specific and unambiguous; answers are concise but complete.
+  • Self-contained — never say "as above" or "in the previous paragraph".
+  • Preserve numerical values, units, dosages, percentages, and proper names exactly.
+  • For lists/classifications, make a card for each item AND a "name all members of X" card.
+  • For comparisons (A vs B), make a card for the contrast AND individual fact cards for each side.
+  • Avoid trivial or tautological questions ("What is X? — X.").
+
+═══════════════════════════════════════════════
+OUTPUT FORMAT (STRICT)
+═══════════════════════════════════════════════
+Return ONLY a JSON array. Each item is one of:
+
+Basic card:
+  { "type": "basic", "front": "...", "back": "..." }
+
+MCQ card:
+  { "type": "mcq", "front": "stem", "choices": ["...", "...", "...", "..."], "correctIndex": 1, "back": "explanation" }
+
+No markdown, no commentary, no \`\`\` fences — just the JSON array.`;
+
+async function generateTextCardsForChunk(
   openai: Awaited<ReturnType<typeof getOpenAIClient>>,
-  text: string,
-  maxCards: number,
+  chunk: string,
+  targetCards: number,
   requestLog: { warn: (obj: unknown, message: string) => void },
   signal?: AbortSignal,
   customPrompt?: string,
 ): Promise<RawCard[]> {
-  const systemPrompt = `You are an expert Anki flashcard creator. Generate high-quality question-answer flashcards from the provided text that test understanding, not just recall.
+  const systemPrompt = TEXT_CARD_SYSTEM_PROMPT_BASE + customPromptBlock(customPrompt);
 
-Rules:
-- Questions should be specific and unambiguous
-- Answers should be concise but complete  
-- Avoid trivial or overly obvious cards
-- Focus on key concepts, definitions, relationships, mechanisms, and important facts
-- Each card should be self-contained (understandable without context)
-- Use simple, clear language
+  const userContent = `Source text (one segment of a larger document — treat it on its own and cover EVERY fact in it):
 
-Respond ONLY with a JSON array of objects with "front" (question) and "back" (answer) fields. No markdown, no explanation.${customPromptBlock(customPrompt)}`;
+"""
+${chunk}
+"""
 
-  const userContent = `Generate exactly ${maxCards} Anki flashcards from the following text:\n\n${text.slice(0, 400000)}`;
+Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
 
   const response = await createChatCompletionWithRetry(openai, {
     model: "gpt-4.1-mini",
@@ -233,7 +346,67 @@ Respond ONLY with a JSON array of objects with "front" (question) and "back" (an
 
   const raw = (response as { choices: Array<{ message: { content: string | null } }> })
     .choices[0]?.message?.content ?? "[]";
-  return parseJson<RawCard>(raw);
+  return parseJson<unknown>(raw)
+    .map(normalizeCard)
+    .filter((c): c is RawCard => c !== null);
+}
+
+async function generateTextCards(
+  openai: Awaited<ReturnType<typeof getOpenAIClient>>,
+  text: string,
+  maxCards: number,
+  requestLog: { warn: (obj: unknown, message: string) => void },
+  signal?: AbortSignal,
+  customPrompt?: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<RawCard[]> {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  const chunks = chunkText(trimmed, TEXT_CHUNK_CHARS, TEXT_CHUNK_OVERLAP);
+  // Distribute the user's target across chunks proportionally to length, with
+  // a generous floor so dense chunks aren't starved. The model is also allowed
+  // (and required) to exceed this when the chunk has more facts than the goal.
+  const totalChars = chunks.reduce((s, c) => s + c.length, 0) || 1;
+  const cardsPerChunk = chunks.map(c => {
+    const proportional = Math.ceil((c.length / totalChars) * Math.max(maxCards, 1));
+    const densityFloor = Math.max(8, Math.ceil(c.length / 250));
+    return Math.max(proportional, densityFloor);
+  });
+
+  const allCards: RawCard[] = [];
+  // Run chunks with limited concurrency to avoid hammering the AI provider.
+  const CONCURRENCY = 3;
+  let done = 0;
+  for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+    if (signal?.aborted) throw new Error("Cancelled");
+    const slice = chunks.slice(i, i + CONCURRENCY);
+    const targets = cardsPerChunk.slice(i, i + CONCURRENCY);
+    const settled = await Promise.allSettled(
+      slice.map((chunk, idx) =>
+        generateTextCardsForChunk(openai, chunk, targets[idx], requestLog, signal, customPrompt),
+      ),
+    );
+    for (const r of settled) {
+      if (r.status === "fulfilled") allCards.push(...r.value);
+      else requestLog.warn({ err: r.reason }, "Text chunk generation failed");
+    }
+    done += slice.length;
+    onProgress?.(done, chunks.length);
+  }
+
+  // Deduplicate exact-duplicate fronts that can arise from chunk overlap.
+  const seen = new Set<string>();
+  const unique: RawCard[] = [];
+  for (const c of allCards) {
+    const key = `${c.type ?? "basic"}::${c.front.toLowerCase().replace(/\s+/g, " ").trim()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(c);
+    if (unique.length >= ABSOLUTE_TEXT_CARD_CAP) break;
+  }
+
+  return unique;
 }
 
 async function generateVisualCardsForBatch(
@@ -545,8 +718,25 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
   let visualCards: VisualCardResult[] = [];
 
   try {
+    const TEXT_START = 10;
     const textPromise = wantText
-      ? generateTextCards(openai, text, maxTextCards, req.log, signal, customPrompt).then(cards => {
+      ? generateTextCards(
+          openai,
+          text,
+          maxTextCards,
+          req.log,
+          signal,
+          customPrompt,
+          (done, total) => {
+            const frac = total > 0 ? done / total : 1;
+            const pct = Math.round(TEXT_START + frac * (TEXT_DONE_PERCENT - TEXT_START));
+            sseEmit(res, {
+              type: "progress",
+              percent: pct,
+              message: `Generating text cards… (${done}/${total} chunks)`,
+            });
+          },
+        ).then(cards => {
           textCards = cards;
           sseEmit(res, { type: "progress", percent: TEXT_DONE_PERCENT, message: `Text cards done (${cards.length} generated)` });
         })
@@ -596,9 +786,8 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
 
   try {
     const filteredText = textCards
-      .filter(c => typeof c.front === "string" && typeof c.back === "string")
-      .map(c => ({ front: c.front.trim(), back: c.back.trim() }))
-      .filter(c => c.front.length > 0 && c.back.length > 0);
+      .map(c => normalizeCard(c))
+      .filter((c): c is RawCard => c !== null);
 
     const filteredVisual = visualCards
       .filter(c => c.front.length > 0 && c.back.length > 0);
@@ -626,7 +815,15 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
         .returning();
       textDeck = d;
       const inserted = await db.insert(cardsTable).values(
-        filteredText.map(c => ({ deckId: d.id, front: c.front, back: c.back, image: null }))
+        filteredText.map(c => ({
+          deckId: d.id,
+          front: c.front,
+          back: c.back,
+          image: null,
+          cardType: c.type === "mcq" ? "mcq" : "basic",
+          choices: c.type === "mcq" && c.choices ? JSON.stringify(c.choices) : null,
+          correctIndex: c.type === "mcq" && typeof c.correctIndex === "number" ? c.correctIndex : null,
+        }))
       ).returning();
       totalInserted += inserted.length;
     }
@@ -730,9 +927,8 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   }
 
   const filteredText = textCards
-    .filter(c => typeof c.front === "string" && typeof c.back === "string")
-    .map(c => ({ front: c.front.trim(), back: c.back.trim() }))
-    .filter(c => c.front.length > 0 && c.back.length > 0);
+    .map(c => normalizeCard(c))
+    .filter((c): c is RawCard => c !== null);
   const filteredVisual = visualCards.filter(c => c.front.length > 0 && c.back.length > 0);
 
   if (filteredText.length === 0 && filteredVisual.length === 0) {
@@ -754,7 +950,15 @@ router.post("/generate", async (req, res, next): Promise<void> => {
       const [d] = await db.insert(decksTable).values({ name, parentId: parentId ?? null }).returning();
       textDeck = d;
       const inserted = await db.insert(cardsTable).values(
-        filteredText.map(c => ({ deckId: d.id, front: c.front, back: c.back, image: null }))
+        filteredText.map(c => ({
+          deckId: d.id,
+          front: c.front,
+          back: c.back,
+          image: null,
+          cardType: c.type === "mcq" ? "mcq" : "basic",
+          choices: c.type === "mcq" && c.choices ? JSON.stringify(c.choices) : null,
+          correctIndex: c.type === "mcq" && typeof c.correctIndex === "number" ? c.correctIndex : null,
+        }))
       ).returning();
       allInserted.push(...inserted);
     }
@@ -787,7 +991,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
       ...(textDeck && visualDeck
         ? { visualDeck: { ...visualDeck, cardCount: filteredVisual.length, createdAt: visualDeck.createdAt.toISOString() } }
         : {}),
-      cards: allInserted.map(c => ({ ...c, createdAt: c.createdAt.toISOString() })),
+      cards: allInserted.map(serializeCard),
       generatedCount: allInserted.length,
     });
   } catch (err) {

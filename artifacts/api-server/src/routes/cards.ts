@@ -6,6 +6,7 @@ import {
   UpdateCardBody,
   DeleteCardParams,
 } from "@workspace/api-zod";
+import { serializeCard } from "../lib/serialize-card";
 
 const router: IRouter = Router();
 
@@ -35,7 +36,7 @@ router.patch("/cards/:id", async (req, res, next): Promise<void> => {
       return;
     }
 
-    res.json({ ...card, createdAt: card.createdAt.toISOString() });
+    res.json(serializeCard(card));
   } catch (err) {
     next(err);
   }

@@ -59,6 +59,21 @@ export interface Card {
   sourceImage?: string | null;
   /** @nullable */
   bbox?: string | null;
+  /**
+   * basic | mcq
+   * @nullable
+   */
+  cardType?: string | null;
+  /**
+   * Multiple-choice options (in order: A, B, C, D, …). Present only when cardType is 'mcq'.
+   * @nullable
+   */
+  choices?: string[] | null;
+  /**
+   * 0-based index into choices for the correct option. Present only when cardType is 'mcq'.
+   * @nullable
+   */
+  correctIndex?: number | null;
   createdAt: string;
 }
 

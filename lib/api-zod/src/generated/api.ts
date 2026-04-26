@@ -98,6 +98,19 @@ export const ListDeckCardsResponseItem = zod.object({
   image: zod.string().nullish(),
   sourceImage: zod.string().nullish(),
   bbox: zod.string().nullish(),
+  cardType: zod.string().nullish().describe("basic | mcq"),
+  choices: zod
+    .array(zod.string())
+    .nullish()
+    .describe(
+      "Multiple-choice options (in order: A, B, C, D, …). Present only when cardType is 'mcq'.",
+    ),
+  correctIndex: zod
+    .number()
+    .nullish()
+    .describe(
+      "0-based index into choices for the correct option. Present only when cardType is 'mcq'.",
+    ),
   createdAt: zod.string(),
 });
 export const ListDeckCardsResponse = zod.array(ListDeckCardsResponseItem);
@@ -124,6 +137,19 @@ export const UpdateCardResponse = zod.object({
   image: zod.string().nullish(),
   sourceImage: zod.string().nullish(),
   bbox: zod.string().nullish(),
+  cardType: zod.string().nullish().describe("basic | mcq"),
+  choices: zod
+    .array(zod.string())
+    .nullish()
+    .describe(
+      "Multiple-choice options (in order: A, B, C, D, …). Present only when cardType is 'mcq'.",
+    ),
+  correctIndex: zod
+    .number()
+    .nullish()
+    .describe(
+      "0-based index into choices for the correct option. Present only when cardType is 'mcq'.",
+    ),
   createdAt: zod.string(),
 });
 

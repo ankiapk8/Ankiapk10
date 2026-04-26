@@ -9,6 +9,7 @@ import {
   ExportDeckParams,
   UpdateDeckBody,
 } from "@workspace/api-zod";
+import { serializeCard } from "../lib/serialize-card";
 
 const router: IRouter = Router();
 
@@ -319,7 +320,7 @@ router.get("/decks/:id/cards", async (req, res, next): Promise<void> => {
       .where(inArray(cardsTable.deckId, allDeckIds))
       .orderBy(cardsTable.createdAt);
 
-    res.json(cards.map(c => ({ ...c, createdAt: c.createdAt.toISOString() })));
+    res.json(cards.map(serializeCard));
   } catch (err) {
     next(err);
   }

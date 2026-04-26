@@ -52,7 +52,17 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 - `decks` — Deck metadata (id, name, description, parentId FK self-ref, timestamps)
   - `parentId` is nullable; if set, the deck is a sub-deck of the referenced deck
-- `cards` — Flashcard data (id, deckId, front, back, tags, timestamps)
+- `cards` — Flashcard data (id, deckId, front, back, tags, image, sourceImage, bbox, cardType, choices, correctIndex, timestamps)
+  - `cardType`: `'basic'` (default) or `'mcq'`
+  - `choices`: JSON-stringified array of MCQ option strings (only when cardType='mcq')
+  - `correctIndex`: 0-based index into `choices` for the correct answer
+
+## AI Text-Card Generation
+
+- Long text is split into ~6000-char chunks with 300-char overlap so dense PDFs are covered exhaustively (no summarising). Each chunk is processed with concurrency 3 and proportional card targets with a density floor.
+- The system prompt instructs the model to (1) preserve any existing multiple-choice questions verbatim as MCQ cards (stem in `front`, options in `choices`, 0-based `correctIndex`, explanation in `back`) and (2) emit one atomic basic card per fact for the rest.
+- `normalizeCard` validates and normalizes both `basic` and `mcq` card shapes; `serializeCard` parses the JSON `choices` column before sending to the client.
+- Frontend Study mode renders MCQ cards as A/B/C/D options the learner can pre-select; on Show Answer the correct option turns green and a wrong selected option turns red. The card list shows an "MCQ" badge.
 
 ## Deck Hierarchy
 

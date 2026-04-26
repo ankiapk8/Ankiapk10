@@ -41,6 +41,11 @@ export async function ensureDatabaseSchema(): Promise<void> {
 
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "tags" text;
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "image" text;
+    ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "source_image" text;
+    ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "bbox" text;
+    ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "card_type" text;
+    ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "choices" text;
+    ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "correct_index" integer;
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "created_at" timestamp with time zone DEFAULT now() NOT NULL;
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "updated_at" timestamp with time zone DEFAULT now() NOT NULL;
 

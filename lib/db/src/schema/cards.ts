@@ -12,6 +12,9 @@ export const cardsTable = pgTable("cards", {
   image: text("image"),
   sourceImage: text("source_image"),
   bbox: text("bbox"),
+  cardType: text("card_type"),
+  choices: text("choices"),
+  correctIndex: integer("correct_index"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
