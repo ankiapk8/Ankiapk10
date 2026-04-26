@@ -27,6 +27,8 @@ import {
   Sparkles, BookOpen, Upload, Combine, History as HistoryIcon,
 } from "lucide-react";
 import { useState, useMemo, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/utils";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -284,11 +286,49 @@ export default function Decks() {
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [exportingAll, setExportingAll] = useState(false);
+  const [exportingApkgAll, setExportingApkgAll] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeName, setMergeName] = useState("");
   const [mergeDeleteOriginals, setMergeDeleteOriginals] = useState(false);
   const [merging, setMerging] = useState(false);
   const importInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExportLibraryApkg = async () => {
+    const all = (decks as DeckWithParent[] | undefined) ?? [];
+    const rootIds = all.filter(d => !d.parentId).map(d => d.id);
+    if (rootIds.length === 0) {
+      toast({ title: "Nothing to export", description: "Create a deck first.", variant: "destructive" });
+      return;
+    }
+    setExportingApkgAll(true);
+    try {
+      const stamp = new Date().toISOString().slice(0, 10);
+      const exportName = `AnkiGen Library ${stamp}`;
+      const resp = await fetch(apiUrl("api/export-apkg"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deckIds: rootIds, exportName }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error ?? "Export failed.");
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = Object.assign(document.createElement("a"), {
+        href: url,
+        download: `${exportName.replace(/[^a-z0-9_\-]/gi, "_")}.apkg`,
+      });
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast({ title: "Library exported", description: `Downloaded ${exportName}.apkg — import into Anki to add every deck.` });
+    } catch (err) {
+      toast({ title: "Export failed", description: err instanceof Error ? err.message : "Something went wrong.", variant: "destructive" });
+    } finally {
+      setExportingApkgAll(false);
+    }
+  };
 
   const handleExportAllJson = async () => {
     setExportingAll(true);
@@ -543,37 +583,169 @@ export default function Decks() {
                   <CheckSquare className="h-4 w-4" /> Select
                 </Button>
               )}
-              <DropdownMenu>
+              <DropdownMenu open={transferOpen} onOpenChange={setTransferOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="gap-2" disabled={importing || exportingAll}>
-                    <Upload className="h-4 w-4" />
-                    Transfer
-                    <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                  <Button
+                    variant="outline"
+                    className="gap-2 relative overflow-hidden group"
+                    disabled={importing || exportingAll || exportingApkgAll}
+                  >
+                    <motion.span
+                      aria-hidden
+                      className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0"
+                      initial={{ x: "-120%" }}
+                      animate={transferOpen ? { x: "120%" } : { x: "-120%" }}
+                      transition={{ duration: 0.9, ease: "easeOut" }}
+                    />
+                    <motion.span
+                      className="relative inline-flex items-center"
+                      animate={
+                        importing || exportingAll || exportingApkgAll
+                          ? { rotate: [0, -8, 8, 0], y: [0, -2, 0, 0] }
+                          : transferOpen
+                          ? { y: -2, scale: 1.08 }
+                          : { y: 0, scale: 1 }
+                      }
+                      transition={
+                        importing || exportingAll || exportingApkgAll
+                          ? { duration: 1, repeat: Infinity, ease: "easeInOut" }
+                          : { type: "spring", stiffness: 320, damping: 18 }
+                      }
+                    >
+                      <Upload className="h-4 w-4" />
+                    </motion.span>
+                    <span className="relative">Transfer</span>
+                    <motion.span
+                      className="relative"
+                      animate={{ rotate: transferOpen ? 180 : 0 }}
+                      transition={{ type: "spring", stiffness: 320, damping: 22 }}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                    </motion.span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuItem
-                    className="gap-2.5 cursor-pointer"
-                    onClick={() => importInputRef.current?.click()}
-                  >
-                    <Upload className="h-4 w-4 text-primary" />
-                    <div>
-                      <div className="text-sm font-medium">{importing ? "Importing…" : "Import deck file…"}</div>
-                      <div className="text-xs text-muted-foreground">Upload a .ankigen.json file</div>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="gap-2.5 cursor-pointer"
-                    onClick={handleExportAllJson}
-                    disabled={exportingAll || ((decks as DeckWithParent[])?.length ?? 0) === 0}
-                  >
-                    <Download className="h-4 w-4 text-blue-500" />
-                    <div>
-                      <div className="text-sm font-medium">{exportingAll ? "Exporting…" : "Export all main topics"}</div>
-                      <div className="text-xs text-muted-foreground">All decks &amp; cards in one JSON file</div>
-                    </div>
-                  </DropdownMenuItem>
+                <DropdownMenuContent align="end" className="w-72 p-1.5">
+                  <AnimatePresence>
+                    {transferOpen && (
+                      <motion.div
+                        key="transfer-items"
+                        initial="hidden"
+                        animate="visible"
+                        variants={{
+                          hidden: {},
+                          visible: { transition: { staggerChildren: 0.05, delayChildren: 0.04 } },
+                        }}
+                      >
+                        <motion.div
+                          variants={{
+                            hidden: { opacity: 0, x: -10 },
+                            visible: { opacity: 1, x: 0 },
+                          }}
+                          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                        >
+                          <div className="px-2 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            Bring in
+                          </div>
+                          <DropdownMenuItem
+                            className="gap-3 cursor-pointer rounded-md py-2.5 group/item focus:bg-primary/5"
+                            onClick={() => importInputRef.current?.click()}
+                          >
+                            <motion.span
+                              className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"
+                              whileHover={{ y: -3, scale: 1.06 }}
+                              transition={{ type: "spring", stiffness: 320, damping: 18 }}
+                            >
+                              <Upload className="h-4 w-4" />
+                            </motion.span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium">
+                                {importing ? "Importing…" : "Import deck file"}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                Upload a .ankigen.json backup
+                              </div>
+                            </div>
+                          </DropdownMenuItem>
+                        </motion.div>
+
+                        <DropdownMenuSeparator />
+
+                        <motion.div
+                          variants={{
+                            hidden: { opacity: 0, x: -10 },
+                            visible: { opacity: 1, x: 0 },
+                          }}
+                          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                        >
+                          <div className="px-2 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            Send out
+                          </div>
+
+                          <DropdownMenuItem
+                            className="gap-3 cursor-pointer rounded-md py-2.5 group/item focus:bg-emerald-500/5"
+                            onClick={handleExportLibraryApkg}
+                            disabled={exportingApkgAll || ((decks as DeckWithParent[])?.length ?? 0) === 0}
+                          >
+                            <motion.span
+                              className="h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0"
+                              whileHover={{ y: 3, scale: 1.06 }}
+                              animate={exportingApkgAll ? { rotate: [0, 360] } : {}}
+                              transition={
+                                exportingApkgAll
+                                  ? { duration: 1.2, repeat: Infinity, ease: "linear" }
+                                  : { type: "spring", stiffness: 320, damping: 18 }
+                              }
+                            >
+                              <Package className="h-4 w-4" />
+                            </motion.span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium">
+                                {exportingApkgAll ? "Building .apkg…" : "Export library as .apkg"}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                One Anki package — opens in Anki / AnkiMobile
+                              </div>
+                            </div>
+                          </DropdownMenuItem>
+                        </motion.div>
+
+                        <motion.div
+                          variants={{
+                            hidden: { opacity: 0, x: -10 },
+                            visible: { opacity: 1, x: 0 },
+                          }}
+                          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                        >
+                          <DropdownMenuItem
+                            className="gap-3 cursor-pointer rounded-md py-2.5 group/item focus:bg-blue-500/5"
+                            onClick={handleExportAllJson}
+                            disabled={exportingAll || ((decks as DeckWithParent[])?.length ?? 0) === 0}
+                          >
+                            <motion.span
+                              className="h-9 w-9 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0"
+                              whileHover={{ y: 3, scale: 1.06 }}
+                              animate={exportingAll ? { y: [0, 4, 0] } : {}}
+                              transition={
+                                exportingAll
+                                  ? { duration: 0.9, repeat: Infinity, ease: "easeInOut" }
+                                  : { type: "spring", stiffness: 320, damping: 18 }
+                              }
+                            >
+                              <Download className="h-4 w-4" />
+                            </motion.span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium">
+                                {exportingAll ? "Exporting…" : "Backup library as JSON"}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                All topics, MCQs &amp; page numbers in one file
+                              </div>
+                            </div>
+                          </DropdownMenuItem>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </DropdownMenuContent>
               </DropdownMenu>
               <input

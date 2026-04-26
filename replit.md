@@ -96,3 +96,12 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 - Header/nav (`components/layout.tsx`): tighter gaps + larger touch targets on `<sm`; nav labels stay visible (icons get a small bump). Generate button also uses `py-2` on mobile for a 44px tap area.
 - Library list (`pages/decks.tsx`): nested indents drop from `ml-6/ml-5` to `ml-3/ml-2` on `<sm`, and the per-row card-count badge collapses to just the number on phones to keep Edit/Delete reachable.
 - Deck detail AI Tools (`pages/deck-detail.tsx`): switched from `grid-cols-3` to `grid-cols-1 sm:grid-cols-3` so the three AI buttons stack on phones instead of clipping their labels.
+
+## Transfer (Library Backup / Restore)
+
+- `artifacts/api-server/src/routes/transfer.ts` exposes:
+  - `GET /api/export-all-json` — every top-level deck (with sub-decks) in one `.ankigen.json` file.
+  - `GET /api/decks/:id/export-json` — single top-level deck (with sub-decks).
+  - `POST /api/import-deck-json` — accepts either `{ root }` or `{ roots: [...] }`.
+- File format `version` is now **2**. Exported `ExportedCard` includes `cardType`, `choices`, `correctIndex`, and `pageNumber` (v1 dropped these, breaking MCQs and page-based sort on round-trip). `version > FORMAT_VERSION` is rejected, so old v1 files still import cleanly (the new fields are simply absent).
+- The Library page Transfer dropdown now has three actions: import a `.ankigen.json` backup, export the whole library as a single `.apkg` (calls `/api/export-apkg` with every root deck ID), and back the library up as JSON. The button + items are animated with framer-motion (sweep highlight on the trigger, staggered slide-in for items, idle/loading micro-animations on each icon).

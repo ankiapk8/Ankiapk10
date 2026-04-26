@@ -4,13 +4,17 @@ import { db, decksTable, cardsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2;
 
 type ExportedCard = {
   front: string;
   back: string;
   tags: string | null;
   image: string | null;
+  cardType?: string | null;
+  choices?: string | null;
+  correctIndex?: number | null;
+  pageNumber?: number | null;
 };
 
 type ExportedNode = {
@@ -44,6 +48,10 @@ function buildNode(
       back: c.back,
       tags: c.tags ?? null,
       image: c.image ?? null,
+      cardType: c.cardType ?? null,
+      choices: c.choices ?? null,
+      correctIndex: c.correctIndex ?? null,
+      pageNumber: c.pageNumber ?? null,
     })),
     subDecks: children.map(c => buildNode(c.id, allDecks, cardsByDeck)),
   };
@@ -191,6 +199,10 @@ async function importNode(
         back: c.back,
         tags: c.tags ?? undefined,
         image: c.image ?? undefined,
+        cardType: c.cardType ?? undefined,
+        choices: c.choices ?? undefined,
+        correctIndex: typeof c.correctIndex === "number" ? c.correctIndex : undefined,
+        pageNumber: typeof c.pageNumber === "number" ? c.pageNumber : undefined,
       }))
     );
     cardCount += node.cards.length;
