@@ -1048,7 +1048,7 @@ function EditableCard({
   return (
     <CardUI 
       className="group hover-elevate transition-all duration-300 border-border/40 animate-in fade-in slide-in-from-bottom-2"
-      style={{ animationDelay: `${index * 30}ms` }}
+      style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
     >
       {subDeckName && (
         <div className="px-4 pt-3 pb-0">

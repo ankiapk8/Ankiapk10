@@ -74,6 +74,11 @@ export interface Card {
    * @nullable
    */
   correctIndex?: number | null;
+  /**
+   * 1-based source PDF page number this card was generated from, or null when no page is associated.
+   * @nullable
+   */
+  pageNumber?: number | null;
   createdAt: string;
 }
 
@@ -116,6 +121,8 @@ export interface GenerateCardsBody {
   /** @nullable */
   parentId?: number | null;
   pageImages?: string[];
+  /** Per-page extracted text (index 0 = page 1). When provided, the server tracks which PDF page each text card came from and stores it as pageNumber so the merged deck can be sorted by source page. */
+  pageTexts?: string[];
   /** Optional user instructions appended to the system prompt to steer card generation (e.g. "focus on dosages", "phrase as MCQs", "for a Year 1 medical student") */
   customPrompt?: string;
 }

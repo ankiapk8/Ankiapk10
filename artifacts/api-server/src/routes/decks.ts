@@ -318,7 +318,7 @@ router.get("/decks/:id/cards", async (req, res, next): Promise<void> => {
       .select()
       .from(cardsTable)
       .where(inArray(cardsTable.deckId, allDeckIds))
-      .orderBy(cardsTable.createdAt);
+      .orderBy(sql`${cardsTable.pageNumber} ASC NULLS LAST`, cardsTable.createdAt);
 
     res.json(cards.map(serializeCard));
   } catch (err) {
@@ -349,7 +349,7 @@ router.get("/decks/:id/export", async (req, res, next): Promise<void> => {
       .select()
       .from(cardsTable)
       .where(eq(cardsTable.deckId, params.data.id))
-      .orderBy(cardsTable.createdAt);
+      .orderBy(sql`${cardsTable.pageNumber} ASC NULLS LAST`, cardsTable.createdAt);
 
     const rows = cards.map(c => {
       const front = c.front.replace(/\t/g, " ").replace(/\n/g, "<br>");

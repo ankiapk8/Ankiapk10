@@ -34,5 +34,10 @@ export interface Card {
    * @nullable
    */
   correctIndex?: number | null;
+  /**
+   * 1-based source PDF page number this card was generated from, or null when no page is associated.
+   * @nullable
+   */
+  pageNumber?: number | null;
   createdAt: string;
 }

@@ -707,7 +707,7 @@ export default function Decks() {
       ) : (
         <div className="space-y-3">
           {filteredRoot.map((deck, idx) => (
-            <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${idx * 40}ms` }}>
+            <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
               <DeckRow deck={deck} depth={0} {...sharedRowProps} />
             </div>
           ))}

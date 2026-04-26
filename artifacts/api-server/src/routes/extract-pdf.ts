@@ -61,7 +61,7 @@ function pdfDocOptions(buffer: Buffer) {
   } as unknown as Parameters<(typeof import("pdfjs-dist/legacy/build/pdf.mjs"))["getDocument"]>[0];
 }
 
-async function extractEmbeddedPdfText(buffer: Buffer): Promise<{ text: string; numPages: number }> {
+async function extractEmbeddedPdfText(buffer: Buffer): Promise<{ text: string; pageTexts: string[]; numPages: number }> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const pdf = await pdfjsLib.getDocument(pdfDocOptions(buffer)).promise;
   const numPages = pdf.numPages;
@@ -75,14 +75,14 @@ async function extractEmbeddedPdfText(buffer: Buffer): Promise<{ text: string; n
         .map((item) => ("str" in item && typeof item.str === "string" ? item.str : ""))
         .filter(Boolean)
         .join(" ");
-      pageTexts.push(pageText);
+      pageTexts.push(normalizeText(pageText));
       page.cleanup();
     }
   } finally {
     await pdf.destroy();
   }
 
-  return { text: normalizeText(pageTexts.join("\n")), numPages };
+  return { text: normalizeText(pageTexts.join("\n")), pageTexts, numPages };
 }
 
 async function renderPageToBuffer(pdf: PDFDocumentProxy, pageNumber: number): Promise<Buffer> {
@@ -133,10 +133,10 @@ async function extractOcrText(buffer: Buffer): Promise<string> {
 
 async function processPdfBuffer(buffer: Buffer, res: express.Response, log: { info: (msg: string) => void; error: (obj: object, msg: string) => void }): Promise<void> {
   try {
-    const { text: embeddedText } = await extractEmbeddedPdfText(buffer);
+    const { text: embeddedText, pageTexts: embeddedPageTexts } = await extractEmbeddedPdfText(buffer);
 
     if (embeddedText.length > MIN_TEXT_LENGTH) {
-      res.json({ text: embeddedText, length: embeddedText.length, method: "embedded" });
+      res.json({ text: embeddedText, pageTexts: embeddedPageTexts, length: embeddedText.length, method: "embedded" });
       return;
     }
 

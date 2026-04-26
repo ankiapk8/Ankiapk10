@@ -110,11 +110,12 @@ type RawCard = {
   type?: "basic" | "mcq";
   choices?: string[];
   correctIndex?: number;
+  pageNumber?: number | null;
 };
 type Bbox = { x: number; y: number; w: number; h: number };
 type FigureType = "chart" | "table" | "radiology" | "flowchart" | "diagram" | "photomicrograph" | "trace" | "equation";
 type VisualRawCard = { pageIndex: number; front: string; back: string; bbox?: Bbox; figureType?: FigureType };
-type VisualCardResult = { front: string; back: string; image: string; sourceImage: string; bbox: Bbox | null; figureType: FigureType | null };
+type VisualCardResult = { front: string; back: string; image: string; sourceImage: string; bbox: Bbox | null; figureType: FigureType | null; pageNumber: number | null };
 
 const FIGURE_TYPES: FigureType[] = ["chart", "table", "radiology", "flowchart", "diagram", "photomicrograph", "trace", "equation"];
 
@@ -274,6 +275,8 @@ const TEXT_CHUNK_CHARS = 6000;
 const TEXT_CHUNK_OVERLAP = 300;
 const ABSOLUTE_TEXT_CARD_CAP = 1000;
 
+type TextChunk = { text: string; pageNumber: number | null };
+
 function chunkText(text: string, chunkSize: number, overlap: number): string[] {
   const trimmed = text.trim();
   if (trimmed.length <= chunkSize) return [trimmed];
@@ -293,6 +296,46 @@ function chunkText(text: string, chunkSize: number, overlap: number): string[] {
     if (end >= trimmed.length) break;
     start = Math.max(end - overlap, end);
   }
+  return chunks;
+}
+
+// Build chunks that know which PDF page each one *starts on*. We pack pages
+// into a chunk until the budget fills up, then emit. Tiny pages get grouped,
+// huge pages may be split across multiple chunks (all tagged with the same
+// starting page). This gives every text card a sane source-page tag so the
+// merged deck can be sorted by original PDF page.
+function buildPagedChunks(pageTexts: string[], chunkSize: number): TextChunk[] {
+  const chunks: TextChunk[] = [];
+  let buf = "";
+  let bufStartPage: number | null = null;
+
+  const flush = () => {
+    const trimmed = buf.trim();
+    if (trimmed) chunks.push({ text: trimmed, pageNumber: bufStartPage });
+    buf = "";
+    bufStartPage = null;
+  };
+
+  for (let i = 0; i < pageTexts.length; i++) {
+    const page = (pageTexts[i] ?? "").trim();
+    if (!page) continue;
+    const pageNumber = i + 1;
+
+    if (page.length > chunkSize) {
+      // Page is bigger than one chunk on its own — emit anything pending first,
+      // then split this single page into multiple chunks (all stamped with the
+      // same page number).
+      flush();
+      const sub = chunkText(page, chunkSize, 0);
+      for (const s of sub) chunks.push({ text: s, pageNumber });
+      continue;
+    }
+
+    if (buf.length + page.length + 2 > chunkSize) flush();
+    if (!buf) bufStartPage = pageNumber;
+    buf += (buf ? "\n\n" : "") + `[PAGE ${pageNumber}]\n${page}`;
+  }
+  flush();
   return chunks;
 }
 
@@ -349,6 +392,7 @@ async function generateTextCardsForChunk(
   requestLog: { warn: (obj: unknown, message: string) => void },
   signal?: AbortSignal,
   customPrompt?: string,
+  pageNumber: number | null = null,
 ): Promise<RawCard[]> {
   const systemPrompt = TEXT_CARD_SYSTEM_PROMPT_BASE + customPromptBlock(customPrompt);
 
@@ -372,9 +416,13 @@ Goal: ~${targetCards} cards for this segment, but you MUST add more if the segme
 
   const raw = (response as { choices: Array<{ message: { content: string | null } }> })
     .choices[0]?.message?.content ?? "[]";
-  return parseJson<unknown>(raw)
+  const cards = parseJson<unknown>(raw)
     .map(normalizeCard)
     .filter((c): c is RawCard => c !== null);
+  if (pageNumber !== null) {
+    for (const c of cards) c.pageNumber = pageNumber;
+  }
+  return cards;
 }
 
 async function generateTextCards(
@@ -385,18 +433,27 @@ async function generateTextCards(
   signal?: AbortSignal,
   customPrompt?: string,
   onProgress?: (done: number, total: number) => void,
+  pageTexts?: string[],
 ): Promise<RawCard[]> {
   const trimmed = text.trim();
   if (!trimmed) return [];
 
-  const chunks = chunkText(trimmed, TEXT_CHUNK_CHARS, TEXT_CHUNK_OVERLAP);
+  // When per-page text is provided, use page-aware chunking so every card can
+  // be tagged with its source PDF page. Otherwise fall back to plain chunking
+  // (and cards stay un-paged).
+  const chunks: TextChunk[] = pageTexts && pageTexts.length > 0
+    ? buildPagedChunks(pageTexts, TEXT_CHUNK_CHARS)
+    : chunkText(trimmed, TEXT_CHUNK_CHARS, TEXT_CHUNK_OVERLAP).map(t => ({ text: t, pageNumber: null }));
+
+  if (chunks.length === 0) return [];
+
   // Distribute the user's target across chunks proportionally to length, with
   // a generous floor so dense chunks aren't starved. The model is also allowed
   // (and required) to exceed this when the chunk has more facts than the goal.
-  const totalChars = chunks.reduce((s, c) => s + c.length, 0) || 1;
+  const totalChars = chunks.reduce((s, c) => s + c.text.length, 0) || 1;
   const cardsPerChunk = chunks.map(c => {
-    const proportional = Math.ceil((c.length / totalChars) * Math.max(maxCards, 1));
-    const densityFloor = Math.max(8, Math.ceil(c.length / 250));
+    const proportional = Math.ceil((c.text.length / totalChars) * Math.max(maxCards, 1));
+    const densityFloor = Math.max(8, Math.ceil(c.text.length / 250));
     return Math.max(proportional, densityFloor);
   });
 
@@ -410,7 +467,7 @@ async function generateTextCards(
     const targets = cardsPerChunk.slice(i, i + CONCURRENCY);
     const settled = await Promise.allSettled(
       slice.map((chunk, idx) =>
-        generateTextCardsForChunk(openai, chunk, targets[idx], requestLog, signal, customPrompt),
+        generateTextCardsForChunk(openai, chunk.text, targets[idx], requestLog, signal, customPrompt, chunk.pageNumber),
       ),
     );
     for (const r of settled) {
@@ -631,6 +688,7 @@ async function generateAllVisualCards(
             sourceImage: thumb,
             bbox: c.bbox ?? null,
             figureType: c.figureType ?? null,
+            pageNumber: b.start + c.pageIndex + 1,
           });
         }
         return out;
@@ -673,7 +731,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     return;
   }
 
-  const { text, deckName, cardCount = 20, visualCardCount, parentId, pageImages, deckType: rawDeckType, customPrompt } = parsed.data;
+  const { text, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, deckType: rawDeckType, customPrompt } = parsed.data;
 
   if (!text || text.trim().length < 10) {
     res.status(400).json({ error: "Text is too short to generate cards from." });
@@ -783,6 +841,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
               message: `Generating text cards… (${done}/${total} chunks)`,
             });
           },
+          pageTexts,
         ).then(cards => {
           textCards = cards;
           sseEmit(res, { type: "progress", percent: TEXT_DONE_PERCENT, message: `Text cards done (${cards.length} generated)` });
@@ -846,56 +905,13 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
       return;
     }
 
-    let textDeck: typeof decksTable.$inferSelect | null = null;
-    let visualDeck: typeof decksTable.$inferSelect | null = null;
-    let totalInserted = 0;
+    // Single merged deck: text + visual cards live together, sorted by source
+    // PDF page so the deck reads in the same order as the original document.
+    const [primaryDeck] = await db
+      .insert(decksTable)
+      .values({ name: deckName, parentId: parentId ?? null })
+      .returning();
 
-    const wantTextDeck = wantText && filteredText.length > 0;
-    const wantVisualDeck = wantVisual && filteredVisual.length > 0;
-    const splitting = wantTextDeck && wantVisualDeck;
-
-    if (wantTextDeck) {
-      const name = splitting ? `${deckName} – Text` : deckName;
-      const [d] = await db
-        .insert(decksTable)
-        .values({ name, parentId: parentId ?? null })
-        .returning();
-      textDeck = d;
-      const inserted = await db.insert(cardsTable).values(
-        filteredText.map(c => ({
-          deckId: d.id,
-          front: c.front,
-          back: c.back,
-          image: null,
-          cardType: c.type === "mcq" ? "mcq" : "basic",
-          choices: c.type === "mcq" && c.choices ? JSON.stringify(c.choices) : null,
-          correctIndex: c.type === "mcq" && typeof c.correctIndex === "number" ? c.correctIndex : null,
-        }))
-      ).returning();
-      totalInserted += inserted.length;
-    }
-
-    if (wantVisualDeck) {
-      const name = splitting ? `${deckName} – Visual` : deckName;
-      const [d] = await db
-        .insert(decksTable)
-        .values({ name, parentId: parentId ?? null })
-        .returning();
-      visualDeck = d;
-      const inserted = await db.insert(cardsTable).values(
-        filteredVisual.map(c => ({
-          deckId: d.id,
-          front: c.front,
-          back: c.back,
-          image: c.image.startsWith("data:") ? c.image : `data:image/jpeg;base64,${c.image}`,
-          sourceImage: c.sourceImage ?? null,
-          bbox: c.bbox ? JSON.stringify(c.bbox) : null,
-        }))
-      ).returning();
-      totalInserted += inserted.length;
-    }
-
-    const primaryDeck = textDeck ?? visualDeck;
     if (!primaryDeck) {
       await recordRun("error", 0, "Failed to save deck.");
       sseEmit(res, { type: "error", message: "Failed to save deck." });
@@ -903,15 +919,39 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
       return;
     }
 
+    const cardRows: (typeof cardsTable.$inferInsert)[] = [
+      ...filteredText.map(c => ({
+        deckId: primaryDeck.id,
+        front: c.front,
+        back: c.back,
+        image: null,
+        cardType: c.type === "mcq" ? ("mcq" as const) : ("basic" as const),
+        choices: c.type === "mcq" && c.choices ? JSON.stringify(c.choices) : null,
+        correctIndex: c.type === "mcq" && typeof c.correctIndex === "number" ? c.correctIndex : null,
+        pageNumber: c.pageNumber ?? null,
+      })),
+      ...filteredVisual.map(c => ({
+        deckId: primaryDeck.id,
+        front: c.front,
+        back: c.back,
+        image: c.image.startsWith("data:") ? c.image : `data:image/jpeg;base64,${c.image}`,
+        sourceImage: c.sourceImage ?? null,
+        bbox: c.bbox ? JSON.stringify(c.bbox) : null,
+        pageNumber: c.pageNumber ?? null,
+      })),
+    ];
+
+    const inserted = cardRows.length > 0
+      ? await db.insert(cardsTable).values(cardRows).returning()
+      : [];
+    const totalInserted = inserted.length;
+
     await recordRun("success", totalInserted);
     sseEmit(res, {
       type: "done",
       percent: 100,
       generatedCount: totalInserted,
       deck: { ...primaryDeck, cardCount: totalInserted, createdAt: primaryDeck.createdAt.toISOString() },
-      ...(textDeck && visualDeck
-        ? { visualDeck: { ...visualDeck, cardCount: filteredVisual.length, createdAt: visualDeck.createdAt.toISOString() } }
-        : {}),
     });
     res.end();
   } catch (err) {
@@ -927,7 +967,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
     return;
   }
 
-  const { text, deckName, cardCount = 20, visualCardCount, parentId, pageImages, deckType: rawDeckType, customPrompt } = parsed.data;
+  const { text, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, deckType: rawDeckType, customPrompt } = parsed.data;
 
   if (!text || text.trim().length < 10) {
     res.status(400).json({ error: "Text is too short to generate cards from." });
@@ -958,7 +998,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
 
   try {
     [textCards, visualCards] = await Promise.all([
-      wantText ? generateTextCards(openai, text, maxTextCards, req.log, undefined, customPrompt) : Promise.resolve([] as RawCard[]),
+      wantText ? generateTextCards(openai, text, maxTextCards, req.log, undefined, customPrompt, undefined, pageTexts) : Promise.resolve([] as RawCard[]),
       wantVisual ? generateAllVisualCards(openai, selectedImages, maxVisualCards, req.log, undefined, undefined, customPrompt) : Promise.resolve([]),
     ]);
   } catch (error) {
@@ -984,60 +1024,45 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   }
 
   try {
-    let textDeck: typeof decksTable.$inferSelect | null = null;
-    let visualDeck: typeof decksTable.$inferSelect | null = null;
-    const allInserted: (typeof cardsTable.$inferSelect)[] = [];
+    // Single merged deck — text + visual cards together, ordered later by source page.
+    const [primaryDeck] = await db
+      .insert(decksTable)
+      .values({ name: deckName, parentId: parentId ?? null })
+      .returning();
 
-    const wantTextDeck = wantText && filteredText.length > 0;
-    const wantVisualDeck = wantVisual && filteredVisual.length > 0;
-    const splitting = wantTextDeck && wantVisualDeck;
-
-    if (wantTextDeck) {
-      const name = splitting ? `${deckName} – Text` : deckName;
-      const [d] = await db.insert(decksTable).values({ name, parentId: parentId ?? null }).returning();
-      textDeck = d;
-      const inserted = await db.insert(cardsTable).values(
-        filteredText.map(c => ({
-          deckId: d.id,
-          front: c.front,
-          back: c.back,
-          image: null,
-          cardType: c.type === "mcq" ? "mcq" : "basic",
-          choices: c.type === "mcq" && c.choices ? JSON.stringify(c.choices) : null,
-          correctIndex: c.type === "mcq" && typeof c.correctIndex === "number" ? c.correctIndex : null,
-        }))
-      ).returning();
-      allInserted.push(...inserted);
-    }
-
-    if (wantVisualDeck) {
-      const name = splitting ? `${deckName} – Visual` : deckName;
-      const [d] = await db.insert(decksTable).values({ name, parentId: parentId ?? null }).returning();
-      visualDeck = d;
-      const inserted = await db.insert(cardsTable).values(
-        filteredVisual.map(c => ({
-          deckId: d.id,
-          front: c.front,
-          back: c.back,
-          image: c.image.startsWith("data:") ? c.image : `data:image/jpeg;base64,${c.image}`,
-          sourceImage: c.sourceImage ?? null,
-          bbox: c.bbox ? JSON.stringify(c.bbox) : null,
-        }))
-      ).returning();
-      allInserted.push(...inserted);
-    }
-
-    const primaryDeck = textDeck ?? visualDeck;
     if (!primaryDeck) {
       res.status(500).json({ error: "Failed to save deck." });
       return;
     }
 
+    const cardRows: (typeof cardsTable.$inferInsert)[] = [
+      ...filteredText.map(c => ({
+        deckId: primaryDeck.id,
+        front: c.front,
+        back: c.back,
+        image: null,
+        cardType: c.type === "mcq" ? ("mcq" as const) : ("basic" as const),
+        choices: c.type === "mcq" && c.choices ? JSON.stringify(c.choices) : null,
+        correctIndex: c.type === "mcq" && typeof c.correctIndex === "number" ? c.correctIndex : null,
+        pageNumber: c.pageNumber ?? null,
+      })),
+      ...filteredVisual.map(c => ({
+        deckId: primaryDeck.id,
+        front: c.front,
+        back: c.back,
+        image: c.image.startsWith("data:") ? c.image : `data:image/jpeg;base64,${c.image}`,
+        sourceImage: c.sourceImage ?? null,
+        bbox: c.bbox ? JSON.stringify(c.bbox) : null,
+        pageNumber: c.pageNumber ?? null,
+      })),
+    ];
+
+    const allInserted = cardRows.length > 0
+      ? await db.insert(cardsTable).values(cardRows).returning()
+      : [];
+
     res.status(201).json({
-      deck: { ...primaryDeck, cardCount: allInserted.filter(c => c.deckId === primaryDeck.id).length, createdAt: primaryDeck.createdAt.toISOString() },
-      ...(textDeck && visualDeck
-        ? { visualDeck: { ...visualDeck, cardCount: filteredVisual.length, createdAt: visualDeck.createdAt.toISOString() } }
-        : {}),
+      deck: { ...primaryDeck, cardCount: allInserted.length, createdAt: primaryDeck.createdAt.toISOString() },
       cards: allInserted.map(serializeCard),
       generatedCount: allInserted.length,
     });

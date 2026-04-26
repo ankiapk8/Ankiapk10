@@ -111,6 +111,12 @@ export const ListDeckCardsResponseItem = zod.object({
     .describe(
       "0-based index into choices for the correct option. Present only when cardType is 'mcq'.",
     ),
+  pageNumber: zod
+    .number()
+    .nullish()
+    .describe(
+      "1-based source PDF page number this card was generated from, or null when no page is associated.",
+    ),
   createdAt: zod.string(),
 });
 export const ListDeckCardsResponse = zod.array(ListDeckCardsResponseItem);
@@ -150,6 +156,12 @@ export const UpdateCardResponse = zod.object({
     .describe(
       "0-based index into choices for the correct option. Present only when cardType is 'mcq'.",
     ),
+  pageNumber: zod
+    .number()
+    .nullish()
+    .describe(
+      "1-based source PDF page number this card was generated from, or null when no page is associated.",
+    ),
   createdAt: zod.string(),
 });
 
@@ -186,6 +198,12 @@ export const GenerateCardsBody = zod.object({
     ),
   parentId: zod.number().nullish(),
   pageImages: zod.array(zod.string()).optional(),
+  pageTexts: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Per-page extracted text (index 0 = page 1). When provided, the server tracks which PDF page each text card came from and stores it as pageNumber so the merged deck can be sorted by source page.",
+    ),
   customPrompt: zod
     .string()
     .optional()

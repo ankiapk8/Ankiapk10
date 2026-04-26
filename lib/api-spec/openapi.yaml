@@ -380,6 +380,9 @@ components:
         correctIndex:
           type: ["integer", "null"]
           description: "0-based index into choices for the correct option. Present only when cardType is 'mcq'."
+        pageNumber:
+          type: ["integer", "null"]
+          description: "1-based source PDF page number this card was generated from, or null when no page is associated."
         createdAt:
           type: string
       required:
@@ -432,6 +435,11 @@ components:
           type: array
           items:
             type: string
+        pageTexts:
+          type: array
+          items:
+            type: string
+          description: "Per-page extracted text (index 0 = page 1). When provided, the server tracks which PDF page each text card came from and stores it as pageNumber so the merged deck can be sorted by source page."
         customPrompt:
           type: string
           description: Optional user instructions appended to the system prompt to steer card generation (e.g. "focus on dosages", "phrase as MCQs", "for a Year 1 medical student")

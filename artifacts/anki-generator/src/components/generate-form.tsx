@@ -65,6 +65,7 @@ type FileEntry = {
   status: FileStatus;
   text: string;
   pageImages: string[];
+  pageTexts: string[];
   progress: string;
   deckName: string;
   cardCount: number | "";
@@ -206,15 +207,15 @@ export function GenerateForm({
     }
     const id = `${file.name}-${Date.now()}-${Math.random()}`;
     const baseName = file.name.replace(/\.[^.]+$/, "");
-    setFiles(prev => [...prev, { id, name: file.name, status: "extracting", text: "", pageImages: [], progress: "Reading…", deckName: baseName, cardCount: "", visualCardCount: "", deckType: "both" }]);
+    setFiles(prev => [...prev, { id, name: file.name, status: "extracting", text: "", pageImages: [], pageTexts: [], progress: "Reading…", deckName: baseName, cardCount: "", visualCardCount: "", deckType: "both" }]);
     try {
       if (isTxt) {
         const text = await file.text();
-        updateFile(id, { status: "ready", text, pageImages: [], progress: "" });
+        updateFile(id, { status: "ready", text, pageImages: [], pageTexts: [], progress: "" });
       } else {
         const buffer = await file.arrayBuffer();
-        const { text, pageImages } = await extractPdf(buffer, (progress) => throttledProgressUpdate(id, progress));
-        updateFile(id, { status: "ready", text, pageImages, progress: "", deckType: pageImages.length > 0 ? "both" : "text" });
+        const { text, pageImages, pageTexts } = await extractPdf(buffer, (progress) => throttledProgressUpdate(id, progress));
+        updateFile(id, { status: "ready", text, pageImages, pageTexts, progress: "", deckType: pageImages.length > 0 ? "both" : "text" });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Extraction failed";
@@ -263,6 +264,7 @@ export function GenerateForm({
     deckType: DeckType = "text",
     visualCardCount: number | "" = "",
     customPrompt?: string,
+    pageTexts?: string[],
   ): Promise<number> =>
     new Promise((resolve, reject) => {
       const trimmedPrompt = (customPrompt ?? "").trim();
@@ -273,6 +275,7 @@ export function GenerateForm({
         deckType,
         parentId: pid,
         pageImages: pageImages && pageImages.length > 0 ? pageImages : undefined,
+        pageTexts: pageTexts && pageTexts.length > 0 ? pageTexts : undefined,
         customPrompt: trimmedPrompt || undefined,
       });
 
@@ -374,8 +377,8 @@ export function GenerateForm({
       return applySharedPrompt && sharedTrim ? sharedTrim : "";
     };
     const targets = [
-      ...readyFiles.map(f => ({ id: f.id, text: f.text, deckName: f.deckName, cardCount: f.cardCount, pageImages: f.pageImages, deckType: f.deckType, visualCardCount: f.visualCardCount, customPrompt: fileEffectivePrompt(f) })),
-      ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount, pageImages: [] as string[], deckType: "text" as DeckType, visualCardCount: "" as number | "", customPrompt: manualEffectivePrompt() }] : []),
+      ...readyFiles.map(f => ({ id: f.id, text: f.text, deckName: f.deckName, cardCount: f.cardCount, pageImages: f.pageImages, pageTexts: f.pageTexts, deckType: f.deckType, visualCardCount: f.visualCardCount, customPrompt: fileEffectivePrompt(f) })),
+      ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount, pageImages: [] as string[], pageTexts: [] as string[], deckType: "text" as DeckType, visualCardCount: "" as number | "", customPrompt: manualEffectivePrompt() }] : []),
     ];
 
     for (let i = 0; i < targets.length; i++) {
@@ -395,7 +398,7 @@ export function GenerateForm({
 
       if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…", generatingStartedAt: Date.now() });
       try {
-        const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt);
+        const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts);
         if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count });
         ok++;
         totalCards += count;

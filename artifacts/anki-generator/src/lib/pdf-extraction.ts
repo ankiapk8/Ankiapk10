@@ -19,6 +19,7 @@ const IMAGE_QUALITY = 0.85;
 export interface PdfExtractionResult {
   text: string;
   pageImages: string[];
+  pageTexts: string[];
 }
 
 function normalizeText(text: string): string {
@@ -70,7 +71,10 @@ async function renderPageToJpeg(
   });
 }
 
-async function extractEmbeddedText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
+async function extractEmbeddedText(
+  buffer: ArrayBuffer,
+  onProgress?: ProgressCallback,
+): Promise<{ text: string; pageTexts: string[] }> {
   const pdf = await loadPdf(buffer);
   const pageTexts: string[] = [];
   const pagesToProcess = Math.min(pdf.numPages, CLIENT_MAX_PAGES);
@@ -84,14 +88,14 @@ async function extractEmbeddedText(buffer: ArrayBuffer, onProgress?: ProgressCal
         .map((item) => ("str" in item && typeof item.str === "string" ? item.str : ""))
         .filter(Boolean)
         .join(" ");
-      pageTexts.push(pageText);
+      pageTexts.push(normalizeText(pageText));
       page.cleanup();
     }
   } finally {
     await pdf.destroy();
   }
 
-  return normalizeText(pageTexts.join("\n"));
+  return { text: normalizeText(pageTexts.join("\n")), pageTexts };
 }
 
 async function extractPageImages(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string[]> {
@@ -128,7 +132,10 @@ async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-async function extractClientOcrText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
+async function extractClientOcrText(
+  buffer: ArrayBuffer,
+  onProgress?: ProgressCallback,
+): Promise<{ text: string; pageTexts: string[] }> {
   const pdf = await loadPdf(buffer);
   const worker = await createWorker("eng");
   const pageTexts: string[] = [];
@@ -155,7 +162,7 @@ async function extractClientOcrText(buffer: ArrayBuffer, onProgress?: ProgressCa
       await page.render({ canvasContext: context, canvas, viewport }).promise;
       const image = await canvasToBlob(canvas);
       const { data } = await worker.recognize(image);
-      pageTexts.push(data.text);
+      pageTexts.push(normalizeText(data.text));
       page.cleanup();
       canvas.width = 0;
       canvas.height = 0;
@@ -165,10 +172,13 @@ async function extractClientOcrText(buffer: ArrayBuffer, onProgress?: ProgressCa
     await pdf.destroy();
   }
 
-  return normalizeText(pageTexts.join("\n"));
+  return { text: normalizeText(pageTexts.join("\n")), pageTexts };
 }
 
-async function extractServerText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
+async function extractServerText(
+  buffer: ArrayBuffer,
+  onProgress?: ProgressCallback,
+): Promise<{ text: string; pageTexts: string[] }> {
   onProgress?.("Sending to server for extraction…");
   const blob = new Blob([buffer], { type: "application/pdf" });
   const formData = new FormData();
@@ -179,7 +189,7 @@ async function extractServerText(buffer: ArrayBuffer, onProgress?: ProgressCallb
     body: formData,
   });
 
-  const data = await response.json().catch(() => null) as { text?: unknown; error?: unknown; method?: unknown } | null;
+  const data = await response.json().catch(() => null) as { text?: unknown; pageTexts?: unknown; error?: unknown; method?: unknown } | null;
 
   if (!response.ok) {
     const error = typeof data?.error === "string" ? data.error : "Server PDF extraction failed.";
@@ -190,7 +200,11 @@ async function extractServerText(buffer: ArrayBuffer, onProgress?: ProgressCallb
     throw new Error("No readable text found in this PDF.");
   }
 
-  return normalizeText(data.text);
+  const serverPageTexts = Array.isArray(data.pageTexts)
+    ? (data.pageTexts as unknown[]).filter((t): t is string => typeof t === "string").map(normalizeText)
+    : [];
+
+  return { text: normalizeText(data.text), pageTexts: serverPageTexts };
 }
 
 export async function extractPdfText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
@@ -201,18 +215,17 @@ export async function extractPdfText(buffer: ArrayBuffer, onProgress?: ProgressC
 export async function extractPdf(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<PdfExtractionResult> {
   const isLargeFile = buffer.byteLength > SERVER_THRESHOLD_BYTES;
   let text = "";
+  let pageTexts: string[] = [];
 
   if (!isLargeFile) {
-    let embeddedText = "";
-
     try {
-      embeddedText = await extractEmbeddedText(buffer, onProgress);
+      const embedded = await extractEmbeddedText(buffer, onProgress);
+      if (embedded.text.length > MIN_TEXT_LENGTH) {
+        text = embedded.text;
+        pageTexts = embedded.pageTexts;
+      }
     } catch {
       // fall through to server
-    }
-
-    if (embeddedText.length > MIN_TEXT_LENGTH) {
-      text = embeddedText;
     }
   } else {
     onProgress?.("Large file detected — using server extraction…");
@@ -220,14 +233,17 @@ export async function extractPdf(buffer: ArrayBuffer, onProgress?: ProgressCallb
 
   if (!text) {
     try {
-      text = await extractServerText(buffer, onProgress);
+      const server = await extractServerText(buffer, onProgress);
+      text = server.text;
+      pageTexts = server.pageTexts;
     } catch (serverError) {
       if (!isLargeFile) {
         onProgress?.("Server unavailable, trying local OCR…");
         try {
-          const ocrText = await extractClientOcrText(buffer, onProgress);
-          if (ocrText.length > MIN_TEXT_LENGTH) {
-            text = ocrText;
+          const ocr = await extractClientOcrText(buffer, onProgress);
+          if (ocr.text.length > MIN_TEXT_LENGTH) {
+            text = ocr.text;
+            pageTexts = ocr.pageTexts;
           }
         } catch {
           // swallow
@@ -249,7 +265,7 @@ export async function extractPdf(buffer: ArrayBuffer, onProgress?: ProgressCallb
     // images are best-effort — don't fail the whole extraction
   }
 
-  return { text, pageImages };
+  return { text, pageImages, pageTexts };
 }
 
 export function isPdfFile(file: File): boolean {
