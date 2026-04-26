@@ -5,9 +5,9 @@
   "packageId": "app.replit.ankigen",
   "versionName": "2.0-bundled",
   "versionCode": 2,
-  "sizeBytes": 8264004,
-  "builtAt": "2026-04-26T10:24:25Z",
+  "sizeBytes": 8270796,
+  "builtAt": "2026-04-26T10:30:29Z",
   "kind": "bundled",
   "apiBase": "https://anki--ankiapk9.replit.app/api",
-  "sourceHash": "5141c9e34dae46b5"
+  "sourceHash": "29b01a4e61c6d4e8"
 }

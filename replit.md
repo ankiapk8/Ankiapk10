@@ -103,6 +103,12 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 - Library list (`pages/decks.tsx`): nested indents drop from `ml-6/ml-5` to `ml-3/ml-2` on `<sm`, and the per-row card-count badge collapses to just the number on phones to keep Edit/Delete reachable.
 - Deck detail AI Tools (`pages/deck-detail.tsx`): switched from `grid-cols-3` to `grid-cols-1 sm:grid-cols-3` so the three AI buttons stack on phones instead of clipping their labels.
 
+## Generate Tab (`pages/generate.tsx`)
+
+- Mode toggle pill at the top (Flashcards / Question Bank) with a sliding gradient highlight (framer-motion `layoutId`). Hero title, subtitle, icon, and halo colors swap via `AnimatePresence` based on mode (emerald/green for decks, violet/fuchsia for qbank). The qbank mode also shows a big animated CTA card (rotating conic glow + pulsing sheen + bouncing stethoscope) above the form to make the new feature feel premium.
+- The form section swaps between `<GenerateForm>` (decks, supports PDF text + page screenshots for visual cards) and `<GenerateQbankForm>` (question banks, text-only).
+- `components/generate-qbank-form.tsx` mirrors the deck form's UX: drag-and-drop upload of PDF/TXT files, per-file editable name + question count + optional prompt, shared instructions, and a sequential generation loop that calls `/api/generate-qbank/stream` per file with progress bars and cancel buttons. PDF text is extracted via `extractPdf` from `lib/pdf-extraction` (OCR fallback for scanned PDFs); page screenshots are intentionally skipped because qbanks are MCQ-only and never render images.
+
 ## Transfer (Library Backup / Restore)
 
 - `artifacts/api-server/src/routes/transfer.ts` exposes:
