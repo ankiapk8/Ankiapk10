@@ -169,7 +169,7 @@ router.post(
       next();
     }
   },
-  express.raw({ type: ["application/pdf", "application/octet-stream"], limit: "50mb" }),
+  express.raw({ type: ["application/pdf", "application/octet-stream"], limit: "200mb" }),
   async (req, res): Promise<void> => {
     const log = (req as express.Request & { log: { info: (m: string) => void; error: (o: object, m: string) => void } }).log;
 
