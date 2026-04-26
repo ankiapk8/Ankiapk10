@@ -1,13 +1,13 @@
 {
-  "targetUrl": "https://anki-1--ankiapk5.replit.app",
-  "host": "anki-1--ankiapk5.replit.app",
+  "targetUrl": "https://anki--ankiapk9.replit.app",
+  "host": "anki--ankiapk9.replit.app",
   "additionalHosts": [],
   "packageId": "app.replit.ankigen",
   "versionName": "2.0-bundled",
   "versionCode": 2,
-  "sizeBytes": 8255192,
-  "builtAt": "2026-04-23T14:58:46Z",
+  "sizeBytes": 8264004,
+  "builtAt": "2026-04-26T10:24:25Z",
   "kind": "bundled",
-  "apiBase": "https://anki-1--ankiapk5.replit.app/api",
-  "sourceHash": "e808be241154745e"
+  "apiBase": "https://anki--ankiapk9.replit.app/api",
+  "sourceHash": "5141c9e34dae46b5"
 }

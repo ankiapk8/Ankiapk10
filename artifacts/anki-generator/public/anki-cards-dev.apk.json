@@ -1,13 +1,13 @@
 {
-  "targetUrl": "https://4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
-  "host": "4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev",
+  "targetUrl": "https://8f35841e-200a-4a1a-ae20-6e23452c89e0-00-2fq1fndljt77f.pike.replit.dev",
+  "host": "8f35841e-200a-4a1a-ae20-6e23452c89e0-00-2fq1fndljt77f.pike.replit.dev",
   "additionalHosts": [],
   "packageId": "app.replit.ankigen",
   "versionName": "2.0-bundled",
   "versionCode": 2,
-  "sizeBytes": 8255288,
-  "builtAt": "2026-04-23T14:58:30Z",
+  "sizeBytes": 8264048,
+  "builtAt": "2026-04-26T10:24:03Z",
   "kind": "bundled",
-  "apiBase": "https://4c19c504-2556-4c48-b690-fbd465951c4f-00-332upby7lhirk.pike.replit.dev/api",
-  "sourceHash": "e808be241154745e"
+  "apiBase": "https://8f35841e-200a-4a1a-ae20-6e23452c89e0-00-2fq1fndljt77f.pike.replit.dev/api",
+  "sourceHash": "5141c9e34dae46b5"
 }

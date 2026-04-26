@@ -48,6 +48,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - The server runs a safe startup schema initializer from `@workspace/db` before listening, creating/updating `decks` and `cards` if needed for fresh databases
 - System dependency `util-linux` (provides `libuuid.so.1`) is required by the `canvas` npm package; installed via Nix
 - `canvas` and `tesseract.js` are listed in `pnpm.onlyBuiltDependencies` in the root `package.json` so their native build scripts run
+- **APK builder requires the Android SDK at `/home/runner/android-sdk`** (cmdline-tools + `platforms/android-36` + `build-tools/36.0.0` + `platform-tools`) and JDK 21 from the Nix store. If `/home/runner/android-sdk/platforms` is missing, `buildSupported()` in `apk-builder.ts` returns false and the UI shows "APK download unavailable" / `unsupported`. Reinstall by:
+  1. Download `commandlinetools-linux-*.zip` from `dl.google.com/android/repository`, extract to `/home/runner/android-sdk/cmdline-tools/latest`.
+  2. With `JAVA_HOME` set to the JDK 21 in `/nix/store/*-openjdk-21*` and `PATH` including `cmdline-tools/latest/bin`, run `yes | sdkmanager --licenses` then `sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"`.
+  3. Restart the API server — `autoConfigureFromEnv()` will queue rebuilds for both dev and published slots automatically.
 
 ## Database Schema
 
