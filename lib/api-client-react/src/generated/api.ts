@@ -24,6 +24,7 @@ import type {
   ExportDeckResponse,
   GenerateCardsBody,
   GenerateCardsResponse,
+  GenerateQbankBody,
   Generation,
   HealthStatus,
   ListGenerationsParams,
@@ -857,6 +858,92 @@ export const useGenerateCards = <
   TContext
 > => {
   return useMutation(getGenerateCardsMutationOptions(options));
+};
+
+/**
+ * @summary Generate a Question Bank (MCQ-only deck) from text content
+ */
+export const getGenerateQbankUrl = () => {
+  return `/api/generate-qbank`;
+};
+
+export const generateQbank = async (
+  generateQbankBody: GenerateQbankBody,
+  options?: RequestInit,
+): Promise<GenerateCardsResponse> => {
+  return customFetch<GenerateCardsResponse>(getGenerateQbankUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateQbankBody),
+  });
+};
+
+export const getGenerateQbankMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateQbank>>,
+    TError,
+    { data: BodyType<GenerateQbankBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateQbank>>,
+  TError,
+  { data: BodyType<GenerateQbankBody> },
+  TContext
+> => {
+  const mutationKey = ["generateQbank"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateQbank>>,
+    { data: BodyType<GenerateQbankBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateQbank(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateQbankMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateQbank>>
+>;
+export type GenerateQbankMutationBody = BodyType<GenerateQbankBody>;
+export type GenerateQbankMutationError = ErrorType<void>;
+
+/**
+ * @summary Generate a Question Bank (MCQ-only deck) from text content
+ */
+export const useGenerateQbank = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateQbank>>,
+    TError,
+    { data: BodyType<GenerateQbankBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateQbank>>,
+  TError,
+  { data: BodyType<GenerateQbankBody> },
+  TContext
+> => {
+  return useMutation(getGenerateQbankMutationOptions(options));
 };
 
 /**

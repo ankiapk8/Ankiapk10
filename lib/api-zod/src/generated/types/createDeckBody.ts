@@ -5,6 +5,7 @@
  * API specification for Anki Card Generator
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateDeckBodyKind } from "./createDeckBodyKind";
 
 export interface CreateDeckBody {
   name: string;
@@ -12,4 +13,5 @@ export interface CreateDeckBody {
   description?: string | null;
   /** @nullable */
   parentId?: number | null;
+  kind?: CreateDeckBodyKind;
 }

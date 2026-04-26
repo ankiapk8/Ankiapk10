@@ -49,13 +49,15 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a;
 }
 
-function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
+function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
   cards: Card[];
   deckId: number;
   deckName: string;
+  deckKind?: string;
   onExit: () => void;
   savePoint?: StudySavePoint | null;
 }) {
+  const isQbank = deckKind === "qbank";
   const buildInitialDeck = () => {
     if (savePoint) {
       const byId = new Map(cards.map(c => [c.id, c]));
@@ -466,7 +468,12 @@ function StudyMode({ cards, deckId, deckName, onExit, savePoint }: {
             ) : (
               <div className="border-t border-dashed border-border/30 p-4 sm:p-6 flex justify-center">
                 <Button
-                  onClick={() => setRevealed(true)}
+                  onClick={() => {
+                    setRevealed(true);
+                    if (isQbank && isMcq) {
+                      handleExplain("full");
+                    }
+                  }}
                   className="gap-2"
                   size="lg"
                   disabled={isMcq && mcqSelected === null}
@@ -752,14 +759,21 @@ export default function DeckDetail() {
       <div className="space-y-6 animate-in fade-in duration-300 pb-20">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl font-serif font-bold text-primary tracking-tight">{deck.name}</h1>
-          <Badge className="gap-1.5 bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
-            <GraduationCap className="h-3.5 w-3.5" /> Study Mode
-          </Badge>
+          {(deck as Deck & { kind?: string }).kind === "qbank" ? (
+            <Badge className="gap-1.5 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20 hover:bg-violet-500/10">
+              <Stethoscope className="h-3.5 w-3.5" /> Question Bank
+            </Badge>
+          ) : (
+            <Badge className="gap-1.5 bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
+              <GraduationCap className="h-3.5 w-3.5" /> Study Mode
+            </Badge>
+          )}
         </div>
         <StudyMode
           cards={cardList}
           deckId={deck.id}
           deckName={deck.name}
+          deckKind={(deck as Deck & { kind?: string }).kind}
           savePoint={activeSavePoint}
           onExit={() => { setStudyMode(false); setActiveSavePoint(null); }}
         />
@@ -841,6 +855,11 @@ export default function DeckDetail() {
           </Link>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-3xl font-serif font-bold text-primary tracking-tight">{deck.name}</h1>
+            {(deck as Deck & { kind?: string }).kind === "qbank" && (
+              <Badge className="gap-1.5 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20 hover:bg-violet-500/10">
+                <Stethoscope className="h-3.5 w-3.5" /> Question Bank
+              </Badge>
+            )}
             {hasSubDecks && (
               <Badge variant="outline" className="text-sm">
                 {subDecks.length} sub-deck{subDecks.length !== 1 ? "s" : ""}

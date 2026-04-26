@@ -960,6 +960,232 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
   }
 });
 
+// =============================================================================
+// QUESTION BANK (MCQ-ONLY) GENERATION
+// =============================================================================
+
+const QBANK_SYSTEM_PROMPT_BASE = `You are an expert medical/educational question writer creating a high-quality question bank in the style of UWorld, Amboss, or Kaplan QBank. Every output card MUST be a multiple-choice question — no basic flashcards, no open-ended cards.
+
+═══════════════════════════════════════════════
+QUESTION DESIGN RULES
+═══════════════════════════════════════════════
+1. Each question is a complete, standalone clinical/scientific vignette or a focused conceptual stem. Prefer realistic vignettes over bare-fact recall when the source supports it.
+2. Use exactly 5 answer choices when possible (4 minimum, 6 maximum). Choices must be plausible distractors, parallel in length and style, mutually exclusive, and free of "all of the above" / "none of the above".
+3. Exactly ONE choice is correct. The correct answer must be unambiguously supported by the source text.
+4. Do not telegraph the answer through length, grammar, or absolute words ("always", "never").
+5. The "front" field contains ONLY the question stem (vignette + the actual question, e.g. "Which of the following is the most likely diagnosis?"). Do NOT embed answer letters or choices inside the stem.
+6. The "choices" array contains the option text only — without "A)", "B)", "1.", or any prefix.
+7. The "correctIndex" is a 0-based index into "choices".
+8. The "back" field is a high-quality UWorld-style EXPLANATION:
+   - Start with one sentence stating which option is correct and why.
+   - Then a concise teaching paragraph (mechanism, key concept, why it fits the stem).
+   - Then a brief "Why the others are wrong" section that addresses each distractor by letter.
+   - End with a one-line "Educational Objective" / take-home point.
+   - Use **bold** for key terms. Keep total length focused and exam-relevant.
+
+═══════════════════════════════════════════════
+PRESERVE EXISTING MCQs
+═══════════════════════════════════════════════
+If the source text already contains a multiple-choice question (numbered stem, A)/B)/C)/D) options, "Answer: B" key), preserve the EXACT wording of stem and choices and use the original correct answer. Add or expand the explanation in "back" if it is thin.
+
+═══════════════════════════════════════════════
+COVERAGE
+═══════════════════════════════════════════════
+Generate as many high-quality MCQs as the source supports. Cover the breadth of testable facts — definitions, mechanisms, classifications, clinical features, diagnostics, management, complications, comparisons. Do NOT pad with low-yield trivia.
+
+═══════════════════════════════════════════════
+OUTPUT FORMAT (STRICT)
+═══════════════════════════════════════════════
+Return ONLY a JSON array. Each item is:
+
+  { "type": "mcq", "front": "stem (vignette + question)", "choices": ["...", "...", "...", "...", "..."], "correctIndex": 2, "back": "explanation" }
+
+No markdown, no commentary, no \`\`\` fences — just the JSON array.`;
+
+async function generateQbankCardsForChunk(
+  openai: Awaited<ReturnType<typeof getOpenAIClient>>,
+  chunk: string,
+  targetQuestions: number,
+  requestLog: { warn: (obj: unknown, message: string) => void },
+  signal?: AbortSignal,
+  customPrompt?: string,
+  pageNumber: number | null = null,
+): Promise<RawCard[]> {
+  const systemPrompt = QBANK_SYSTEM_PROMPT_BASE + customPromptBlock(customPrompt);
+
+  const userContent = `Source text (one segment of a larger document — write MCQs that cover EVERY testable fact in it):
+
+"""
+${chunk}
+"""
+
+Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
+
+  const response = await createChatCompletionWithRetry(openai, {
+    model: "gpt-4.1-mini",
+    max_completion_tokens: 16384,
+    stream: false as const,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ],
+  }, requestLog, signal);
+
+  const raw = (response as { choices: Array<{ message: { content: string | null } }> })
+    .choices[0]?.message?.content ?? "[]";
+  const cards = parseJson<unknown>(raw)
+    .map(normalizeCard)
+    .filter((c): c is RawCard => c !== null && c.type === "mcq");
+  if (pageNumber !== null) {
+    for (const c of cards) c.pageNumber = pageNumber;
+  }
+  return cards;
+}
+
+async function generateQbankCards(
+  openai: Awaited<ReturnType<typeof getOpenAIClient>>,
+  text: string,
+  maxQuestions: number,
+  requestLog: { warn: (obj: unknown, message: string) => void },
+  signal?: AbortSignal,
+  customPrompt?: string,
+): Promise<RawCard[]> {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+
+  const chunks = chunkText(trimmed, TEXT_CHUNK_CHARS, TEXT_CHUNK_OVERLAP).map(t => ({ text: t, pageNumber: null as number | null }));
+  if (chunks.length === 0) return [];
+
+  const totalChars = chunks.reduce((s, c) => s + c.text.length, 0) || 1;
+  const questionsPerChunk = chunks.map(c => {
+    const proportional = Math.ceil((c.text.length / totalChars) * Math.max(maxQuestions, 1));
+    const densityFloor = Math.max(4, Math.ceil(c.text.length / 400));
+    return Math.max(proportional, densityFloor);
+  });
+
+  const allCards: RawCard[] = [];
+  const CONCURRENCY = 3;
+  for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+    if (signal?.aborted) throw new Error("Cancelled");
+    const slice = chunks.slice(i, i + CONCURRENCY);
+    const targets = questionsPerChunk.slice(i, i + CONCURRENCY);
+    const settled = await Promise.allSettled(
+      slice.map((chunk, idx) =>
+        generateQbankCardsForChunk(openai, chunk.text, targets[idx], requestLog, signal, customPrompt, chunk.pageNumber),
+      ),
+    );
+    for (const r of settled) {
+      if (r.status === "fulfilled") allCards.push(...r.value);
+      else requestLog.warn({ err: r.reason }, "Qbank chunk generation failed");
+    }
+  }
+
+  // Deduplicate by stem
+  const seen = new Set<string>();
+  const unique: RawCard[] = [];
+  for (const c of allCards) {
+    const key = c.front.toLowerCase().replace(/\s+/g, " ").trim();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(c);
+    if (unique.length >= ABSOLUTE_TEXT_CARD_CAP) break;
+  }
+  return unique;
+}
+
+router.post("/generate-qbank", async (req, res, next): Promise<void> => {
+  const body = (req.body ?? {}) as {
+    text?: unknown;
+    deckName?: unknown;
+    questionCount?: unknown;
+    parentId?: unknown;
+    customPrompt?: unknown;
+  };
+
+  const text = typeof body.text === "string" ? body.text : "";
+  const deckName = typeof body.deckName === "string" ? body.deckName.trim() : "";
+  const questionCount = typeof body.questionCount === "number" && Number.isFinite(body.questionCount)
+    ? Math.max(1, Math.floor(body.questionCount))
+    : 20;
+  const parentId = typeof body.parentId === "number" && Number.isFinite(body.parentId)
+    ? body.parentId
+    : null;
+  const customPrompt = typeof body.customPrompt === "string" ? body.customPrompt : undefined;
+
+  if (!text || text.trim().length < 10) {
+    res.status(400).json({ error: "Text is too short to generate questions from." });
+    return;
+  }
+  if (!deckName) {
+    res.status(400).json({ error: "Question bank name is required." });
+    return;
+  }
+
+  let openai: Awaited<ReturnType<typeof getOpenAIClient>>;
+  try {
+    openai = await getOpenAIClient();
+  } catch (error) {
+    req.log.error({ err: error }, "AI question bank generation failed");
+    res.status(503).json({ error: error instanceof Error ? error.message : "AI question bank generation failed." });
+    return;
+  }
+
+  let questions: RawCard[] = [];
+  try {
+    questions = await generateQbankCards(openai, text, questionCount, req.log, undefined, customPrompt);
+  } catch (error) {
+    req.log.error({ err: error }, "AI question bank generation failed");
+    const status = getErrorStatus(error);
+    const code = getErrorCode(error);
+    if (status === 429 || code === "too_many_requests") {
+      res.status(429).json({ error: "AI is temporarily rate-limited. Wait a minute and try again." });
+      return;
+    }
+    res.status(503).json({ error: error instanceof Error ? error.message : "AI question bank generation failed." });
+    return;
+  }
+
+  // Keep only valid MCQs
+  const filtered = questions.filter(c => c.type === "mcq" && Array.isArray(c.choices) && c.choices.length >= 2 && typeof c.correctIndex === "number");
+  if (filtered.length === 0) {
+    res.status(500).json({ error: "AI did not generate any usable MCQs." });
+    return;
+  }
+
+  try {
+    const [primaryDeck] = await db
+      .insert(decksTable)
+      .values({ name: deckName, parentId: parentId ?? null, kind: "qbank" })
+      .returning();
+
+    if (!primaryDeck) {
+      res.status(500).json({ error: "Failed to save question bank." });
+      return;
+    }
+
+    const cardRows: (typeof cardsTable.$inferInsert)[] = filtered.map(c => ({
+      deckId: primaryDeck.id,
+      front: c.front,
+      back: c.back,
+      image: null,
+      cardType: "mcq" as const,
+      choices: c.choices ? JSON.stringify(c.choices) : null,
+      correctIndex: typeof c.correctIndex === "number" ? c.correctIndex : null,
+      pageNumber: c.pageNumber ?? null,
+    }));
+
+    const inserted = await db.insert(cardsTable).values(cardRows).returning();
+
+    res.status(201).json({
+      deck: { ...primaryDeck, cardCount: inserted.length, createdAt: primaryDeck.createdAt.toISOString() },
+      cards: inserted.map(serializeCard),
+      generatedCount: inserted.length,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post("/generate", async (req, res, next): Promise<void> => {
   const parsed = GenerateCardsBody.safeParse(req.body);
   if (!parsed.success) {

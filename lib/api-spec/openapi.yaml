@@ -212,6 +212,27 @@ paths:
         "400":
           description: Bad request
 
+  /generate-qbank:
+    post:
+      operationId: generateQbank
+      tags: [generate]
+      summary: Generate a Question Bank (MCQ-only deck) from text content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateQbankBody"
+      responses:
+        "201":
+          description: Generated MCQ cards saved to a question bank
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateCardsResponse"
+        "400":
+          description: Bad request
+
   /generations:
     get:
       operationId: listGenerations
@@ -328,6 +349,10 @@ components:
           type: ["string", "null"]
         parentId:
           type: ["integer", "null"]
+        kind:
+          type: string
+          enum: [deck, qbank]
+          description: "deck = flashcard deck (default), qbank = MCQ-only question bank"
         cardCount:
           type: integer
         createdAt:
@@ -347,6 +372,9 @@ components:
           type: ["string", "null"]
         parentId:
           type: ["integer", "null"]
+        kind:
+          type: string
+          enum: [deck, qbank]
       required:
         - name
 
@@ -401,6 +429,9 @@ components:
           type: ["string", "null"]
         parentId:
           type: ["integer", "null"]
+        kind:
+          type: string
+          enum: [deck, qbank]
 
     UpdateCardBody:
       type: object
@@ -443,6 +474,25 @@ components:
         customPrompt:
           type: string
           description: Optional user instructions appended to the system prompt to steer card generation (e.g. "focus on dosages", "phrase as MCQs", "for a Year 1 medical student")
+      required:
+        - text
+        - deckName
+
+    GenerateQbankBody:
+      type: object
+      properties:
+        text:
+          type: string
+        deckName:
+          type: string
+        questionCount:
+          type: integer
+          description: Target number of MCQ questions to generate
+        parentId:
+          type: ["integer", "null"]
+        customPrompt:
+          type: string
+          description: Optional user instructions appended to the system prompt to steer question generation (e.g. "USMLE Step 1 style", "high-yield clinical vignettes only")
       required:
         - text
         - deckName

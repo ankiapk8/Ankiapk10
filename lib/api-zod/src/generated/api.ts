@@ -23,6 +23,12 @@ export const ListDecksResponseItem = zod.object({
   name: zod.string(),
   description: zod.string().nullish(),
   parentId: zod.number().nullish(),
+  kind: zod
+    .enum(["deck", "qbank"])
+    .optional()
+    .describe(
+      "deck = flashcard deck (default), qbank = MCQ-only question bank",
+    ),
   cardCount: zod.number(),
   createdAt: zod.string(),
 });
@@ -35,6 +41,7 @@ export const CreateDeckBody = zod.object({
   name: zod.string(),
   description: zod.string().nullish(),
   parentId: zod.number().nullish(),
+  kind: zod.enum(["deck", "qbank"]).optional(),
 });
 
 /**
@@ -49,6 +56,12 @@ export const GetDeckResponse = zod.object({
   name: zod.string(),
   description: zod.string().nullish(),
   parentId: zod.number().nullish(),
+  kind: zod
+    .enum(["deck", "qbank"])
+    .optional()
+    .describe(
+      "deck = flashcard deck (default), qbank = MCQ-only question bank",
+    ),
   cardCount: zod.number(),
   createdAt: zod.string(),
 });
@@ -64,6 +77,7 @@ export const UpdateDeckBody = zod.object({
   name: zod.string().optional(),
   description: zod.string().nullish(),
   parentId: zod.number().nullish(),
+  kind: zod.enum(["deck", "qbank"]).optional(),
 });
 
 export const UpdateDeckResponse = zod.object({
@@ -71,6 +85,12 @@ export const UpdateDeckResponse = zod.object({
   name: zod.string(),
   description: zod.string().nullish(),
   parentId: zod.number().nullish(),
+  kind: zod
+    .enum(["deck", "qbank"])
+    .optional()
+    .describe(
+      "deck = flashcard deck (default), qbank = MCQ-only question bank",
+    ),
   cardCount: zod.number(),
   createdAt: zod.string(),
 });
@@ -209,6 +229,25 @@ export const GenerateCardsBody = zod.object({
     .optional()
     .describe(
       'Optional user instructions appended to the system prompt to steer card generation (e.g. \"focus on dosages\", \"phrase as MCQs\", \"for a Year 1 medical student\")',
+    ),
+});
+
+/**
+ * @summary Generate a Question Bank (MCQ-only deck) from text content
+ */
+export const GenerateQbankBody = zod.object({
+  text: zod.string(),
+  deckName: zod.string(),
+  questionCount: zod
+    .number()
+    .optional()
+    .describe("Target number of MCQ questions to generate"),
+  parentId: zod.number().nullish(),
+  customPrompt: zod
+    .string()
+    .optional()
+    .describe(
+      'Optional user instructions appended to the system prompt to steer question generation (e.g. \"USMLE Step 1 style\", \"high-yield clinical vignettes only\")',
     ),
 });
 

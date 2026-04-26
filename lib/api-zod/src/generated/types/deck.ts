@@ -5,6 +5,7 @@
  * API specification for Anki Card Generator
  * OpenAPI spec version: 0.1.0
  */
+import type { DeckKind } from "./deckKind";
 
 export interface Deck {
   id: number;
@@ -13,6 +14,8 @@ export interface Deck {
   description?: string | null;
   /** @nullable */
   parentId?: number | null;
+  /** deck = flashcard deck (default), qbank = MCQ-only question bank */
+  kind?: DeckKind;
   cardCount: number;
   createdAt: string;
 }

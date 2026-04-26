@@ -50,8 +50,9 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Database Schema
 
-- `decks` — Deck metadata (id, name, description, parentId FK self-ref, timestamps)
+- `decks` — Deck metadata (id, name, description, parentId FK self-ref, kind, timestamps)
   - `parentId` is nullable; if set, the deck is a sub-deck of the referenced deck
+  - `kind`: `'deck'` (default, flashcard deck) or `'qbank'` (MCQ-only question bank). The Library page filters by kind into two tabs.
 - `cards` — Flashcard data (id, deckId, front, back, tags, image, sourceImage, bbox, cardType, choices, correctIndex, pageNumber, timestamps)
   - `cardType`: `'basic'` (default) or `'mcq'`
   - `choices`: JSON-stringified array of MCQ option strings (only when cardType='mcq')

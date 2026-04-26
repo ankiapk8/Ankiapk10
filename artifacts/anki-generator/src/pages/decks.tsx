@@ -25,7 +25,9 @@ import {
   Trash2, Layers, Plus, Download, CheckSquare, X, Search,
   FileText, FolderOpen, ChevronDown, ChevronRight, Pencil,
   Sparkles, BookOpen, Upload, Combine, History as HistoryIcon,
+  Stethoscope,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Package } from "lucide-react";
@@ -402,27 +404,40 @@ export default function Decks() {
 
   const totalCards = (decks as DeckWithParent[] | undefined)?.reduce((sum, d) => sum + d.cardCount, 0) ?? 0;
 
-  const { rootDecks, deckChildrenMap } = useMemo(() => {
+  const { rootDecks, rootFlashcardDecks, rootQbankDecks, deckChildrenMap } = useMemo(() => {
     const all = (decks as DeckWithParent[] | undefined) ?? [];
     const root = all.filter(d => !d.parentId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+    const flashcards = root.filter(d => (d.kind ?? "deck") !== "qbank");
+    const qbanks = root.filter(d => d.kind === "qbank");
     const byParent = new Map<number, DeckWithParent[]>();
     all.filter(d => d.parentId).forEach(d => {
       const pid = d.parentId!;
       if (!byParent.has(pid)) byParent.set(pid, []);
       byParent.get(pid)!.push(d);
     });
-    return { rootDecks: root, deckChildrenMap: byParent };
+    return { rootDecks: root, rootFlashcardDecks: flashcards, rootQbankDecks: qbanks, deckChildrenMap: byParent };
   }, [decks]);
 
-  const filteredRoot = useMemo(() => {
-    if (!search.trim()) return rootDecks;
+  const filterBySearch = (list: DeckWithParent[]) => {
+    if (!search.trim()) return list;
     const q = search.toLowerCase();
     function matchesSearch(d: DeckWithParent): boolean {
       if (d.name.toLowerCase().includes(q) || d.description?.toLowerCase().includes(q)) return true;
       return (deckChildrenMap.get(d.id) ?? []).some(child => matchesSearch(child));
     }
-    return rootDecks.filter(d => matchesSearch(d));
-  }, [rootDecks, deckChildrenMap, search]);
+    return list.filter(d => matchesSearch(d));
+  };
+
+  const filteredFlashcards = useMemo(() => filterBySearch(rootFlashcardDecks), [rootFlashcardDecks, deckChildrenMap, search]);
+  const filteredQbanks = useMemo(() => filterBySearch(rootQbankDecks), [rootQbankDecks, deckChildrenMap, search]);
+
+  const [libraryTab, setLibraryTab] = useState<"decks" | "qbanks">("decks");
+  const [generateMode, setGenerateMode] = useState<"deck" | "qbank">("deck");
+
+  const openGenerateSheet = (mode: "deck" | "qbank") => {
+    setGenerateMode(mode);
+    setGenerateSheetOpen(true);
+  };
 
   const allSelectableIds = useMemo(
     () => ((decks as DeckWithParent[] | undefined) ?? []).map(d => d.id),
@@ -766,16 +781,23 @@ export default function Decks() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button className="gap-2">
-                    <Plus className="h-4 w-4" /> New Deck
+                    <Plus className="h-4 w-4" /> New
                     <ChevronDown className="h-3.5 w-3.5 ml-0.5 opacity-70" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-52">
-                  <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => setGenerateSheetOpen(true)}>
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => openGenerateSheet("deck")}>
                     <Sparkles className="h-4 w-4 text-primary" />
                     <div>
-                      <div className="text-sm font-medium">Generate with AI</div>
-                      <div className="text-xs text-muted-foreground">From files or text</div>
+                      <div className="text-sm font-medium">Generate Deck with AI</div>
+                      <div className="text-xs text-muted-foreground">Flashcards from files or text</div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => openGenerateSheet("qbank")}>
+                    <Stethoscope className="h-4 w-4 text-violet-500" />
+                    <div>
+                      <div className="text-sm font-medium">Generate Question Bank</div>
+                      <div className="text-xs text-muted-foreground">UWorld-style MCQs only</div>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -857,41 +879,98 @@ export default function Decks() {
             <BookOpen className="h-8 w-8 text-primary" />
           </div>
           <h3 className="text-xl font-serif font-semibold mb-1.5">Your library is empty</h3>
-          <p className="text-muted-foreground text-sm mb-6 max-w-sm mx-auto">Start by creating a main topic or let AI generate flashcards from your study material.</p>
+          <p className="text-muted-foreground text-sm mb-6 max-w-sm mx-auto">Start by creating a main topic, generating AI flashcards, or building a question bank from your study material.</p>
           <div className="flex items-center justify-center gap-2 flex-wrap">
             <Button variant="outline" className="gap-2 h-10" onClick={() => openDeckForm({ type: "new-topic" })}>
               <FolderOpen className="h-4 w-4" /> New Topic
             </Button>
-            <Button className="gap-2 h-10 shadow-sm" onClick={() => setGenerateSheetOpen(true)}>
-              <Sparkles className="h-4 w-4" /> Generate with AI
+            <Button className="gap-2 h-10 shadow-sm" onClick={() => openGenerateSheet("deck")}>
+              <Sparkles className="h-4 w-4" /> Generate Deck
+            </Button>
+            <Button variant="secondary" className="gap-2 h-10 shadow-sm" onClick={() => openGenerateSheet("qbank")}>
+              <Stethoscope className="h-4 w-4" /> Generate Question Bank
             </Button>
           </div>
         </div>
-      ) : filteredRoot.length === 0 ? (
-        <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
-          <div className="mx-auto h-12 w-12 rounded-xl bg-muted flex items-center justify-center mb-4">
-            <Search className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <p className="font-medium">No decks match "{search}"</p>
-          <p className="text-sm text-muted-foreground mt-1">Try a different search term.</p>
-          <Button variant="ghost" className="mt-3" onClick={() => setSearch("")}>Clear search</Button>
-        </div>
       ) : (
-        <div className="space-y-3">
-          {filteredRoot.map((deck, idx) => (
-            <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
-              <DeckRow deck={deck} depth={0} {...sharedRowProps} />
-            </div>
-          ))}
-        </div>
+        <Tabs value={libraryTab} onValueChange={(v) => setLibraryTab(v as "decks" | "qbanks")} className="w-full">
+          <TabsList className="w-full sm:w-auto h-10 p-1 bg-muted/60">
+            <TabsTrigger value="decks" className="flex-1 sm:flex-none gap-1.5 h-8 px-4 data-[state=active]:shadow-sm">
+              <BookOpen className="h-3.5 w-3.5" /> Decks
+              <span className="ml-1 text-xs text-muted-foreground">{rootFlashcardDecks.length}</span>
+            </TabsTrigger>
+            <TabsTrigger value="qbanks" className="flex-1 sm:flex-none gap-1.5 h-8 px-4 data-[state=active]:shadow-sm">
+              <Stethoscope className="h-3.5 w-3.5" /> Question Banks
+              <span className="ml-1 text-xs text-muted-foreground">{rootQbankDecks.length}</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="decks" className="mt-4">
+            {rootFlashcardDecks.length === 0 ? (
+              <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
+                <div className="mx-auto h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                </div>
+                <p className="font-medium">No flashcard decks yet</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">Generate a deck of flashcards from your notes or PDFs.</p>
+                <Button className="gap-2" onClick={() => openGenerateSheet("deck")}>
+                  <Sparkles className="h-4 w-4" /> Generate Deck
+                </Button>
+              </div>
+            ) : filteredFlashcards.length === 0 ? (
+              <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
+                <p className="font-medium">No decks match "{search}"</p>
+                <Button variant="ghost" className="mt-3" onClick={() => setSearch("")}>Clear search</Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredFlashcards.map((deck, idx) => (
+                  <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
+                    <DeckRow deck={deck} depth={0} {...sharedRowProps} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="qbanks" className="mt-4">
+            {rootQbankDecks.length === 0 ? (
+              <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
+                <div className="mx-auto h-12 w-12 rounded-xl bg-violet-500/10 flex items-center justify-center mb-4">
+                  <Stethoscope className="h-5 w-5 text-violet-500" />
+                </div>
+                <p className="font-medium">No question banks yet</p>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">Generate a UWorld-style MCQ question bank from your study material.</p>
+                <Button className="gap-2" onClick={() => openGenerateSheet("qbank")}>
+                  <Stethoscope className="h-4 w-4" /> Generate Question Bank
+                </Button>
+              </div>
+            ) : filteredQbanks.length === 0 ? (
+              <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
+                <p className="font-medium">No question banks match "{search}"</p>
+                <Button variant="ghost" className="mt-3" onClick={() => setSearch("")}>Clear search</Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredQbanks.map((deck, idx) => (
+                  <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
+                    <DeckRow deck={deck} depth={0} {...sharedRowProps} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
 
       <GenerateSheet
         open={generateSheetOpen}
+        mode={generateMode}
         onOpenChange={(o) => {
           setGenerateSheetOpen(o);
           if (!o) { setSharedText(undefined); setSharedTitle(undefined); }
         }}
+        onDone={() => { setLibraryTab(generateMode === "qbank" ? "qbanks" : "decks"); }}
         prefilledText={sharedText}
         prefilledDeckName={sharedTitle}
       />

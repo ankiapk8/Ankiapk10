@@ -21,6 +21,7 @@ router.get("/decks", async (_req, res, next): Promise<void> => {
         name: decksTable.name,
         description: decksTable.description,
         parentId: decksTable.parentId,
+        kind: decksTable.kind,
         createdAt: decksTable.createdAt,
         cardCount: sql<number>`cast(count(${cardsTable.id}) as int)`,
       })
@@ -43,7 +44,13 @@ router.post("/decks", async (req, res, next): Promise<void> => {
   }
 
   try {
-    const [deck] = await db.insert(decksTable).values(parsed.data).returning();
+    const values = {
+      name: parsed.data.name,
+      description: parsed.data.description ?? null,
+      parentId: parsed.data.parentId ?? null,
+      kind: parsed.data.kind === "qbank" ? "qbank" : "deck",
+    };
+    const [deck] = await db.insert(decksTable).values(values).returning();
     res.status(201).json({
       ...deck,
       cardCount: 0,
@@ -69,6 +76,7 @@ router.get("/decks/:id", async (req, res, next): Promise<void> => {
         name: decksTable.name,
         description: decksTable.description,
         parentId: decksTable.parentId,
+        kind: decksTable.kind,
         createdAt: decksTable.createdAt,
         cardCount: sql<number>`cast(count(${cardsTable.id}) as int)`,
       })
@@ -88,6 +96,7 @@ router.get("/decks/:id", async (req, res, next): Promise<void> => {
         name: decksTable.name,
         description: decksTable.description,
         parentId: decksTable.parentId,
+        kind: decksTable.kind,
         createdAt: decksTable.createdAt,
         cardCount: sql<number>`cast(count(${cardsTable.id}) as int)`,
       })
@@ -121,6 +130,7 @@ router.patch("/decks/:id", async (req, res, next): Promise<void> => {
   if (parsed.data.name !== undefined) updates.name = parsed.data.name;
   if ("description" in parsed.data) updates.description = parsed.data.description ?? undefined;
   if ("parentId" in parsed.data) updates.parentId = parsed.data.parentId ?? undefined;
+  if (parsed.data.kind !== undefined) updates.kind = parsed.data.kind === "qbank" ? "qbank" : "deck";
 
   if (Object.keys(updates).length <= 1) {
     res.status(400).json({ error: "No fields to update" });
@@ -142,6 +152,7 @@ router.patch("/decks/:id", async (req, res, next): Promise<void> => {
         name: decksTable.name,
         description: decksTable.description,
         parentId: decksTable.parentId,
+        kind: decksTable.kind,
         createdAt: decksTable.createdAt,
         cardCount: sql<number>`cast(count(${cardsTable.id}) as int)`,
       })

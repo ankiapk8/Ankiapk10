@@ -27,6 +27,16 @@ export interface Generation {
   completedAt?: string | null;
 }
 
+/**
+ * deck = flashcard deck (default), qbank = MCQ-only question bank
+ */
+export type DeckKind = (typeof DeckKind)[keyof typeof DeckKind];
+
+export const DeckKind = {
+  deck: "deck",
+  qbank: "qbank",
+} as const;
+
 export interface Deck {
   id: number;
   name: string;
@@ -34,9 +44,19 @@ export interface Deck {
   description?: string | null;
   /** @nullable */
   parentId?: number | null;
+  /** deck = flashcard deck (default), qbank = MCQ-only question bank */
+  kind?: DeckKind;
   cardCount: number;
   createdAt: string;
 }
+
+export type CreateDeckBodyKind =
+  (typeof CreateDeckBodyKind)[keyof typeof CreateDeckBodyKind];
+
+export const CreateDeckBodyKind = {
+  deck: "deck",
+  qbank: "qbank",
+} as const;
 
 export interface CreateDeckBody {
   name: string;
@@ -44,6 +64,7 @@ export interface CreateDeckBody {
   description?: string | null;
   /** @nullable */
   parentId?: number | null;
+  kind?: CreateDeckBodyKind;
 }
 
 export interface Card {
@@ -82,12 +103,21 @@ export interface Card {
   createdAt: string;
 }
 
+export type UpdateDeckBodyKind =
+  (typeof UpdateDeckBodyKind)[keyof typeof UpdateDeckBodyKind];
+
+export const UpdateDeckBodyKind = {
+  deck: "deck",
+  qbank: "qbank",
+} as const;
+
 export interface UpdateDeckBody {
   name?: string;
   /** @nullable */
   description?: string | null;
   /** @nullable */
   parentId?: number | null;
+  kind?: UpdateDeckBodyKind;
 }
 
 export interface UpdateCardBody {
@@ -124,6 +154,17 @@ export interface GenerateCardsBody {
   /** Per-page extracted text (index 0 = page 1). When provided, the server tracks which PDF page each text card came from and stores it as pageNumber so the merged deck can be sorted by source page. */
   pageTexts?: string[];
   /** Optional user instructions appended to the system prompt to steer card generation (e.g. "focus on dosages", "phrase as MCQs", "for a Year 1 medical student") */
+  customPrompt?: string;
+}
+
+export interface GenerateQbankBody {
+  text: string;
+  deckName: string;
+  /** Target number of MCQ questions to generate */
+  questionCount?: number;
+  /** @nullable */
+  parentId?: number | null;
+  /** Optional user instructions appended to the system prompt to steer question generation (e.g. "USMLE Step 1 style", "high-yield clinical vignettes only") */
   customPrompt?: string;
 }
 

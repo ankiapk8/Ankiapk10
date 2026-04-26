@@ -7,6 +7,7 @@ export const decksTable = pgTable("decks", {
   name: text("name").notNull(),
   description: text("description"),
   parentId: integer("parent_id").references((): AnyPgColumn => decksTable.id, { onDelete: "set null" }),
+  kind: text("kind").notNull().default("deck"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
