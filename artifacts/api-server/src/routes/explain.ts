@@ -137,7 +137,7 @@ router.post("/explain", async (req, res): Promise<void> => {
 
   try {
     const stream = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "openai/gpt-4.1-mini",
       max_completion_tokens: maxTokens,
       stream: true,
       messages: [

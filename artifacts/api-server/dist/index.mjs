@@ -82821,7 +82821,7 @@ ${chunk}
 
 Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: "gpt-4.1-mini",
+    model: "openai/gpt-4.1-mini",
     max_completion_tokens: 16384,
     stream: false,
     messages: [
@@ -82962,7 +82962,7 @@ Aim for ${cardsRange} card(s) per page WHEN qualifying figures exist. Pages with
 No markdown, no commentary, no \`\`\` fences \u2014 just the JSON array.${customPromptBlock(customPrompt)}`;
   try {
     const response = await createChatCompletionWithRetry(openai3, {
-      model: "gpt-4.1",
+      model: "openai/gpt-4.1",
       max_completion_tokens: 16384,
       stream: false,
       messages: [
@@ -83311,7 +83311,7 @@ ${chunk}
 
 Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: "gpt-4.1-mini",
+    model: "openai/gpt-4.1-mini",
     max_completion_tokens: 16384,
     stream: false,
     messages: [
@@ -84161,7 +84161,7 @@ router7.post("/explain", async (req, res) => {
   }
   try {
     const stream = await openai3.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "openai/gpt-4.1-mini",
       max_completion_tokens: maxTokens,
       stream: true,
       messages: [
