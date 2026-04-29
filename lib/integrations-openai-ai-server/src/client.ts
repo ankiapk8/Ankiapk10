@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 
 const apiKey =
+  process.env.OPENROUTER_API_KEY ||
   process.env.OPENAI_API_KEY1 ||
   process.env.OPENAI_API_KEY ||
   process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
