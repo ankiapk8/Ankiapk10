@@ -17,6 +17,7 @@ import { Card as CardUI, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
@@ -666,6 +667,7 @@ export default function DeckDetail() {
   const [studyMode, setStudyMode] = useState(false);
   const [activeSavePoint, setActiveSavePoint] = useState<StudySavePoint | null>(null);
   const [resumePrompt, setResumePrompt] = useState<StudySavePoint | null>(null);
+  const [cardFilter, setCardFilter] = useState<"all" | "text" | "visual">("all");
 
   const handleStudyClick = useCallback(() => {
     const sp = getSavePoint(deckId);
@@ -753,8 +755,18 @@ export default function DeckDetail() {
   }
 
   const cardList = cards ?? [];
+  const visualCount = cardList.filter(c => (c as Card & { image?: string | null }).image).length;
+  const textCount = cardList.length - visualCount;
+  const hasMixedCards = visualCount > 0 && textCount > 0;
+  const filteredCards = !hasMixedCards
+    ? cardList
+    : cardFilter === "visual"
+      ? cardList.filter(c => (c as Card & { image?: string | null }).image)
+      : cardFilter === "text"
+        ? cardList.filter(c => !(c as Card & { image?: string | null }).image)
+        : cardList;
 
-  if (studyMode && cardList.length > 0) {
+  if (studyMode && filteredCards.length > 0) {
     return (
       <div className="space-y-6 animate-in fade-in duration-300 pb-20">
         <div className="flex items-center gap-3 flex-wrap">
@@ -770,7 +782,7 @@ export default function DeckDetail() {
           )}
         </div>
         <StudyMode
-          cards={cardList}
+          cards={filteredCards}
           deckId={deck.id}
           deckName={deck.name}
           deckKind={(deck as Deck & { kind?: string }).kind}
@@ -869,14 +881,14 @@ export default function DeckDetail() {
           {deck.description && <p className="text-muted-foreground mt-1">{deck.description}</p>}
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap">
-          {cardList.length > 0 && (
+          {filteredCards.length > 0 && (
             <Button 
               variant="outline" 
               onClick={handleStudyClick} 
               className="gap-2"
             >
               <BookOpen className="h-4 w-4" />
-              Study
+              Study{hasMixedCards && cardFilter !== "all" ? ` ${cardFilter === "visual" ? "Visual" : "Text"}` : ""}
               {getSavePoint(deckId)?.index ? (
                 <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">resume</Badge>
               ) : null}
@@ -936,23 +948,35 @@ export default function DeckDetail() {
       )}
 
       <div className="space-y-6">
-        <div className="flex items-center justify-between border-b pb-2">
+        <div className="flex items-center justify-between border-b pb-2 gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-xl font-medium tracking-tight">
-              Cards ({cardList.length})
+              Cards ({hasMixedCards ? filteredCards.length : cardList.length})
               {hasSubDecks && cardList.length > 0 && (
                 <span className="text-sm font-normal text-muted-foreground ml-2">across all sub-decks</span>
               )}
             </h2>
-            {(() => {
-              const visualCount = cardList.filter(c => (c as Card & { image?: string | null }).image).length;
-              return visualCount > 0 ? (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                  <ImageIcon className="h-3 w-3" /> {visualCount} with image
-                </span>
-              ) : null;
-            })()}
+            {!hasMixedCards && visualCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                <ImageIcon className="h-3 w-3" /> {visualCount} with image
+              </span>
+            )}
           </div>
+          {hasMixedCards && (
+            <Tabs value={cardFilter} onValueChange={(v) => setCardFilter(v as "all" | "text" | "visual")}>
+              <TabsList className="h-9">
+                <TabsTrigger value="all" className="text-xs gap-1.5">
+                  All <span className="text-[10px] opacity-70">{cardList.length}</span>
+                </TabsTrigger>
+                <TabsTrigger value="text" className="text-xs gap-1.5">
+                  <FileText className="h-3 w-3" /> Text <span className="text-[10px] opacity-70">{textCount}</span>
+                </TabsTrigger>
+                <TabsTrigger value="visual" className="text-xs gap-1.5">
+                  <ImageIcon className="h-3 w-3" /> Visual <span className="text-[10px] opacity-70">{visualCount}</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
         </div>
 
         {isLoadingCards ? (
@@ -963,9 +987,15 @@ export default function DeckDetail() {
           <div className="text-center py-12 bg-card rounded-lg border border-dashed">
             <p className="text-muted-foreground">No cards in this deck yet.</p>
           </div>
+        ) : filteredCards.length === 0 ? (
+          <div className="text-center py-12 bg-card rounded-lg border border-dashed">
+            <p className="text-muted-foreground">
+              No {cardFilter} cards in this deck.
+            </p>
+          </div>
         ) : (
           <div className="grid gap-4">
-            {cardList.map((card, idx) => (
+            {filteredCards.map((card, idx) => (
               <EditableCard 
                 key={card.id} 
                 card={card}
