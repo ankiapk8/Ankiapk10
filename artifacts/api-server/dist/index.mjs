@@ -83007,7 +83007,7 @@ Aim for ${cardsRange} card(s) per page WHEN qualifying figures exist. Pages with
 No markdown, no commentary, no \`\`\` fences \u2014 just the JSON array.${regionHints}${customPromptBlock(customPrompt)}`;
   try {
     const response = await createChatCompletionWithRetry(openai3, {
-      model: "google/gemini-2.0-flash-exp:free",
+      model: "google/gemma-3-27b-it:free",
       max_completion_tokens: 16384,
       stream: false,
       messages: [

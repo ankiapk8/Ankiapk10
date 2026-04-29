@@ -634,7 +634,7 @@ No markdown, no commentary, no \`\`\` fences — just the JSON array.${regionHin
 
   try {
     const response = await createChatCompletionWithRetry(openai, {
-      model: "google/gemini-2.0-flash-exp:free",
+      model: "google/gemma-3-27b-it:free",
       max_completion_tokens: 16384,
       stream: false as const,
       messages: [
