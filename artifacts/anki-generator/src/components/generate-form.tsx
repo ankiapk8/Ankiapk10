@@ -16,7 +16,7 @@ import {
   UploadCloud, X, CheckCircle2, AlertCircle, Loader2, FileText, Sparkles,
   FolderOpen, ImageIcon, Type, Layers, StopCircle,
 } from "lucide-react";
-import { extractPdf, isPdfFile, isTextFile } from "@/lib/pdf-extraction";
+import { extractPdf, isPdfFile, isTextFile, type ImageRegion } from "@/lib/pdf-extraction";
 import { apiUrl } from "@/lib/utils";
 import { GenerationSuccessOverlay } from "@/components/generation-success-overlay";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -67,6 +67,7 @@ type FileEntry = {
   text: string;
   pageImages: string[];
   pageTexts: string[];
+  pageImageRegions: ImageRegion[][];
   progress: string;
   deckName: string;
   cardCount: number | "";
@@ -208,15 +209,16 @@ export function GenerateForm({
     }
     const id = `${file.name}-${Date.now()}-${Math.random()}`;
     const baseName = file.name.replace(/\.[^.]+$/, "");
-    setFiles(prev => [...prev, { id, name: file.name, status: "extracting", text: "", pageImages: [], pageTexts: [], progress: "Reading…", deckName: baseName, cardCount: "", visualCardCount: "", deckType: "both" }]);
+    setFiles(prev => [...prev, { id, name: file.name, status: "extracting", text: "", pageImages: [], pageTexts: [], pageImageRegions: [], progress: "Reading…", deckName: baseName, cardCount: "", visualCardCount: "", deckType: "both" }]);
     try {
       if (isTxt) {
         const text = await file.text();
-        updateFile(id, { status: "ready", text, pageImages: [], pageTexts: [], progress: "" });
+        updateFile(id, { status: "ready", text, pageImages: [], pageTexts: [], pageImageRegions: [], progress: "" });
       } else {
         const buffer = await file.arrayBuffer();
-        const { text, pageImages, pageTexts } = await extractPdf(buffer, (progress) => throttledProgressUpdate(id, progress));
-        updateFile(id, { status: "ready", text, pageImages, pageTexts, progress: "", deckType: pageImages.length > 0 ? "both" : "text" });
+        const { text, pageImages, pageTexts, pageImageRegions } = await extractPdf(buffer, (progress) => throttledProgressUpdate(id, progress));
+        const hasAnyEmbeddedImage = pageImageRegions.some(r => r.length > 0);
+        updateFile(id, { status: "ready", text, pageImages, pageTexts, pageImageRegions, progress: "", deckType: hasAnyEmbeddedImage ? "both" : "text" });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Extraction failed";
@@ -266,6 +268,7 @@ export function GenerateForm({
     visualCardCount: number | "" = "",
     customPrompt?: string,
     pageTexts?: string[],
+    pageImageRegions?: ImageRegion[][],
   ): Promise<number> =>
     new Promise((resolve, reject) => {
       const trimmedPrompt = (customPrompt ?? "").trim();
@@ -277,6 +280,7 @@ export function GenerateForm({
         parentId: pid,
         pageImages: pageImages && pageImages.length > 0 ? pageImages : undefined,
         pageTexts: pageTexts && pageTexts.length > 0 ? pageTexts : undefined,
+        pageImageRegions: pageImageRegions && pageImageRegions.length > 0 ? pageImageRegions : undefined,
         customPrompt: trimmedPrompt || undefined,
       });
 
@@ -378,8 +382,8 @@ export function GenerateForm({
       return applySharedPrompt && sharedTrim ? sharedTrim : "";
     };
     const targets = [
-      ...readyFiles.map(f => ({ id: f.id, text: f.text, deckName: f.deckName, cardCount: f.cardCount, pageImages: f.pageImages, pageTexts: f.pageTexts, deckType: f.deckType, visualCardCount: f.visualCardCount, customPrompt: fileEffectivePrompt(f) })),
-      ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount, pageImages: [] as string[], pageTexts: [] as string[], deckType: "text" as DeckType, visualCardCount: "" as number | "", customPrompt: manualEffectivePrompt() }] : []),
+      ...readyFiles.map(f => ({ id: f.id, text: f.text, deckName: f.deckName, cardCount: f.cardCount, pageImages: f.pageImages, pageTexts: f.pageTexts, pageImageRegions: f.pageImageRegions, deckType: f.deckType, visualCardCount: f.visualCardCount, customPrompt: fileEffectivePrompt(f) })),
+      ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount, pageImages: [] as string[], pageTexts: [] as string[], pageImageRegions: [] as ImageRegion[][], deckType: "text" as DeckType, visualCardCount: "" as number | "", customPrompt: manualEffectivePrompt() }] : []),
     ];
 
     for (let i = 0; i < targets.length; i++) {
@@ -399,7 +403,7 @@ export function GenerateForm({
 
       if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…", generatingStartedAt: Date.now() });
       try {
-        const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts);
+        const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts, t.pageImageRegions);
         if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count });
         ok++;
         totalCards += count;

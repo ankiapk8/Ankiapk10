@@ -224,6 +224,21 @@ export const GenerateCardsBody = zod.object({
     .describe(
       "Per-page extracted text (index 0 = page 1). When provided, the server tracks which PDF page each text card came from and stores it as pageNumber so the merged deck can be sorted by source page.",
     ),
+  pageImageRegions: zod
+    .array(
+      zod.array(
+        zod.object({
+          x: zod.number(),
+          y: zod.number(),
+          w: zod.number(),
+          h: zod.number(),
+        }),
+      ),
+    )
+    .optional()
+    .describe(
+      "Per-page list of detected embedded image regions (raster images present in the PDF). Each entry is the list of regions on that page, where each region is {x,y,w,h} normalized 0..1 with origin top-left. Used to snap visual-card crops to real images and reject AI bboxes that point at prose.",
+    ),
   customPrompt: zod
     .string()
     .optional()

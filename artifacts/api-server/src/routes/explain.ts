@@ -5,7 +5,11 @@ const router: IRouter = Router();
 type ExplainMode = "full" | "revision" | "osce";
 
 async function getOpenAIClient() {
-  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+  if (
+    !process.env.OPENAI_API_KEY1 &&
+    !process.env.OPENAI_API_KEY &&
+    !process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  ) {
     throw new Error("AI explanation is not configured yet.");
   }
   const { openai } = await import("@workspace/integrations-openai-ai-server");
@@ -137,7 +141,7 @@ router.post("/explain", async (req, res): Promise<void> => {
 
   try {
     const stream = await openai.chat.completions.create({
-      model: "openai/gpt-4.1-mini",
+      model: "gpt-4.1-mini",
       max_completion_tokens: maxTokens,
       stream: true,
       messages: [

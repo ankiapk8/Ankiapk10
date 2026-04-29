@@ -17,10 +17,19 @@ const VISUAL_CONCURRENCY = 2;
 // area. Full-page bboxes are almost always the model giving up and screenshotting
 // the whole page instead of finding a real figure on it. The user explicitly does
 // not want full-page screenshots.
-const MAX_VISUAL_BBOX_AREA = 0.78;
+const MAX_VISUAL_BBOX_AREA = 0.55;
 // Also reject bboxes that span almost the entire width AND almost the entire
 // height (which produce a "whole page" feel even if area is just under the cap).
-const MAX_VISUAL_BBOX_DIM = 0.92;
+const MAX_VISUAL_BBOX_DIM = 0.85;
+// When the client has detected real embedded images on a page (using PDF.js
+// operator list), we snap the AI's bbox to the nearest detected image region.
+// The AI bbox must overlap a detected region by at least this fraction of the
+// AI bbox's area; otherwise the card is dropped (the AI is pointing at prose,
+// not at a real figure on the page).
+const REGION_OVERLAP_RATIO = 0.25;
+// Padding added around a snapped detected-image region so we keep the figure's
+// caption / labels just outside the raw image bounds.
+const REGION_SNAP_PADDING = 0.025;
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -97,7 +106,11 @@ function parseJson<T>(raw: string): T[] {
 }
 
 async function getOpenAIClient() {
-  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+  if (
+    !process.env.OPENAI_API_KEY1 &&
+    !process.env.OPENAI_API_KEY &&
+    !process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  ) {
     throw new Error("AI card generation is not configured yet.");
   }
   const { openai } = await import("@workspace/integrations-openai-ai-server");
@@ -405,7 +418,7 @@ ${chunk}
 Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
 
   const response = await createChatCompletionWithRetry(openai, {
-    model: "openai/gpt-4.1-mini",
+    model: "gpt-4.1-mini",
     max_completion_tokens: 16384,
     stream: false as const,
     messages: [
@@ -500,6 +513,7 @@ async function generateVisualCardsForBatch(
   requestLog: { warn: (obj: unknown, message: string) => void },
   signal?: AbortSignal,
   customPrompt?: string,
+  batchRegions?: Bbox[][],
 ): Promise<VisualRawCard[]> {
   type ContentPart =
     | { type: "text"; text: string }
@@ -514,6 +528,31 @@ async function generateVisualCardsForBatch(
   }));
 
   const cardsRange = cardsPerPage <= 1 ? "1" : `1–${cardsPerPage}`;
+
+  // Build a deterministic per-page hint listing the bounding boxes of real
+  // embedded raster images detected by the PDF parser. The model is told to
+  // STRONGLY prefer these regions and to skip pages that have none.
+  let regionHints = "";
+  if (batchRegions && batchRegions.length === batchImages.length) {
+    const lines: string[] = [];
+    let totalRegions = 0;
+    for (let i = 0; i < batchRegions.length; i++) {
+      const regs = batchRegions[i] ?? [];
+      totalRegions += regs.length;
+      const pageNum = batchStart + i + 1;
+      if (regs.length === 0) {
+        lines.push(`  • Page ${pageNum}: NO embedded raster images detected. Only output a card if you can clearly see a vector chart, diagram, table, equation, or trace. Otherwise output ZERO cards for this page.`);
+      } else {
+        const formatted = regs
+          .map((r, idx) => `[#${idx + 1}: x=${r.x.toFixed(3)}, y=${r.y.toFixed(3)}, w=${r.w.toFixed(3)}, h=${r.h.toFixed(3)}]`)
+          .join(", ");
+        lines.push(`  • Page ${pageNum}: ${regs.length} embedded image region(s) detected by the PDF parser → ${formatted}. STRONGLY PREFER making cards from these regions; the system will snap your bbox to the nearest one.`);
+      }
+    }
+    if (totalRegions > 0 || lines.length > 0) {
+      regionHints = `\n\n═══════════════════════════════════════════════\nDETERMINISTIC PAGE ANALYSIS — TRUST THIS\n═══════════════════════════════════════════════\nThe PDF parser has scanned each page and listed every embedded raster image it found, with exact normalized coordinates (top-left origin, x/y/w/h between 0 and 1):\n${lines.join("\n")}\n\n⚠️ The system will REJECT any visual card whose bbox does not overlap one of the listed regions on a page that has regions. So either point your bbox AT a listed region, or output ZERO cards for that page. This is non-negotiable.`;
+    }
+  }
 
   const systemPrompt = `You are an expert visual learning designer and clinical/scientific illustrator. You convert PDF page images into Anki flashcards centred on the FIGURES shown on each page (NOT on the surrounding prose). You will receive ${batchImages.length} page image(s) (pages ${batchStart + 1}–${batchStart + batchImages.length}).
 
@@ -588,11 +627,11 @@ Return ONLY a JSON array. Each item must have exactly:
 
 Aim for ${cardsRange} card(s) per page WHEN qualifying figures exist. Pages without qualifying figures contribute zero cards. If a page has more distinct figures than ${cardsRange}, you MAY exceed it (one card per distinct figure). Do NOT invent cards for non-existent visuals.
 
-No markdown, no commentary, no \`\`\` fences — just the JSON array.${customPromptBlock(customPrompt)}`;
+No markdown, no commentary, no \`\`\` fences — just the JSON array.${regionHints}${customPromptBlock(customPrompt)}`;
 
   try {
     const response = await createChatCompletionWithRetry(openai, {
-      model: "openai/gpt-4.1",
+      model: "gpt-4.1",
       max_completion_tokens: 16384,
       stream: false as const,
       messages: [
@@ -639,6 +678,35 @@ No markdown, no commentary, no \`\`\` fences — just the JSON array.${customPro
   }
 }
 
+function snapBboxToRegions(
+  bbox: Bbox,
+  regions: Bbox[] | undefined,
+): { snapped: Bbox; matched: boolean; reason: "snapped" | "kept" | "no-overlap" } {
+  if (!regions || regions.length === 0) {
+    // No deterministic data available for this page — keep the AI bbox as-is.
+    return { snapped: bbox, matched: true, reason: "kept" };
+  }
+  const aiArea = Math.max(1e-6, bbox.w * bbox.h);
+  let bestRegion: Bbox | null = null;
+  let bestOverlap = 0;
+  for (const r of regions) {
+    const ix = Math.max(0, Math.min(bbox.x + bbox.w, r.x + r.w) - Math.max(bbox.x, r.x));
+    const iy = Math.max(0, Math.min(bbox.y + bbox.h, r.y + r.h) - Math.max(bbox.y, r.y));
+    const inter = ix * iy;
+    if (inter > bestOverlap) {
+      bestOverlap = inter;
+      bestRegion = r;
+    }
+  }
+  if (!bestRegion || bestOverlap / aiArea < REGION_OVERLAP_RATIO) {
+    return { snapped: bbox, matched: false, reason: "no-overlap" };
+  }
+  // Snap to the detected image region — this guarantees the crop hugs a real
+  // image rather than an AI-imagined rectangle around prose.
+  const padded = expandBbox(bestRegion, REGION_SNAP_PADDING);
+  return { snapped: padded, matched: true, reason: "snapped" };
+}
+
 async function generateAllVisualCards(
   openai: Awaited<ReturnType<typeof getOpenAIClient>>,
   images: string[],
@@ -647,6 +715,7 @@ async function generateAllVisualCards(
   onBatchGroupDone?: (doneBatches: number, totalBatches: number) => void,
   signal?: AbortSignal,
   customPrompt?: string,
+  pageImageRegions?: Bbox[][],
 ): Promise<VisualCardResult[]> {
   const pagesToProcess = images.slice(0, MAX_VISUAL_PAGES);
   const batches: { start: number; imgs: string[] }[] = [];
@@ -669,30 +738,52 @@ async function generateAllVisualCards(
     if (signal?.aborted) throw new Error("Cancelled");
     const chunk = batches.slice(i, i + VISUAL_CONCURRENCY);
     const settled = await Promise.allSettled(
-      chunk.map(b => generateVisualCardsForBatch(openai, b.imgs, b.start, cardsPerPage, requestLog, signal, customPrompt).then(async cards => {
-        const out: VisualCardResult[] = [];
-        const thumbCache = new Map<number, string>();
-        for (const c of cards) {
-          if (c.pageIndex < 0 || c.pageIndex >= b.imgs.length) continue;
-          // We already rejected oversize bboxes upstream — every card here has a focused bbox.
-          const cropped = await cropImage(b.imgs[c.pageIndex], c.bbox ?? null);
-          let thumb = thumbCache.get(c.pageIndex);
-          if (!thumb) {
-            thumb = await downscaleSourcePage(b.imgs[c.pageIndex]);
-            thumbCache.set(c.pageIndex, thumb);
+      chunk.map(b => {
+        // Per-batch view of detected image regions (one entry per page in batch).
+        const batchRegions = pageImageRegions
+          ? b.imgs.map((_, idx) => pageImageRegions[b.start + idx] ?? [])
+          : undefined;
+        return generateVisualCardsForBatch(openai, b.imgs, b.start, cardsPerPage, requestLog, signal, customPrompt, batchRegions).then(async cards => {
+          const out: VisualCardResult[] = [];
+          const thumbCache = new Map<number, string>();
+          for (const c of cards) {
+            if (c.pageIndex < 0 || c.pageIndex >= b.imgs.length) continue;
+            const aiBbox = c.bbox ?? null;
+            // Snap the AI bbox to a real detected image region when possible.
+            // If the AI is pointing somewhere that has no embedded image at
+            // all, drop the card — that's almost always prose, not a figure.
+            let finalBbox: Bbox | null = aiBbox;
+            if (aiBbox && batchRegions) {
+              const regionsOnPage = batchRegions[c.pageIndex] ?? [];
+              const snap = snapBboxToRegions(aiBbox, regionsOnPage);
+              if (!snap.matched) {
+                requestLog.warn(
+                  { pageIndex: c.pageIndex, aiBbox, regionsOnPage: regionsOnPage.length },
+                  "Visual card dropped: AI bbox does not overlap any detected image region",
+                );
+                continue;
+              }
+              finalBbox = snap.snapped;
+            }
+            const cropped = await cropImage(b.imgs[c.pageIndex], finalBbox);
+            let thumb = thumbCache.get(c.pageIndex);
+            if (!thumb) {
+              thumb = await downscaleSourcePage(b.imgs[c.pageIndex]);
+              thumbCache.set(c.pageIndex, thumb);
+            }
+            out.push({
+              front: c.front.trim(),
+              back: c.back.trim(),
+              image: cropped,
+              sourceImage: thumb,
+              bbox: finalBbox,
+              figureType: c.figureType ?? null,
+              pageNumber: b.start + c.pageIndex + 1,
+            });
           }
-          out.push({
-            front: c.front.trim(),
-            back: c.back.trim(),
-            image: cropped,
-            sourceImage: thumb,
-            bbox: c.bbox ?? null,
-            figureType: c.figureType ?? null,
-            pageNumber: b.start + c.pageIndex + 1,
-          });
-        }
-        return out;
-      }))
+          return out;
+        });
+      })
     );
 
     for (const r of settled) {
@@ -731,7 +822,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     return;
   }
 
-  const { text, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, deckType: rawDeckType, customPrompt } = parsed.data;
+  const { text, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, pageImageRegions, deckType: rawDeckType, customPrompt } = parsed.data;
 
   if (!text || text.trim().length < 10) {
     res.status(400).json({ error: "Text is too short to generate cards from." });
@@ -854,7 +945,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
           const pct = Math.round(VISUAL_START + frac * (VISUAL_END - VISUAL_START));
           const pages = Math.min(done * VISUAL_BATCH_SIZE, selectedImages.length);
           sseEmit(res, { type: "progress", percent: pct, message: `Analyzing & cropping images… (${pages}/${selectedImages.length} pages)` });
-        }, signal, customPrompt).then(cards => { visualCards = cards; })
+        }, signal, customPrompt, pageImageRegions ?? undefined).then(cards => { visualCards = cards; })
       : Promise.resolve();
 
     await Promise.all([textPromise, visualPromise]);
@@ -1022,7 +1113,7 @@ ${chunk}
 Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
 
   const response = await createChatCompletionWithRetry(openai, {
-    model: "openai/gpt-4.1-mini",
+    model: "gpt-4.1-mini",
     max_completion_tokens: 16384,
     stream: false as const,
     messages: [
@@ -1312,7 +1403,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
     return;
   }
 
-  const { text, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, deckType: rawDeckType, customPrompt } = parsed.data;
+  const { text, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, pageImageRegions, deckType: rawDeckType, customPrompt } = parsed.data;
 
   if (!text || text.trim().length < 10) {
     res.status(400).json({ error: "Text is too short to generate cards from." });
@@ -1344,7 +1435,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   try {
     [textCards, visualCards] = await Promise.all([
       wantText ? generateTextCards(openai, text, maxTextCards, req.log, undefined, customPrompt, undefined, pageTexts) : Promise.resolve([] as RawCard[]),
-      wantVisual ? generateAllVisualCards(openai, selectedImages, maxVisualCards, req.log, undefined, undefined, customPrompt) : Promise.resolve([]),
+      wantVisual ? generateAllVisualCards(openai, selectedImages, maxVisualCards, req.log, undefined, undefined, customPrompt, pageImageRegions ?? undefined) : Promise.resolve([]),
     ]);
   } catch (error) {
     req.log.error({ err: error }, "AI card generation failed");

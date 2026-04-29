@@ -30,18 +30,22 @@ async function checkDatabase(): Promise<CheckResult> {
 }
 
 function checkOpenAI(): CheckResult {
-  const baseUrl = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
-  const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
-  if (!baseUrl) {
-    return { status: "fail", message: "AI_INTEGRATIONS_OPENAI_BASE_URL is not set" };
-  }
+  const apiKey =
+    process.env["OPENAI_API_KEY1"] ||
+    process.env["OPENAI_API_KEY"] ||
+    process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
   if (!apiKey) {
-    return { status: "fail", message: "AI_INTEGRATIONS_OPENAI_API_KEY is not set" };
+    return {
+      status: "fail",
+      message: "OPENAI_API_KEY1 (or OPENAI_API_KEY) is not set",
+    };
   }
+  const baseUrl =
+    process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] || "https://api.openai.com/v1";
   try {
     new URL(baseUrl);
   } catch {
-    return { status: "fail", message: `Invalid AI_INTEGRATIONS_OPENAI_BASE_URL: ${baseUrl}` };
+    return { status: "fail", message: `Invalid OpenAI base URL: ${baseUrl}` };
   }
   return { status: "ok" };
 }

@@ -369,6 +369,22 @@ export declare const GenerateCardsBody: zod.ZodObject<{
     parentId: zod.ZodOptional<zod.ZodNullable<zod.ZodNumber>>;
     pageImages: zod.ZodOptional<zod.ZodArray<zod.ZodString, "many">>;
     pageTexts: zod.ZodOptional<zod.ZodArray<zod.ZodString, "many">>;
+    pageImageRegions: zod.ZodOptional<zod.ZodArray<zod.ZodArray<zod.ZodObject<{
+        x: zod.ZodNumber;
+        y: zod.ZodNumber;
+        w: zod.ZodNumber;
+        h: zod.ZodNumber;
+    }, "strip", zod.ZodTypeAny, {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+    }, {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+    }>, "many">, "many">>;
     customPrompt: zod.ZodOptional<zod.ZodString>;
 }, "strip", zod.ZodTypeAny, {
     text: string;
@@ -379,6 +395,12 @@ export declare const GenerateCardsBody: zod.ZodObject<{
     deckType?: "text" | "visual" | "both" | undefined;
     pageImages?: string[] | undefined;
     pageTexts?: string[] | undefined;
+    pageImageRegions?: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+    }[][] | undefined;
     customPrompt?: string | undefined;
 }, {
     text: string;
@@ -389,6 +411,12 @@ export declare const GenerateCardsBody: zod.ZodObject<{
     deckType?: "text" | "visual" | "both" | undefined;
     pageImages?: string[] | undefined;
     pageTexts?: string[] | undefined;
+    pageImageRegions?: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+    }[][] | undefined;
     customPrompt?: string | undefined;
 }>;
 /**

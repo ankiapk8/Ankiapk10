@@ -45003,7 +45003,7 @@ var init_client = __esm({
        * @param {Record<string, string | undefined>} opts.defaultQuery - Default query parameters to include with every request to the API.
        * @param {boolean} [opts.dangerouslyAllowBrowser=false] - By default, client-side use of this library is not allowed, as it risks exposing your secret API credentials to attackers.
        */
-      constructor({ baseURL = readEnv("OPENAI_BASE_URL"), apiKey = readEnv("OPENAI_API_KEY"), organization = readEnv("OPENAI_ORG_ID") ?? null, project = readEnv("OPENAI_PROJECT_ID") ?? null, webhookSecret = readEnv("OPENAI_WEBHOOK_SECRET") ?? null, ...opts } = {}) {
+      constructor({ baseURL: baseURL2 = readEnv("OPENAI_BASE_URL"), apiKey: apiKey2 = readEnv("OPENAI_API_KEY"), organization = readEnv("OPENAI_ORG_ID") ?? null, project = readEnv("OPENAI_PROJECT_ID") ?? null, webhookSecret = readEnv("OPENAI_WEBHOOK_SECRET") ?? null, ...opts } = {}) {
         _OpenAI_instances.add(this);
         _OpenAI_encoder.set(this, void 0);
         this.completions = new Completions2(this);
@@ -45028,16 +45028,16 @@ var init_client = __esm({
         this.containers = new Containers(this);
         this.skills = new Skills(this);
         this.videos = new Videos(this);
-        if (apiKey === void 0) {
+        if (apiKey2 === void 0) {
           throw new OpenAIError("Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.");
         }
         const options = {
-          apiKey,
+          apiKey: apiKey2,
           organization,
           project,
           webhookSecret,
           ...opts,
-          baseURL: baseURL || `https://api.openai.com/v1`
+          baseURL: baseURL2 || `https://api.openai.com/v1`
         };
         if (!options.dangerouslyAllowBrowser && isRunningInBrowser()) {
           throw new OpenAIError("It looks like you're running in a browser-like environment.\n\nThis is disabled by default, as it risks exposing your secret API credentials to attackers.\nIf you understand the risks and have appropriate mitigations in place,\nyou can set the `dangerouslyAllowBrowser` option to `true`, e.g.,\n\nnew OpenAI({ apiKey, dangerouslyAllowBrowser: true });\n\nhttps://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety\n");
@@ -45053,7 +45053,7 @@ var init_client = __esm({
         this.fetch = options.fetch ?? getDefaultFetch();
         __classPrivateFieldSet(this, _OpenAI_encoder, FallbackEncoder, "f");
         this._options = options;
-        this.apiKey = typeof apiKey === "string" ? apiKey : "Missing Key";
+        this.apiKey = typeof apiKey2 === "string" ? apiKey2 : "Missing Key";
         this.organization = organization;
         this.project = project;
         this.webhookSecret = webhookSecret;
@@ -45101,12 +45101,12 @@ var init_client = __esm({
         return APIError.generate(status, error40, message, headers);
       }
       async _callApiKey() {
-        const apiKey = this._options.apiKey;
-        if (typeof apiKey !== "function")
+        const apiKey2 = this._options.apiKey;
+        if (typeof apiKey2 !== "function")
           return false;
         let token;
         try {
-          token = await apiKey();
+          token = await apiKey2();
         } catch (err) {
           if (err instanceof OpenAIError)
             throw err;
@@ -45123,8 +45123,8 @@ var init_client = __esm({
         return true;
       }
       buildURL(path4, query, defaultBaseURL) {
-        const baseURL = !__classPrivateFieldGet(this, _OpenAI_instances, "m", _OpenAI_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
-        const url2 = isAbsoluteURL(path4) ? new URL(path4) : new URL(baseURL + (baseURL.endsWith("/") && path4.startsWith("/") ? path4.slice(1) : path4));
+        const baseURL2 = !__classPrivateFieldGet(this, _OpenAI_instances, "m", _OpenAI_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
+        const url2 = isAbsoluteURL(path4) ? new URL(path4) : new URL(baseURL2 + (baseURL2.endsWith("/") && path4.startsWith("/") ? path4.slice(1) : path4));
         const defaultQuery = this.defaultQuery();
         const pathQuery = Object.fromEntries(url2.searchParams);
         if (!isEmptyObj(defaultQuery) || !isEmptyObj(pathQuery)) {
@@ -45493,24 +45493,21 @@ var init_openai = __esm({
 });
 
 // ../../lib/integrations-openai-ai-server/src/client.ts
-var openai;
+var apiKey, baseURL, openai;
 var init_client2 = __esm({
   "../../lib/integrations-openai-ai-server/src/client.ts"() {
     "use strict";
     init_openai();
-    if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+    apiKey = process.env.OPENAI_API_KEY1 || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+    if (!apiKey) {
       throw new Error(
-        "AI_INTEGRATIONS_OPENAI_BASE_URL must be set. Did you forget to provision the OpenAI AI integration?"
+        "OPENAI_API_KEY1 (or OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY) must be set."
       );
     }
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-      throw new Error(
-        "AI_INTEGRATIONS_OPENAI_API_KEY must be set. Did you forget to provision the OpenAI AI integration?"
-      );
-    }
+    baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
     openai = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
+      apiKey,
+      baseURL
     });
   }
 });
@@ -78059,18 +78056,18 @@ async function checkDatabase() {
   }
 }
 function checkOpenAI() {
-  const baseUrl = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"];
-  const apiKey = process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
-  if (!baseUrl) {
-    return { status: "fail", message: "AI_INTEGRATIONS_OPENAI_BASE_URL is not set" };
+  const apiKey2 = process.env["OPENAI_API_KEY1"] || process.env["OPENAI_API_KEY"] || process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
+  if (!apiKey2) {
+    return {
+      status: "fail",
+      message: "OPENAI_API_KEY1 (or OPENAI_API_KEY) is not set"
+    };
   }
-  if (!apiKey) {
-    return { status: "fail", message: "AI_INTEGRATIONS_OPENAI_API_KEY is not set" };
-  }
+  const baseUrl = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] || "https://api.openai.com/v1";
   try {
     new URL(baseUrl);
   } catch {
-    return { status: "fail", message: `Invalid AI_INTEGRATIONS_OPENAI_BASE_URL: ${baseUrl}` };
+    return { status: "fail", message: `Invalid OpenAI base URL: ${baseUrl}` };
   }
   return { status: "ok" };
 }
@@ -82122,6 +82119,18 @@ var GenerateCardsBody = objectType({
   pageTexts: arrayType(stringType()).optional().describe(
     "Per-page extracted text (index 0 = page 1). When provided, the server tracks which PDF page each text card came from and stores it as pageNumber so the merged deck can be sorted by source page."
   ),
+  pageImageRegions: arrayType(
+    arrayType(
+      objectType({
+        x: numberType(),
+        y: numberType(),
+        w: numberType(),
+        h: numberType()
+      })
+    )
+  ).optional().describe(
+    "Per-page list of detected embedded image regions (raster images present in the PDF). Each entry is the list of regions on that page, where each region is {x,y,w,h} normalized 0..1 with origin top-left. Used to snap visual-card crops to real images and reject AI bboxes that point at prose."
+  ),
   customPrompt: stringType().optional().describe(
     'Optional user instructions appended to the system prompt to steer card generation (e.g. "focus on dosages", "phrase as MCQs", "for a Year 1 medical student")'
   )
@@ -82517,8 +82526,10 @@ var MAX_CARD_TARGET = Number.MAX_SAFE_INTEGER;
 var CROP_PADDING = 0.04;
 var MIN_CROP_DIMENSION = 0.12;
 var VISUAL_CONCURRENCY = 2;
-var MAX_VISUAL_BBOX_AREA = 0.78;
-var MAX_VISUAL_BBOX_DIM = 0.92;
+var MAX_VISUAL_BBOX_AREA = 0.55;
+var MAX_VISUAL_BBOX_DIM = 0.85;
+var REGION_OVERLAP_RATIO = 0.25;
+var REGION_SNAP_PADDING = 0.025;
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -82580,7 +82591,7 @@ function parseJson(raw) {
   return [];
 }
 async function getOpenAIClient() {
-  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+  if (!process.env.OPENAI_API_KEY1 && !process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
     throw new Error("AI card generation is not configured yet.");
   }
   const { openai: openai3 } = await Promise.resolve().then(() => (init_src(), src_exports));
@@ -82821,7 +82832,7 @@ ${chunk}
 
 Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: "openai/gpt-4.1-mini",
+    model: "gpt-4.1-mini",
     max_completion_tokens: 16384,
     stream: false,
     messages: [
@@ -82877,7 +82888,7 @@ async function generateTextCards(openai3, text2, maxCards, requestLog, signal, c
   }
   return unique;
 }
-async function generateVisualCardsForBatch(openai3, batchImages, batchStart, cardsPerPage, requestLog, signal, customPrompt) {
+async function generateVisualCardsForBatch(openai3, batchImages, batchStart, cardsPerPage, requestLog, signal, customPrompt, batchRegions) {
   const imageUrls = batchImages.map((img) => ({
     type: "image_url",
     image_url: {
@@ -82886,6 +82897,33 @@ async function generateVisualCardsForBatch(openai3, batchImages, batchStart, car
     }
   }));
   const cardsRange = cardsPerPage <= 1 ? "1" : `1\u2013${cardsPerPage}`;
+  let regionHints = "";
+  if (batchRegions && batchRegions.length === batchImages.length) {
+    const lines = [];
+    let totalRegions = 0;
+    for (let i = 0; i < batchRegions.length; i++) {
+      const regs = batchRegions[i] ?? [];
+      totalRegions += regs.length;
+      const pageNum = batchStart + i + 1;
+      if (regs.length === 0) {
+        lines.push(`  \u2022 Page ${pageNum}: NO embedded raster images detected. Only output a card if you can clearly see a vector chart, diagram, table, equation, or trace. Otherwise output ZERO cards for this page.`);
+      } else {
+        const formatted = regs.map((r, idx) => `[#${idx + 1}: x=${r.x.toFixed(3)}, y=${r.y.toFixed(3)}, w=${r.w.toFixed(3)}, h=${r.h.toFixed(3)}]`).join(", ");
+        lines.push(`  \u2022 Page ${pageNum}: ${regs.length} embedded image region(s) detected by the PDF parser \u2192 ${formatted}. STRONGLY PREFER making cards from these regions; the system will snap your bbox to the nearest one.`);
+      }
+    }
+    if (totalRegions > 0 || lines.length > 0) {
+      regionHints = `
+
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+DETERMINISTIC PAGE ANALYSIS \u2014 TRUST THIS
+\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+The PDF parser has scanned each page and listed every embedded raster image it found, with exact normalized coordinates (top-left origin, x/y/w/h between 0 and 1):
+${lines.join("\n")}
+
+\u26A0\uFE0F The system will REJECT any visual card whose bbox does not overlap one of the listed regions on a page that has regions. So either point your bbox AT a listed region, or output ZERO cards for that page. This is non-negotiable.`;
+    }
+  }
   const systemPrompt = `You are an expert visual learning designer and clinical/scientific illustrator. You convert PDF page images into Anki flashcards centred on the FIGURES shown on each page (NOT on the surrounding prose). You will receive ${batchImages.length} page image(s) (pages ${batchStart + 1}\u2013${batchStart + batchImages.length}).
 
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
@@ -82959,10 +82997,10 @@ Return ONLY a JSON array. Each item must have exactly:
 
 Aim for ${cardsRange} card(s) per page WHEN qualifying figures exist. Pages without qualifying figures contribute zero cards. If a page has more distinct figures than ${cardsRange}, you MAY exceed it (one card per distinct figure). Do NOT invent cards for non-existent visuals.
 
-No markdown, no commentary, no \`\`\` fences \u2014 just the JSON array.${customPromptBlock(customPrompt)}`;
+No markdown, no commentary, no \`\`\` fences \u2014 just the JSON array.${regionHints}${customPromptBlock(customPrompt)}`;
   try {
     const response = await createChatCompletionWithRetry(openai3, {
-      model: "openai/gpt-4.1",
+      model: "gpt-4.1",
       max_completion_tokens: 16384,
       stream: false,
       messages: [
@@ -83005,7 +83043,29 @@ No markdown, no commentary, no \`\`\` fences \u2014 just the JSON array.${custom
     return [];
   }
 }
-async function generateAllVisualCards(openai3, images, targetCount, requestLog, onBatchGroupDone, signal, customPrompt) {
+function snapBboxToRegions(bbox, regions) {
+  if (!regions || regions.length === 0) {
+    return { snapped: bbox, matched: true, reason: "kept" };
+  }
+  const aiArea = Math.max(1e-6, bbox.w * bbox.h);
+  let bestRegion = null;
+  let bestOverlap = 0;
+  for (const r of regions) {
+    const ix = Math.max(0, Math.min(bbox.x + bbox.w, r.x + r.w) - Math.max(bbox.x, r.x));
+    const iy = Math.max(0, Math.min(bbox.y + bbox.h, r.y + r.h) - Math.max(bbox.y, r.y));
+    const inter = ix * iy;
+    if (inter > bestOverlap) {
+      bestOverlap = inter;
+      bestRegion = r;
+    }
+  }
+  if (!bestRegion || bestOverlap / aiArea < REGION_OVERLAP_RATIO) {
+    return { snapped: bbox, matched: false, reason: "no-overlap" };
+  }
+  const padded = expandBbox(bestRegion, REGION_SNAP_PADDING);
+  return { snapped: padded, matched: true, reason: "snapped" };
+}
+async function generateAllVisualCards(openai3, images, targetCount, requestLog, onBatchGroupDone, signal, customPrompt, pageImageRegions) {
   const pagesToProcess = images.slice(0, MAX_VISUAL_PAGES);
   const batches = [];
   for (let i = 0; i < pagesToProcess.length; i += VISUAL_BATCH_SIZE) {
@@ -83018,29 +83078,46 @@ async function generateAllVisualCards(openai3, images, targetCount, requestLog, 
     if (signal?.aborted) throw new Error("Cancelled");
     const chunk = batches.slice(i, i + VISUAL_CONCURRENCY);
     const settled = await Promise.allSettled(
-      chunk.map((b) => generateVisualCardsForBatch(openai3, b.imgs, b.start, cardsPerPage, requestLog, signal, customPrompt).then(async (cards) => {
-        const out = [];
-        const thumbCache = /* @__PURE__ */ new Map();
-        for (const c of cards) {
-          if (c.pageIndex < 0 || c.pageIndex >= b.imgs.length) continue;
-          const cropped = await cropImage(b.imgs[c.pageIndex], c.bbox ?? null);
-          let thumb = thumbCache.get(c.pageIndex);
-          if (!thumb) {
-            thumb = await downscaleSourcePage(b.imgs[c.pageIndex]);
-            thumbCache.set(c.pageIndex, thumb);
+      chunk.map((b) => {
+        const batchRegions = pageImageRegions ? b.imgs.map((_, idx) => pageImageRegions[b.start + idx] ?? []) : void 0;
+        return generateVisualCardsForBatch(openai3, b.imgs, b.start, cardsPerPage, requestLog, signal, customPrompt, batchRegions).then(async (cards) => {
+          const out = [];
+          const thumbCache = /* @__PURE__ */ new Map();
+          for (const c of cards) {
+            if (c.pageIndex < 0 || c.pageIndex >= b.imgs.length) continue;
+            const aiBbox = c.bbox ?? null;
+            let finalBbox = aiBbox;
+            if (aiBbox && batchRegions) {
+              const regionsOnPage = batchRegions[c.pageIndex] ?? [];
+              const snap = snapBboxToRegions(aiBbox, regionsOnPage);
+              if (!snap.matched) {
+                requestLog.warn(
+                  { pageIndex: c.pageIndex, aiBbox, regionsOnPage: regionsOnPage.length },
+                  "Visual card dropped: AI bbox does not overlap any detected image region"
+                );
+                continue;
+              }
+              finalBbox = snap.snapped;
+            }
+            const cropped = await cropImage(b.imgs[c.pageIndex], finalBbox);
+            let thumb = thumbCache.get(c.pageIndex);
+            if (!thumb) {
+              thumb = await downscaleSourcePage(b.imgs[c.pageIndex]);
+              thumbCache.set(c.pageIndex, thumb);
+            }
+            out.push({
+              front: c.front.trim(),
+              back: c.back.trim(),
+              image: cropped,
+              sourceImage: thumb,
+              bbox: finalBbox,
+              figureType: c.figureType ?? null,
+              pageNumber: b.start + c.pageIndex + 1
+            });
           }
-          out.push({
-            front: c.front.trim(),
-            back: c.back.trim(),
-            image: cropped,
-            sourceImage: thumb,
-            bbox: c.bbox ?? null,
-            figureType: c.figureType ?? null,
-            pageNumber: b.start + c.pageIndex + 1
-          });
-        }
-        return out;
-      }))
+          return out;
+        });
+      })
     );
     for (const r of settled) {
       if (r.status === "fulfilled") results.push(...r.value);
@@ -83070,7 +83147,7 @@ router4.post("/generate/stream", async (req, res, next) => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { text: text2, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, deckType: rawDeckType, customPrompt } = parsed.data;
+  const { text: text2, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, pageImageRegions, deckType: rawDeckType, customPrompt } = parsed.data;
   if (!text2 || text2.trim().length < 10) {
     res.status(400).json({ error: "Text is too short to generate cards from." });
     return;
@@ -83169,7 +83246,7 @@ router4.post("/generate/stream", async (req, res, next) => {
       const pct = Math.round(VISUAL_START + frac * (VISUAL_END - VISUAL_START));
       const pages = Math.min(done * VISUAL_BATCH_SIZE, selectedImages.length);
       sseEmit(res, { type: "progress", percent: pct, message: `Analyzing & cropping images\u2026 (${pages}/${selectedImages.length} pages)` });
-    }, signal, customPrompt).then((cards) => {
+    }, signal, customPrompt, pageImageRegions ?? void 0).then((cards) => {
       visualCards = cards;
     }) : Promise.resolve();
     await Promise.all([textPromise, visualPromise]);
@@ -83311,7 +83388,7 @@ ${chunk}
 
 Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: "openai/gpt-4.1-mini",
+    model: "gpt-4.1-mini",
     max_completion_tokens: 16384,
     stream: false,
     messages: [
@@ -83530,7 +83607,7 @@ router4.post("/generate", async (req, res, next) => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { text: text2, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, deckType: rawDeckType, customPrompt } = parsed.data;
+  const { text: text2, deckName, cardCount = 20, visualCardCount, parentId, pageImages, pageTexts, pageImageRegions, deckType: rawDeckType, customPrompt } = parsed.data;
   if (!text2 || text2.trim().length < 10) {
     res.status(400).json({ error: "Text is too short to generate cards from." });
     return;
@@ -83555,7 +83632,7 @@ router4.post("/generate", async (req, res, next) => {
   try {
     [textCards, visualCards] = await Promise.all([
       wantText ? generateTextCards(openai3, text2, maxTextCards, req.log, void 0, customPrompt, void 0, pageTexts) : Promise.resolve([]),
-      wantVisual ? generateAllVisualCards(openai3, selectedImages, maxVisualCards, req.log, void 0, void 0, customPrompt) : Promise.resolve([])
+      wantVisual ? generateAllVisualCards(openai3, selectedImages, maxVisualCards, req.log, void 0, void 0, customPrompt, pageImageRegions ?? void 0) : Promise.resolve([])
     ]);
   } catch (error40) {
     req.log.error({ err: error40 }, "AI card generation failed");
@@ -84041,7 +84118,7 @@ var extract_pdf_default = router6;
 var import_express7 = __toESM(require_express2(), 1);
 var router7 = (0, import_express7.Router)();
 async function getOpenAIClient2() {
-  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+  if (!process.env.OPENAI_API_KEY1 && !process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
     throw new Error("AI explanation is not configured yet.");
   }
   const { openai: openai3 } = await Promise.resolve().then(() => (init_src(), src_exports));
@@ -84161,7 +84238,7 @@ router7.post("/explain", async (req, res) => {
   }
   try {
     const stream = await openai3.chat.completions.create({
-      model: "openai/gpt-4.1-mini",
+      model: "gpt-4.1-mini",
       max_completion_tokens: maxTokens,
       stream: true,
       messages: [

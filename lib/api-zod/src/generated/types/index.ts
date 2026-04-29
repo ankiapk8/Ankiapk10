@@ -15,6 +15,7 @@ export * from "./deckKind";
 export * from "./exportDeckResponse";
 export * from "./generateCardsBody";
 export * from "./generateCardsBodyDeckType";
+export * from "./generateCardsBodyPageImageRegionsItemItem";
 export * from "./generateCardsResponse";
 export * from "./generateQbankBody";
 export * from "./generation";

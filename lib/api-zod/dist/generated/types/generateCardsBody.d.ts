@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GenerateCardsBodyDeckType } from "./generateCardsBodyDeckType";
+import type { GenerateCardsBodyPageImageRegionsItemItem } from "./generateCardsBodyPageImageRegionsItemItem";
 export interface GenerateCardsBody {
     text: string;
     deckName: string;
@@ -20,6 +21,8 @@ export interface GenerateCardsBody {
     pageImages?: string[];
     /** Per-page extracted text (index 0 = page 1). When provided, the server tracks which PDF page each text card came from and stores it as pageNumber so the merged deck can be sorted by source page. */
     pageTexts?: string[];
+    /** Per-page list of detected embedded image regions (raster images present in the PDF). Each entry is the list of regions on that page, where each region is {x,y,w,h} normalized 0..1 with origin top-left. Used to snap visual-card crops to real images and reject AI bboxes that point at prose. */
+    pageImageRegions?: GenerateCardsBodyPageImageRegionsItemItem[][];
     /** Optional user instructions appended to the system prompt to steer card generation (e.g. "focus on dosages", "phrase as MCQs", "for a Year 1 medical student") */
     customPrompt?: string;
 }
