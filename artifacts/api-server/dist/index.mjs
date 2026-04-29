@@ -45498,7 +45498,7 @@ var init_client2 = __esm({
   "../../lib/integrations-openai-ai-server/src/client.ts"() {
     "use strict";
     init_openai();
-    apiKey = process.env.OPENAI_API_KEY1 || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+    apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY1 || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     if (!apiKey) {
       throw new Error(
         "OPENAI_API_KEY1 (or OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY) must be set."
@@ -82829,7 +82829,7 @@ ${chunk}
 
 Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: "gpt-4.1-mini",
+    model: "openai/gpt-oss-120b:free",
     max_completion_tokens: 16384,
     stream: false,
     messages: [
@@ -82997,7 +82997,7 @@ Aim for ${cardsRange} card(s) per page WHEN qualifying figures exist. Pages with
 No markdown, no commentary, no \`\`\` fences \u2014 just the JSON array.${regionHints}${customPromptBlock(customPrompt)}`;
   try {
     const response = await createChatCompletionWithRetry(openai3, {
-      model: "gpt-4.1",
+      model: "google/gemini-2.0-flash-exp:free",
       max_completion_tokens: 16384,
       stream: false,
       messages: [
@@ -83387,7 +83387,7 @@ ${chunk}
 
 Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: "gpt-4.1-mini",
+    model: "openai/gpt-oss-120b:free",
     max_completion_tokens: 16384,
     stream: false,
     messages: [
@@ -84258,7 +84258,7 @@ router7.post("/explain", async (req, res) => {
   }
   try {
     const stream = await openai3.chat.completions.create({
-      model: "gpt-4.1-mini",
+      model: "openai/gpt-oss-120b:free",
       max_completion_tokens: maxTokens,
       stream: true,
       messages: [
