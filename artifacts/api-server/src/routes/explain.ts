@@ -6,11 +6,14 @@ type ExplainMode = "full" | "revision" | "osce";
 
 async function getOpenAIClient() {
   if (
+    !process.env.OPENROUTER_API_KEY &&
     !process.env.OPENAI_API_KEY1 &&
     !process.env.OPENAI_API_KEY &&
     !process.env.AI_INTEGRATIONS_OPENAI_API_KEY
   ) {
-    throw new Error("AI explanation is not configured yet.");
+    throw new Error(
+      "AI explanation is not configured. Set OPENROUTER_API_KEY (https://openrouter.ai/keys).",
+    );
   }
   const { openai } = await import("@workspace/integrations-openai-ai-server");
   return openai;

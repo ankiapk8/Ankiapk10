@@ -107,11 +107,14 @@ function parseJson<T>(raw: string): T[] {
 
 async function getOpenAIClient() {
   if (
+    !process.env.OPENROUTER_API_KEY &&
     !process.env.OPENAI_API_KEY1 &&
     !process.env.OPENAI_API_KEY &&
     !process.env.AI_INTEGRATIONS_OPENAI_API_KEY
   ) {
-    throw new Error("AI card generation is not configured yet.");
+    throw new Error(
+      "AI card generation is not configured. Set OPENROUTER_API_KEY (https://openrouter.ai/keys).",
+    );
   }
   const { openai } = await import("@workspace/integrations-openai-ai-server");
   return openai;
@@ -962,8 +965,8 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
     let msg: string;
-    if (code === "insufficient_quota") {
-      msg = "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key.";
+    if (code === "insufficient_quota" || code === "insufficient_credits" || status === 402) {
+      msg = "AI provider quota exceeded. Add credits to your OpenRouter account at openrouter.ai/credits, switch to a free model, or use a different API key.";
     } else if (status === 429 || code === "too_many_requests") {
       msg = "AI is temporarily rate-limited. Wait a minute and try again.";
     } else {
@@ -1243,9 +1246,9 @@ router.post("/generate-qbank", async (req, res, next): Promise<void> => {
     req.log.error({ err: error }, "AI question bank generation failed");
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
-    if (code === "insufficient_quota") {
+    if (code === "insufficient_quota" || code === "insufficient_credits" || status === 402) {
       res.status(402).json({
-        error: "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key.",
+        error: "AI provider quota exceeded. Add credits to your OpenRouter account at openrouter.ai/credits, switch to a free model, or use a different API key.",
       });
       return;
     }
@@ -1362,8 +1365,8 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
     req.log.error({ err: error }, "AI question bank generation failed");
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
-    const msg = code === "insufficient_quota"
-      ? "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key."
+    const msg = (code === "insufficient_quota" || code === "insufficient_credits" || status === 402)
+      ? "AI provider quota exceeded. Add credits to your OpenRouter account at openrouter.ai/credits, switch to a free model, or use a different API key."
       : (status === 429 || code === "too_many_requests")
       ? "AI is temporarily rate-limited. Wait a minute and try again."
       : (error instanceof Error ? error.message : "AI question bank generation failed.");
@@ -1464,9 +1467,9 @@ router.post("/generate", async (req, res, next): Promise<void> => {
     req.log.error({ err: error }, "AI card generation failed");
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
-    if (code === "insufficient_quota") {
+    if (code === "insufficient_quota" || code === "insufficient_credits" || status === 402) {
       res.status(402).json({
-        error: "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key.",
+        error: "AI provider quota exceeded. Add credits to your OpenRouter account at openrouter.ai/credits, switch to a free model, or use a different API key.",
       });
       return;
     }

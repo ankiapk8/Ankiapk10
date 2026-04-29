@@ -20,8 +20,8 @@ services:
           name: anki-generator-db
           property: connectionString
       - key: AI_INTEGRATIONS_OPENAI_BASE_URL
-        value: https://api.openai.com/v1
-      - key: AI_INTEGRATIONS_OPENAI_API_KEY
+        value: https://openrouter.ai/api/v1
+      - key: OPENROUTER_API_KEY
         sync: false
 
 databases:

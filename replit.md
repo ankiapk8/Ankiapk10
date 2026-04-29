@@ -41,7 +41,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Express 5 backend at `/api`
 - In production (Docker / Render), the same Express server also serves the built React frontend from `STATIC_DIR` (defaults to `<cwd>/public`) with SPA fallback. In Replit dev the Vite dev server runs separately so this static block is just inactive.
 - Routes: `/api/decks`, `/api/cards`, `/api/generate`, `/api/extract-pdf`, `/api/export-apkg`, `/api/healthz`
-- AI generation uses `gpt-5.2` model via Replit AI Integrations (env vars: `AI_INTEGRATIONS_OPENAI_BASE_URL`, `AI_INTEGRATIONS_OPENAI_API_KEY`)
+- AI generation uses **OpenRouter** as the API provider (OpenAI-compatible endpoint at `https://openrouter.ai/api/v1`). Required secret: `OPENROUTER_API_KEY` (legacy fallbacks: `OPENAI_API_KEY1`, `OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_API_KEY`). Optional override: `AI_INTEGRATIONS_OPENAI_BASE_URL`. Models in use: text/qbank/explain → `openai/gpt-oss-120b:free`; visual cards (vision-capable) → `google/gemini-2.0-flash-exp:free`.
 - The AI client is loaded lazily so missing AI configuration returns a 503 from `/api/generate` instead of crashing the server
 - `/api/generate` retries transient AI rate-limit/server failures with backoff, and the frontend pauses briefly between multi-file generations while surfacing per-file error details
 - Route `/api/extract-pdf` accepts both `multipart/form-data` (via multer, field name `file`) and raw `application/pdf` body; embedded text → server OCR fallback. Multer file size limit is **200 MB** to match the Express body limit so large PDFs don't get silently rejected.
@@ -93,7 +93,7 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 ## Render Deployment (Docker)
 
 - `Dockerfile` (multi-stage) installs system deps for `canvas` (cairo/pango/jpeg/gif/rsvg/pixman), enables pnpm, builds the Anki frontend with `BASE_PATH=/`, builds the API server bundle, and produces a runner image that copies `artifacts/anki-generator/dist/public` to `/app/public` and runs the API server on `PORT=8080`.
-- `render.yaml` is a Render Blueprint: one Docker web service + one managed Postgres 16 database. `DATABASE_URL` is auto-injected from the database; `AI_INTEGRATIONS_OPENAI_BASE_URL` is hard-coded to `https://api.openai.com/v1` and `AI_INTEGRATIONS_OPENAI_API_KEY` must be set to a real OpenAI key on first deploy (the Replit AI proxy does not work outside Replit).
+- `render.yaml` is a Render Blueprint: one Docker web service + one managed Postgres 16 database. `DATABASE_URL` is auto-injected from the database; `AI_INTEGRATIONS_OPENAI_BASE_URL` is hard-coded to `https://openrouter.ai/api/v1` and `OPENROUTER_API_KEY` must be set to a real OpenRouter key (https://openrouter.ai/keys) on first deploy.
 - `RENDER_DEPLOY.md` documents the setup steps, env vars, and local Docker test command.
 - `.dockerignore` keeps node_modules, dist, .cache, .local, build-apk, attached_assets/screenshots, and android/ios out of the build context. (Note: the project's `.gitignore` was intentionally emptied so every file uploads to GitHub.)
 

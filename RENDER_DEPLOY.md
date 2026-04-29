@@ -16,9 +16,9 @@ by a managed Postgres database.
 1. Push this repo to GitHub.
 2. In the Render dashboard, click **New → Blueprint** and point it at the repo.
    Render reads `render.yaml` and creates the service + database.
-3. When prompted, set the only secret value: `AI_INTEGRATIONS_OPENAI_API_KEY`.
-   This must be a real OpenAI API key (`sk-...`) from
-   https://platform.openai.com/api-keys.
+3. When prompted, set the only secret value: `OPENROUTER_API_KEY`.
+   This must be a real OpenRouter API key (`sk-or-...`) from
+   https://openrouter.ai/keys.
 4. Wait for the first build to finish (5–10 min — Docker has to compile the
    `canvas` native module). The service will run database migrations on boot.
 
@@ -27,12 +27,12 @@ by a managed Postgres database.
 | Variable                          | Source                          | Notes |
 |-----------------------------------|---------------------------------|-------|
 | `DATABASE_URL`                    | Render Postgres (auto-injected) | Wired by `render.yaml` |
-| `AI_INTEGRATIONS_OPENAI_BASE_URL` | Set in `render.yaml`            | `https://api.openai.com/v1` |
-| `AI_INTEGRATIONS_OPENAI_API_KEY`  | You provide on first deploy     | Real OpenAI key |
+| `AI_INTEGRATIONS_OPENAI_BASE_URL` | Set in `render.yaml`            | `https://openrouter.ai/api/v1` |
+| `OPENROUTER_API_KEY`              | You provide on first deploy     | Real OpenRouter key (`sk-or-...`) |
 | `PORT`, `STATIC_DIR`, `NODE_ENV`  | Set in `render.yaml`            | Don't change |
 
-The Replit AI proxy (`gateway.replit.com`) only works inside Replit, so on
-Render the app talks to OpenAI directly using your own key.
+The app talks to OpenRouter using the OpenAI-compatible chat completions API,
+so the same client library works in Replit dev and on Render.
 
 ## Local Docker test
 
@@ -40,8 +40,8 @@ Render the app talks to OpenAI directly using your own key.
 docker build -t anki-generator .
 docker run --rm -p 8080:8080 \
   -e DATABASE_URL="postgres://user:pw@host:5432/db" \
-  -e AI_INTEGRATIONS_OPENAI_BASE_URL="https://api.openai.com/v1" \
-  -e AI_INTEGRATIONS_OPENAI_API_KEY="sk-..." \
+  -e AI_INTEGRATIONS_OPENAI_BASE_URL="https://openrouter.ai/api/v1" \
+  -e OPENROUTER_API_KEY="sk-or-..." \
   anki-generator
 ```
 

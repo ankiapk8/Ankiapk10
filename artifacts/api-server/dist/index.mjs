@@ -45501,13 +45501,17 @@ var init_client2 = __esm({
     apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY1 || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     if (!apiKey) {
       throw new Error(
-        "OPENAI_API_KEY1 (or OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY) must be set."
+        "OPENROUTER_API_KEY must be set. Get one at https://openrouter.ai/keys"
       );
     }
-    baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
+    baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
     openai = new OpenAI({
       apiKey,
-      baseURL
+      baseURL,
+      defaultHeaders: {
+        "HTTP-Referer": process.env.OPENROUTER_HTTP_REFERER || "https://anki-generator.local",
+        "X-Title": process.env.OPENROUTER_APP_TITLE || "Anki Card Generator"
+      }
     });
   }
 });
@@ -45549,16 +45553,20 @@ var init_client3 = __esm({
   "../../lib/integrations-openai-ai-server/src/image/client.ts"() {
     "use strict";
     init_openai();
-    apiKey2 = process.env.OPENAI_API_KEY1 || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+    apiKey2 = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY1 || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
     if (!apiKey2) {
       throw new Error(
-        "OPENAI_API_KEY1 (or OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY) must be set."
+        "OPENROUTER_API_KEY must be set. Get one at https://openrouter.ai/keys"
       );
     }
-    baseURL2 = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
+    baseURL2 = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
     openai2 = new OpenAI({
       apiKey: apiKey2,
-      baseURL: baseURL2
+      baseURL: baseURL2,
+      defaultHeaders: {
+        "HTTP-Referer": process.env.OPENROUTER_HTTP_REFERER || "https://anki-generator.local",
+        "X-Title": process.env.OPENROUTER_APP_TITLE || "Anki Card Generator"
+      }
     });
   }
 });
@@ -78052,32 +78060,32 @@ async function checkDatabase() {
     };
   }
 }
-function checkOpenAI() {
-  const apiKey3 = process.env["OPENAI_API_KEY1"] || process.env["OPENAI_API_KEY"] || process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
+function checkAiProvider() {
+  const apiKey3 = process.env["OPENROUTER_API_KEY"] || process.env["OPENAI_API_KEY1"] || process.env["OPENAI_API_KEY"] || process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
   if (!apiKey3) {
     return {
       status: "fail",
-      message: "OPENAI_API_KEY1 (or OPENAI_API_KEY) is not set"
+      message: "OPENROUTER_API_KEY is not set"
     };
   }
-  const baseUrl = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] || "https://api.openai.com/v1";
+  const baseUrl = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] || process.env["OPENROUTER_BASE_URL"] || "https://openrouter.ai/api/v1";
   try {
     new URL(baseUrl);
   } catch {
-    return { status: "fail", message: `Invalid OpenAI base URL: ${baseUrl}` };
+    return { status: "fail", message: `Invalid AI base URL: ${baseUrl}` };
   }
   return { status: "ok" };
 }
 router.get("/healthz", async (_req, res) => {
-  const [database, openai3] = await Promise.all([
+  const [database, ai] = await Promise.all([
     checkDatabase(),
-    Promise.resolve(checkOpenAI())
+    Promise.resolve(checkAiProvider())
   ]);
-  const allOk = database.status === "ok" && openai3.status === "ok";
+  const allOk = database.status === "ok" && ai.status === "ok";
   const status = allOk ? "ok" : "degraded";
   if (!allOk) {
     logger.warn(
-      { database, openai: openai3 },
+      { database, ai },
       "Health check reported degraded dependencies"
     );
   }
@@ -78085,7 +78093,7 @@ router.get("/healthz", async (_req, res) => {
     status,
     checks: {
       database,
-      openai: openai3
+      ai
     },
     uptimeSeconds: Math.round(process.uptime()),
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
@@ -82588,8 +82596,10 @@ function parseJson(raw) {
   return [];
 }
 async function getOpenAIClient() {
-  if (!process.env.OPENAI_API_KEY1 && !process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    throw new Error("AI card generation is not configured yet.");
+  if (!process.env.OPENROUTER_API_KEY && !process.env.OPENAI_API_KEY1 && !process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    throw new Error(
+      "AI card generation is not configured. Set OPENROUTER_API_KEY (https://openrouter.ai/keys)."
+    );
   }
   const { openai: openai3 } = await Promise.resolve().then(() => (init_src(), src_exports));
   return openai3;
@@ -83266,8 +83276,8 @@ router4.post("/generate/stream", async (req, res, next) => {
     const status = getErrorStatus(error40);
     const code = getErrorCode(error40);
     let msg;
-    if (code === "insufficient_quota") {
-      msg = "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key.";
+    if (code === "insufficient_quota" || code === "insufficient_credits" || status === 402) {
+      msg = "AI provider quota exceeded. Add credits to your OpenRouter account at openrouter.ai/credits, switch to a free model, or use a different API key.";
     } else if (status === 429 || code === "too_many_requests") {
       msg = "AI is temporarily rate-limited. Wait a minute and try again.";
     } else {
@@ -83479,9 +83489,9 @@ router4.post("/generate-qbank", async (req, res, next) => {
     req.log.error({ err: error40 }, "AI question bank generation failed");
     const status = getErrorStatus(error40);
     const code = getErrorCode(error40);
-    if (code === "insufficient_quota") {
+    if (code === "insufficient_quota" || code === "insufficient_credits" || status === 402) {
       res.status(402).json({
-        error: "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key."
+        error: "AI provider quota exceeded. Add credits to your OpenRouter account at openrouter.ai/credits, switch to a free model, or use a different API key."
       });
       return;
     }
@@ -83573,7 +83583,7 @@ router4.post("/generate-qbank/stream", async (req, res) => {
     req.log.error({ err: error40 }, "AI question bank generation failed");
     const status = getErrorStatus(error40);
     const code = getErrorCode(error40);
-    const msg = code === "insufficient_quota" ? "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key." : status === 429 || code === "too_many_requests" ? "AI is temporarily rate-limited. Wait a minute and try again." : error40 instanceof Error ? error40.message : "AI question bank generation failed.";
+    const msg = code === "insufficient_quota" || code === "insufficient_credits" || status === 402 ? "AI provider quota exceeded. Add credits to your OpenRouter account at openrouter.ai/credits, switch to a free model, or use a different API key." : status === 429 || code === "too_many_requests" ? "AI is temporarily rate-limited. Wait a minute and try again." : error40 instanceof Error ? error40.message : "AI question bank generation failed.";
     sseEmit(res, { type: "error", message: msg });
     res.end();
     return;
@@ -83652,9 +83662,9 @@ router4.post("/generate", async (req, res, next) => {
     req.log.error({ err: error40 }, "AI card generation failed");
     const status = getErrorStatus(error40);
     const code = getErrorCode(error40);
-    if (code === "insufficient_quota") {
+    if (code === "insufficient_quota" || code === "insufficient_credits" || status === 402) {
       res.status(402).json({
-        error: "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key."
+        error: "AI provider quota exceeded. Add credits to your OpenRouter account at openrouter.ai/credits, switch to a free model, or use a different API key."
       });
       return;
     }
@@ -84138,8 +84148,10 @@ var extract_pdf_default = router6;
 var import_express7 = __toESM(require_express2(), 1);
 var router7 = (0, import_express7.Router)();
 async function getOpenAIClient2() {
-  if (!process.env.OPENAI_API_KEY1 && !process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    throw new Error("AI explanation is not configured yet.");
+  if (!process.env.OPENROUTER_API_KEY && !process.env.OPENAI_API_KEY1 && !process.env.OPENAI_API_KEY && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    throw new Error(
+      "AI explanation is not configured. Set OPENROUTER_API_KEY (https://openrouter.ai/keys)."
+    );
   }
   const { openai: openai3 } = await Promise.resolve().then(() => (init_src(), src_exports));
   return openai3;

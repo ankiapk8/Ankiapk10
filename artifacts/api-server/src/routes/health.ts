@@ -29,39 +29,42 @@ async function checkDatabase(): Promise<CheckResult> {
   }
 }
 
-function checkOpenAI(): CheckResult {
+function checkAiProvider(): CheckResult {
   const apiKey =
+    process.env["OPENROUTER_API_KEY"] ||
     process.env["OPENAI_API_KEY1"] ||
     process.env["OPENAI_API_KEY"] ||
     process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
   if (!apiKey) {
     return {
       status: "fail",
-      message: "OPENAI_API_KEY1 (or OPENAI_API_KEY) is not set",
+      message: "OPENROUTER_API_KEY is not set",
     };
   }
   const baseUrl =
-    process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] || "https://api.openai.com/v1";
+    process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] ||
+    process.env["OPENROUTER_BASE_URL"] ||
+    "https://openrouter.ai/api/v1";
   try {
     new URL(baseUrl);
   } catch {
-    return { status: "fail", message: `Invalid OpenAI base URL: ${baseUrl}` };
+    return { status: "fail", message: `Invalid AI base URL: ${baseUrl}` };
   }
   return { status: "ok" };
 }
 
 router.get("/healthz", async (_req, res) => {
-  const [database, openai] = await Promise.all([
+  const [database, ai] = await Promise.all([
     checkDatabase(),
-    Promise.resolve(checkOpenAI()),
+    Promise.resolve(checkAiProvider()),
   ]);
 
-  const allOk = database.status === "ok" && openai.status === "ok";
+  const allOk = database.status === "ok" && ai.status === "ok";
   const status: "ok" | "degraded" = allOk ? "ok" : "degraded";
 
   if (!allOk) {
     logger.warn(
-      { database, openai },
+      { database, ai },
       "Health check reported degraded dependencies",
     );
   }
@@ -70,7 +73,7 @@ router.get("/healthz", async (_req, res) => {
     status,
     checks: {
       database,
-      openai,
+      ai,
     },
     uptimeSeconds: Math.round(process.uptime()),
     timestamp: new Date().toISOString(),

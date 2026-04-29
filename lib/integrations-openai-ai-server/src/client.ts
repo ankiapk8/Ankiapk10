@@ -8,14 +8,21 @@ const apiKey =
 
 if (!apiKey) {
   throw new Error(
-    "OPENAI_API_KEY1 (or OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY) must be set.",
+    "OPENROUTER_API_KEY must be set. Get one at https://openrouter.ai/keys",
   );
 }
 
 const baseURL =
-  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
+  process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ||
+  process.env.OPENROUTER_BASE_URL ||
+  "https://openrouter.ai/api/v1";
 
 export const openai = new OpenAI({
   apiKey,
   baseURL,
+  defaultHeaders: {
+    "HTTP-Referer":
+      process.env.OPENROUTER_HTTP_REFERER || "https://anki-generator.local",
+    "X-Title": process.env.OPENROUTER_APP_TITLE || "Anki Card Generator",
+  },
 });
