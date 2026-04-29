@@ -45003,7 +45003,7 @@ var init_client = __esm({
        * @param {Record<string, string | undefined>} opts.defaultQuery - Default query parameters to include with every request to the API.
        * @param {boolean} [opts.dangerouslyAllowBrowser=false] - By default, client-side use of this library is not allowed, as it risks exposing your secret API credentials to attackers.
        */
-      constructor({ baseURL: baseURL2 = readEnv("OPENAI_BASE_URL"), apiKey: apiKey2 = readEnv("OPENAI_API_KEY"), organization = readEnv("OPENAI_ORG_ID") ?? null, project = readEnv("OPENAI_PROJECT_ID") ?? null, webhookSecret = readEnv("OPENAI_WEBHOOK_SECRET") ?? null, ...opts } = {}) {
+      constructor({ baseURL: baseURL3 = readEnv("OPENAI_BASE_URL"), apiKey: apiKey3 = readEnv("OPENAI_API_KEY"), organization = readEnv("OPENAI_ORG_ID") ?? null, project = readEnv("OPENAI_PROJECT_ID") ?? null, webhookSecret = readEnv("OPENAI_WEBHOOK_SECRET") ?? null, ...opts } = {}) {
         _OpenAI_instances.add(this);
         _OpenAI_encoder.set(this, void 0);
         this.completions = new Completions2(this);
@@ -45028,16 +45028,16 @@ var init_client = __esm({
         this.containers = new Containers(this);
         this.skills = new Skills(this);
         this.videos = new Videos(this);
-        if (apiKey2 === void 0) {
+        if (apiKey3 === void 0) {
           throw new OpenAIError("Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.");
         }
         const options = {
-          apiKey: apiKey2,
+          apiKey: apiKey3,
           organization,
           project,
           webhookSecret,
           ...opts,
-          baseURL: baseURL2 || `https://api.openai.com/v1`
+          baseURL: baseURL3 || `https://api.openai.com/v1`
         };
         if (!options.dangerouslyAllowBrowser && isRunningInBrowser()) {
           throw new OpenAIError("It looks like you're running in a browser-like environment.\n\nThis is disabled by default, as it risks exposing your secret API credentials to attackers.\nIf you understand the risks and have appropriate mitigations in place,\nyou can set the `dangerouslyAllowBrowser` option to `true`, e.g.,\n\nnew OpenAI({ apiKey, dangerouslyAllowBrowser: true });\n\nhttps://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety\n");
@@ -45053,7 +45053,7 @@ var init_client = __esm({
         this.fetch = options.fetch ?? getDefaultFetch();
         __classPrivateFieldSet(this, _OpenAI_encoder, FallbackEncoder, "f");
         this._options = options;
-        this.apiKey = typeof apiKey2 === "string" ? apiKey2 : "Missing Key";
+        this.apiKey = typeof apiKey3 === "string" ? apiKey3 : "Missing Key";
         this.organization = organization;
         this.project = project;
         this.webhookSecret = webhookSecret;
@@ -45101,12 +45101,12 @@ var init_client = __esm({
         return APIError.generate(status, error40, message, headers);
       }
       async _callApiKey() {
-        const apiKey2 = this._options.apiKey;
-        if (typeof apiKey2 !== "function")
+        const apiKey3 = this._options.apiKey;
+        if (typeof apiKey3 !== "function")
           return false;
         let token;
         try {
-          token = await apiKey2();
+          token = await apiKey3();
         } catch (err) {
           if (err instanceof OpenAIError)
             throw err;
@@ -45123,8 +45123,8 @@ var init_client = __esm({
         return true;
       }
       buildURL(path4, query, defaultBaseURL) {
-        const baseURL2 = !__classPrivateFieldGet(this, _OpenAI_instances, "m", _OpenAI_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
-        const url2 = isAbsoluteURL(path4) ? new URL(path4) : new URL(baseURL2 + (baseURL2.endsWith("/") && path4.startsWith("/") ? path4.slice(1) : path4));
+        const baseURL3 = !__classPrivateFieldGet(this, _OpenAI_instances, "m", _OpenAI_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
+        const url2 = isAbsoluteURL(path4) ? new URL(path4) : new URL(baseURL3 + (baseURL3.endsWith("/") && path4.startsWith("/") ? path4.slice(1) : path4));
         const defaultQuery = this.defaultQuery();
         const pathQuery = Object.fromEntries(url2.searchParams);
         if (!isEmptyObj(defaultQuery) || !isEmptyObj(pathQuery)) {
@@ -45544,24 +45544,21 @@ async function editImages(imageFiles, prompt, outputPath) {
   }
   return imageBytes;
 }
-var openai2;
+var apiKey2, baseURL2, openai2;
 var init_client3 = __esm({
   "../../lib/integrations-openai-ai-server/src/image/client.ts"() {
     "use strict";
     init_openai();
-    if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
+    apiKey2 = process.env.OPENAI_API_KEY1 || process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+    if (!apiKey2) {
       throw new Error(
-        "AI_INTEGRATIONS_OPENAI_BASE_URL must be set. Did you forget to provision the OpenAI AI integration?"
+        "OPENAI_API_KEY1 (or OPENAI_API_KEY / AI_INTEGRATIONS_OPENAI_API_KEY) must be set."
       );
     }
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-      throw new Error(
-        "AI_INTEGRATIONS_OPENAI_API_KEY must be set. Did you forget to provision the OpenAI AI integration?"
-      );
-    }
+    baseURL2 = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1";
     openai2 = new OpenAI({
-      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL
+      apiKey: apiKey2,
+      baseURL: baseURL2
     });
   }
 });
@@ -78056,8 +78053,8 @@ async function checkDatabase() {
   }
 }
 function checkOpenAI() {
-  const apiKey2 = process.env["OPENAI_API_KEY1"] || process.env["OPENAI_API_KEY"] || process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
-  if (!apiKey2) {
+  const apiKey3 = process.env["OPENAI_API_KEY1"] || process.env["OPENAI_API_KEY"] || process.env["AI_INTEGRATIONS_OPENAI_API_KEY"];
+  if (!apiKey3) {
     return {
       status: "fail",
       message: "OPENAI_API_KEY1 (or OPENAI_API_KEY) is not set"
@@ -83269,7 +83266,9 @@ router4.post("/generate/stream", async (req, res, next) => {
     const status = getErrorStatus(error40);
     const code = getErrorCode(error40);
     let msg;
-    if (status === 429 || code === "too_many_requests") {
+    if (code === "insufficient_quota") {
+      msg = "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key.";
+    } else if (status === 429 || code === "too_many_requests") {
       msg = "AI is temporarily rate-limited. Wait a minute and try again.";
     } else {
       msg = error40 instanceof Error ? error40.message : "AI card generation failed.";
@@ -83415,11 +83414,14 @@ async function generateQbankCards(openai3, text2, maxQuestions, requestLog, sign
     return Math.max(proportional, densityFloor);
   });
   const allCards = [];
+  const failures = [];
+  let chunksAttempted = 0;
   const CONCURRENCY = 3;
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
     if (signal?.aborted) throw new Error("Cancelled");
     const slice = chunks.slice(i, i + CONCURRENCY);
     const targets = questionsPerChunk.slice(i, i + CONCURRENCY);
+    chunksAttempted += slice.length;
     const settled = await Promise.allSettled(
       slice.map(
         (chunk, idx) => generateQbankCardsForChunk(openai3, chunk.text, targets[idx], requestLog, signal, customPrompt, chunk.pageNumber)
@@ -83427,8 +83429,14 @@ async function generateQbankCards(openai3, text2, maxQuestions, requestLog, sign
     );
     for (const r of settled) {
       if (r.status === "fulfilled") allCards.push(...r.value);
-      else requestLog.warn({ err: r.reason }, "Qbank chunk generation failed");
+      else {
+        failures.push(r.reason);
+        requestLog.warn({ err: r.reason }, "Qbank chunk generation failed");
+      }
     }
+  }
+  if (allCards.length === 0 && failures.length > 0 && failures.length === chunksAttempted) {
+    throw failures[0];
   }
   const seen = /* @__PURE__ */ new Set();
   const unique = [];
@@ -83471,6 +83479,12 @@ router4.post("/generate-qbank", async (req, res, next) => {
     req.log.error({ err: error40 }, "AI question bank generation failed");
     const status = getErrorStatus(error40);
     const code = getErrorCode(error40);
+    if (code === "insufficient_quota") {
+      res.status(402).json({
+        error: "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key."
+      });
+      return;
+    }
     if (status === 429 || code === "too_many_requests") {
       res.status(429).json({ error: "AI is temporarily rate-limited. Wait a minute and try again." });
       return;
@@ -83559,7 +83573,7 @@ router4.post("/generate-qbank/stream", async (req, res) => {
     req.log.error({ err: error40 }, "AI question bank generation failed");
     const status = getErrorStatus(error40);
     const code = getErrorCode(error40);
-    const msg = status === 429 || code === "too_many_requests" ? "AI is temporarily rate-limited. Wait a minute and try again." : error40 instanceof Error ? error40.message : "AI question bank generation failed.";
+    const msg = code === "insufficient_quota" ? "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key." : status === 429 || code === "too_many_requests" ? "AI is temporarily rate-limited. Wait a minute and try again." : error40 instanceof Error ? error40.message : "AI question bank generation failed.";
     sseEmit(res, { type: "error", message: msg });
     res.end();
     return;
@@ -83638,6 +83652,12 @@ router4.post("/generate", async (req, res, next) => {
     req.log.error({ err: error40 }, "AI card generation failed");
     const status = getErrorStatus(error40);
     const code = getErrorCode(error40);
+    if (code === "insufficient_quota") {
+      res.status(402).json({
+        error: "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key."
+      });
+      return;
+    }
     if (status === 429 || code === "too_many_requests") {
       res.status(429).json({ error: "AI is temporarily rate-limited. Wait a minute and try again." });
       return;

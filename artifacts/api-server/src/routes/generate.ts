@@ -962,7 +962,9 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
     let msg: string;
-    if (status === 429 || code === "too_many_requests") {
+    if (code === "insufficient_quota") {
+      msg = "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key.";
+    } else if (status === 429 || code === "too_many_requests") {
       msg = "AI is temporarily rate-limited. Wait a minute and try again.";
     } else {
       msg = error instanceof Error ? error.message : "AI card generation failed.";
@@ -1155,11 +1157,14 @@ async function generateQbankCards(
   });
 
   const allCards: RawCard[] = [];
+  const failures: unknown[] = [];
+  let chunksAttempted = 0;
   const CONCURRENCY = 3;
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
     if (signal?.aborted) throw new Error("Cancelled");
     const slice = chunks.slice(i, i + CONCURRENCY);
     const targets = questionsPerChunk.slice(i, i + CONCURRENCY);
+    chunksAttempted += slice.length;
     const settled = await Promise.allSettled(
       slice.map((chunk, idx) =>
         generateQbankCardsForChunk(openai, chunk.text, targets[idx], requestLog, signal, customPrompt, chunk.pageNumber),
@@ -1167,8 +1172,18 @@ async function generateQbankCards(
     );
     for (const r of settled) {
       if (r.status === "fulfilled") allCards.push(...r.value);
-      else requestLog.warn({ err: r.reason }, "Qbank chunk generation failed");
+      else {
+        failures.push(r.reason);
+        requestLog.warn({ err: r.reason }, "Qbank chunk generation failed");
+      }
     }
+  }
+
+  // If every single chunk failed, propagate the underlying error so the route
+  // can surface a meaningful message (e.g. quota exceeded) instead of the
+  // misleading "AI did not generate any usable MCQs."
+  if (allCards.length === 0 && failures.length > 0 && failures.length === chunksAttempted) {
+    throw failures[0];
   }
 
   // Deduplicate by stem
@@ -1228,6 +1243,12 @@ router.post("/generate-qbank", async (req, res, next): Promise<void> => {
     req.log.error({ err: error }, "AI question bank generation failed");
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
+    if (code === "insufficient_quota") {
+      res.status(402).json({
+        error: "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key.",
+      });
+      return;
+    }
     if (status === 429 || code === "too_many_requests") {
       res.status(429).json({ error: "AI is temporarily rate-limited. Wait a minute and try again." });
       return;
@@ -1341,7 +1362,9 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
     req.log.error({ err: error }, "AI question bank generation failed");
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
-    const msg = (status === 429 || code === "too_many_requests")
+    const msg = code === "insufficient_quota"
+      ? "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key."
+      : (status === 429 || code === "too_many_requests")
       ? "AI is temporarily rate-limited. Wait a minute and try again."
       : (error instanceof Error ? error.message : "AI question bank generation failed.");
     sseEmit(res, { type: "error", message: msg });
@@ -1441,6 +1464,12 @@ router.post("/generate", async (req, res, next): Promise<void> => {
     req.log.error({ err: error }, "AI card generation failed");
     const status = getErrorStatus(error);
     const code = getErrorCode(error);
+    if (code === "insufficient_quota") {
+      res.status(402).json({
+        error: "OpenAI quota exceeded. Add billing credits at platform.openai.com/account/billing or use a different API key.",
+      });
+      return;
+    }
     if (status === 429 || code === "too_many_requests") {
       res.status(429).json({ error: "AI is temporarily rate-limited. Wait a minute and try again." });
       return;
