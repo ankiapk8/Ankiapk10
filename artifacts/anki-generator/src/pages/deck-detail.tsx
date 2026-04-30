@@ -758,7 +758,12 @@ export default function DeckDetail() {
   const visualCount = cardList.filter(c => (c as Card & { image?: string | null }).image).length;
   const textCount = cardList.length - visualCount;
   const hasMixedCards = visualCount > 0 && textCount > 0;
-  const filteredCards = !hasMixedCards
+  // Show the Text/Visual tabs whenever the deck has any cards at all so the
+  // structure is always visible — even if one side currently has 0 cards
+  // (e.g. visual generation produced nothing yet, or this is a text-only deck).
+  const isQbank = (deck as Deck & { kind?: string } | undefined)?.kind === "qbank";
+  const showTabs = !isQbank && cardList.length > 0;
+  const filteredCards = !showTabs
     ? cardList
     : cardFilter === "visual"
       ? cardList.filter(c => (c as Card & { image?: string | null }).image)
@@ -888,7 +893,7 @@ export default function DeckDetail() {
               className="gap-2"
             >
               <BookOpen className="h-4 w-4" />
-              Study{hasMixedCards && cardFilter !== "all" ? ` ${cardFilter === "visual" ? "Visual" : "Text"}` : ""}
+              Study{showTabs && cardFilter !== "all" ? ` ${cardFilter === "visual" ? "Visual" : "Text"}` : ""}
               {getSavePoint(deckId)?.index ? (
                 <Badge variant="secondary" className="ml-1 h-4 px-1.5 text-[10px]">resume</Badge>
               ) : null}
@@ -951,18 +956,13 @@ export default function DeckDetail() {
         <div className="flex items-center justify-between border-b pb-2 gap-3 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-xl font-medium tracking-tight">
-              Cards ({hasMixedCards ? filteredCards.length : cardList.length})
+              Cards ({showTabs ? filteredCards.length : cardList.length})
               {hasSubDecks && cardList.length > 0 && (
                 <span className="text-sm font-normal text-muted-foreground ml-2">across all sub-decks</span>
               )}
             </h2>
-            {!hasMixedCards && visualCount > 0 && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-                <ImageIcon className="h-3 w-3" /> {visualCount} with image
-              </span>
-            )}
           </div>
-          {hasMixedCards && (
+          {showTabs && (
             <Tabs value={cardFilter} onValueChange={(v) => setCardFilter(v as "all" | "text" | "visual")}>
               <TabsList className="h-9">
                 <TabsTrigger value="all" className="text-xs gap-1.5">

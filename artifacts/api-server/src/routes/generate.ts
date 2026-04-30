@@ -553,7 +553,7 @@ async function generateVisualCardsForBatch(
       }
     }
     if (totalRegions > 0 || lines.length > 0) {
-      regionHints = `\n\n═══════════════════════════════════════════════\nDETERMINISTIC PAGE ANALYSIS — TRUST THIS\n═══════════════════════════════════════════════\nThe PDF parser has scanned each page and listed every embedded raster image it found, with exact normalized coordinates (top-left origin, x/y/w/h between 0 and 1):\n${lines.join("\n")}\n\n⚠️ The system will REJECT any visual card whose bbox does not overlap one of the listed regions on a page that has regions. So either point your bbox AT a listed region, or output ZERO cards for that page. This is non-negotiable.`;
+      regionHints = `\n\n═══════════════════════════════════════════════\nDETERMINISTIC PAGE ANALYSIS — STRONG HINT\n═══════════════════════════════════════════════\nThe PDF parser has scanned each page and listed every embedded raster image it found, with exact normalized coordinates (top-left origin, x/y/w/h between 0 and 1):\n${lines.join("\n")}\n\nWhen a listed region matches a real figure, point your bbox at it — the system will snap it for a perfect crop. If a page contains a vector chart, table, equation, or scanned-as-page diagram with NO listed region, you may STILL emit a card with a tight bbox around that figure (3–6% margin). Do not invent figures from prose, but never skip a real visual just because the parser missed it.`;
     }
   }
 
@@ -759,14 +759,21 @@ async function generateAllVisualCards(
             if (aiBbox && batchRegions) {
               const regionsOnPage = batchRegions[c.pageIndex] ?? [];
               const snap = snapBboxToRegions(aiBbox, regionsOnPage);
-              if (!snap.matched) {
-                requestLog.warn(
+              if (snap.matched) {
+                // Snapped to a real raster region — best case.
+                finalBbox = snap.snapped;
+              } else {
+                // No detected raster region overlaps the AI bbox. This is
+                // common for vector charts, tables, and equation blocks that
+                // PDF.js does not list as image regions. Keep the AI bbox
+                // (size guards already reject full-page boxes) so we don't
+                // silently lose visual cards on figure-rich pages.
+                requestLog.info(
                   { pageIndex: c.pageIndex, aiBbox, regionsOnPage: regionsOnPage.length },
-                  "Visual card dropped: AI bbox does not overlap any detected image region",
+                  "Visual card kept with AI bbox (no overlapping detected region)",
                 );
-                continue;
+                finalBbox = aiBbox;
               }
-              finalBbox = snap.snapped;
             }
             const cropped = await cropImage(b.imgs[c.pageIndex], finalBbox);
             let thumb = thumbCache.get(c.pageIndex);

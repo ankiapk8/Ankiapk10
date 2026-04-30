@@ -82925,12 +82925,12 @@ async function generateVisualCardsForBatch(openai3, batchImages, batchStart, car
       regionHints = `
 
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
-DETERMINISTIC PAGE ANALYSIS \u2014 TRUST THIS
+DETERMINISTIC PAGE ANALYSIS \u2014 STRONG HINT
 \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
 The PDF parser has scanned each page and listed every embedded raster image it found, with exact normalized coordinates (top-left origin, x/y/w/h between 0 and 1):
 ${lines.join("\n")}
 
-\u26A0\uFE0F The system will REJECT any visual card whose bbox does not overlap one of the listed regions on a page that has regions. So either point your bbox AT a listed region, or output ZERO cards for that page. This is non-negotiable.`;
+When a listed region matches a real figure, point your bbox at it \u2014 the system will snap it for a perfect crop. If a page contains a vector chart, table, equation, or scanned-as-page diagram with NO listed region, you may STILL emit a card with a tight bbox around that figure (3\u20136% margin). Do not invent figures from prose, but never skip a real visual just because the parser missed it.`;
     }
   }
   const systemPrompt = `You are an expert visual learning designer and clinical/scientific illustrator. You convert PDF page images into Anki flashcards centred on the FIGURES shown on each page (NOT on the surrounding prose). You will receive ${batchImages.length} page image(s) (pages ${batchStart + 1}\u2013${batchStart + batchImages.length}).
@@ -83099,14 +83099,15 @@ async function generateAllVisualCards(openai3, images, targetCount, requestLog, 
             if (aiBbox && batchRegions) {
               const regionsOnPage = batchRegions[c.pageIndex] ?? [];
               const snap = snapBboxToRegions(aiBbox, regionsOnPage);
-              if (!snap.matched) {
-                requestLog.warn(
+              if (snap.matched) {
+                finalBbox = snap.snapped;
+              } else {
+                requestLog.info(
                   { pageIndex: c.pageIndex, aiBbox, regionsOnPage: regionsOnPage.length },
-                  "Visual card dropped: AI bbox does not overlap any detected image region"
+                  "Visual card kept with AI bbox (no overlapping detected region)"
                 );
-                continue;
+                finalBbox = aiBbox;
               }
-              finalBbox = snap.snapped;
             }
             const cropped = await cropImage(b.imgs[c.pageIndex], finalBbox);
             let thumb = thumbCache.get(c.pageIndex);
