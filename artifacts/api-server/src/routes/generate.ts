@@ -1350,7 +1350,13 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
   res.on("finish", stopHeartbeat);
 
   const abortController = new AbortController();
-  req.on("close", () => abortController.abort());
+  // Fire abort only when the *response* socket closes (real client disconnect).
+  // Using `req.on("close")` here would fire as soon as body-parser finishes
+  // draining the request body — i.e. immediately — and instantly cancel the
+  // generation before it ever starts.
+  res.on("close", () => {
+    if (!res.writableEnded) abortController.abort();
+  });
 
   sseEmit(res, { type: "progress", percent: 5, message: "Connecting to AI…" });
 

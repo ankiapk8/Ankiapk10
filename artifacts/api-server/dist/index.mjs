@@ -77986,6 +77986,20 @@ async function ensureDatabaseSchema() {
       "updated_at" timestamp with time zone DEFAULT now() NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS "generations" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "deck_name" text NOT NULL,
+      "deck_type" text NOT NULL,
+      "status" text NOT NULL,
+      "cards_generated" integer NOT NULL DEFAULT 0,
+      "page_count" integer NOT NULL DEFAULT 0,
+      "duration_ms" integer NOT NULL DEFAULT 0,
+      "custom_prompt" text,
+      "error_message" text,
+      "started_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "completed_at" timestamp with time zone
+    );
+
     ALTER TABLE "decks" ADD COLUMN IF NOT EXISTS "description" text;
     ALTER TABLE "decks" ADD COLUMN IF NOT EXISTS "parent_id" integer;
     ALTER TABLE "decks" ADD COLUMN IF NOT EXISTS "kind" text NOT NULL DEFAULT 'deck';
@@ -83568,7 +83582,9 @@ router4.post("/generate-qbank/stream", async (req, res) => {
   res.on("close", stopHeartbeat);
   res.on("finish", stopHeartbeat);
   const abortController = new AbortController();
-  req.on("close", () => abortController.abort());
+  res.on("close", () => {
+    if (!res.writableEnded) abortController.abort();
+  });
   sseEmit(res, { type: "progress", percent: 5, message: "Connecting to AI\u2026" });
   let openai3;
   try {
