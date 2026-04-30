@@ -11,3 +11,9 @@ id = "boNrHAC0J0BYOrIFaUvva"
 uri = "file://exports/anki-generator-rebuild-prompts.md"
 type = "text"
 title = "Anki Generator — Full Rebuild Prompt Pack"
+
+[[outputs]]
+id = "lU8hM6bDA8LCWIVZ-t677"
+uri = "file://exports/anki-generator-rebuild-prompts-openrouter.md"
+type = "text"
+title = "Anki Generator — Full Rebuild Prompt Pack (OpenRouter only)"
