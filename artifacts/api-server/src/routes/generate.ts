@@ -768,7 +768,7 @@ async function generateAllVisualCards(
                 // PDF.js does not list as image regions. Keep the AI bbox
                 // (size guards already reject full-page boxes) so we don't
                 // silently lose visual cards on figure-rich pages.
-                requestLog.info(
+                requestLog.warn(
                   { pageIndex: c.pageIndex, aiBbox, regionsOnPage: regionsOnPage.length },
                   "Visual card kept with AI bbox (no overlapping detected region)",
                 );
@@ -999,7 +999,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
       .filter((c): c is RawCard => c !== null);
 
     const filteredVisual = visualCards
-      .filter(c => c.front.length > 0 && c.back.length > 0);
+      .filter(c => c.front.length > 0 && c.back.length > 0 && typeof c.image === "string" && c.image.length > 0);
 
     if (filteredText.length === 0 && filteredVisual.length === 0) {
       await recordRun("error", 0, "AI did not return any usable cards.");
@@ -1491,7 +1491,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   const filteredText = textCards
     .map(c => normalizeCard(c))
     .filter((c): c is RawCard => c !== null);
-  const filteredVisual = visualCards.filter(c => c.front.length > 0 && c.back.length > 0);
+  const filteredVisual = visualCards.filter(c => c.front.length > 0 && c.back.length > 0 && typeof c.image === "string" && c.image.length > 0);
 
   if (filteredText.length === 0 && filteredVisual.length === 0) {
     res.status(500).json({ error: "AI did not generate any cards." });

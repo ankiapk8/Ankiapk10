@@ -38,7 +38,7 @@ function checkAiProvider(): CheckResult {
   if (!apiKey) {
     return {
       status: "fail",
-      message: "OPENROUTER_API_KEY is not set",
+      message: "AI provider is not configured. Set OPENROUTER_API_KEY (preferred) or OPENAI_API_KEY in your environment.",
     };
   }
   const baseUrl =

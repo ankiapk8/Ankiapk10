@@ -457,7 +457,8 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
                   <span className="h-5 w-5 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center text-[9px] font-bold">A</span>
                   {isMcq ? "Explanation" : "Back"}
                 </div>
-                {isMcq && current?.choices && typeof current.correctIndex === "number" && (
+                {isMcq && Array.isArray(current?.choices) && typeof current?.correctIndex === "number"
+                  && current.correctIndex >= 0 && current.correctIndex < current.choices.length && (
                   <p className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2">
                     Correct answer: {String.fromCharCode(65 + current.correctIndex)}. {current.choices[current.correctIndex]}
                   </p>

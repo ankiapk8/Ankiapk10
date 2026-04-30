@@ -78067,7 +78067,7 @@ function checkAiProvider() {
   if (!apiKey3) {
     return {
       status: "fail",
-      message: "OPENROUTER_API_KEY is not set"
+      message: "AI provider is not configured. Set OPENROUTER_API_KEY (preferred) or OPENAI_API_KEY in your environment."
     };
   }
   const baseUrl = process.env["AI_INTEGRATIONS_OPENAI_BASE_URL"] || process.env["OPENROUTER_BASE_URL"] || "https://openrouter.ai/api/v1";
@@ -83102,7 +83102,7 @@ async function generateAllVisualCards(openai3, images, targetCount, requestLog, 
               if (snap.matched) {
                 finalBbox = snap.snapped;
               } else {
-                requestLog.info(
+                requestLog.warn(
                   { pageIndex: c.pageIndex, aiBbox, regionsOnPage: regionsOnPage.length },
                   "Visual card kept with AI bbox (no overlapping detected region)"
                 );
@@ -83303,7 +83303,7 @@ router4.post("/generate/stream", async (req, res, next) => {
   sseEmit(res, { type: "progress", percent: 90, message: "Saving cards to database\u2026" });
   try {
     const filteredText = textCards.map((c) => normalizeCard(c)).filter((c) => c !== null);
-    const filteredVisual = visualCards.filter((c) => c.front.length > 0 && c.back.length > 0);
+    const filteredVisual = visualCards.filter((c) => c.front.length > 0 && c.back.length > 0 && typeof c.image === "string" && c.image.length > 0);
     if (filteredText.length === 0 && filteredVisual.length === 0) {
       await recordRun("error", 0, "AI did not return any usable cards.");
       sseEmit(res, { type: "error", message: "AI did not return any usable cards." });
@@ -83679,7 +83679,7 @@ router4.post("/generate", async (req, res, next) => {
     return;
   }
   const filteredText = textCards.map((c) => normalizeCard(c)).filter((c) => c !== null);
-  const filteredVisual = visualCards.filter((c) => c.front.length > 0 && c.back.length > 0);
+  const filteredVisual = visualCards.filter((c) => c.front.length > 0 && c.back.length > 0 && typeof c.image === "string" && c.image.length > 0);
   if (filteredText.length === 0 && filteredVisual.length === 0) {
     res.status(500).json({ error: "AI did not generate any cards." });
     return;
