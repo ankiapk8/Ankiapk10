@@ -85051,18 +85051,6 @@ app.use((0, import_cors.default)());
 app.use(import_express12.default.json({ limit: "200mb" }));
 app.use(import_express12.default.urlencoded({ extended: true, limit: "200mb" }));
 app.use("/api", routes_default);
-app.get("/__replco/workspace_iframe.html", (req, res) => {
-  const raw = typeof req.query.initialPath === "string" ? req.query.initialPath : "/";
-  const initialPath = raw.startsWith("/") ? raw : "/";
-  const safe = initialPath.replace(/[<>"']/g, "");
-  res.setHeader("Cache-Control", "no-cache");
-  res.send(`<!doctype html>
-<html><head><meta charset="utf-8"><title>Preview</title>
-<style>html,body,iframe{margin:0;padding:0;border:0;width:100%;height:100%;}html,body{overflow:hidden;}</style>
-</head><body>
-<iframe src="${safe}" allow="clipboard-read; clipboard-write; fullscreen; camera; microphone" allowfullscreen></iframe>
-</body></html>`);
-});
 var staticDir = process.env.STATIC_DIR ?? path3.resolve(process.cwd(), "public");
 if (fs2.existsSync(staticDir)) {
   logger.info({ staticDir }, "Serving static frontend");
