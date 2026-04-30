@@ -84163,7 +84163,7 @@ function buildPrompts(mode, front, back) {
   const topic = `${front}: ${back}`;
   if (mode === "full") {
     return {
-      maxTokens: 1e6,
+      maxTokens: 8e3,
       system: `Act as a senior physician, medical professor, and clinical educator.
 
 Your response must be:
@@ -84210,7 +84210,7 @@ OPTIONAL (include if relevant):
   }
   if (mode === "revision") {
     return {
-      maxTokens: 1e6,
+      maxTokens: 3e3,
       system: `Act as a senior medical educator. Your task is to create a concise, high-yield 1-page revision sheet.
 
 FORMAT:
@@ -84227,7 +84227,7 @@ STYLE: Concise, structured, exam-ready.`,
     };
   }
   return {
-    maxTokens: 1e6,
+    maxTokens: 8e3,
     system: `Act as a senior OSCE examiner and clinical educator. Generate realistic OSCE (Objective Structured Clinical Examination) questions.
 
 For each station include:
@@ -84273,7 +84273,7 @@ router7.post("/explain", async (req, res) => {
   }
   try {
     const stream = await openai3.chat.completions.create({
-      model: "openai/gpt-oss-120b:free",
+      model: process.env.AI_TEXT_MODEL || "openai/gpt-oss-120b:free",
       max_completion_tokens: maxTokens,
       stream: true,
       messages: [
@@ -84288,9 +84288,15 @@ router7.post("/explain", async (req, res) => {
     res.end();
   } catch (err) {
     req.log.error({ err }, "AI explanation failed");
+    const message = err instanceof Error ? err.message : "AI explanation failed.";
+    const friendly = /quota|rate.?limit|insufficient|payment|billing/i.test(message) ? "AI provider quota exceeded. Add credits at openrouter.ai/credits, switch to a free model via AI_TEXT_MODEL, or use a different API key." : /context length|maximum context|too many tokens/i.test(message) ? "The explanation request was too long for this model. Try a shorter card or a different model via AI_TEXT_MODEL." : `AI explanation failed: ${message}`;
     if (!res.headersSent) {
-      res.status(503).json({ error: "AI explanation failed." });
+      res.status(503).json({ error: friendly });
     } else {
+      res.write(`
+
+[Error] ${friendly}
+`);
       res.end();
     }
   }
