@@ -36,6 +36,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
 
     ALTER TABLE "decks" ADD COLUMN IF NOT EXISTS "description" text;
     ALTER TABLE "decks" ADD COLUMN IF NOT EXISTS "parent_id" integer;
+    ALTER TABLE "decks" ADD COLUMN IF NOT EXISTS "kind" text NOT NULL DEFAULT 'deck';
     ALTER TABLE "decks" ADD COLUMN IF NOT EXISTS "created_at" timestamp with time zone DEFAULT now() NOT NULL;
     ALTER TABLE "decks" ADD COLUMN IF NOT EXISTS "updated_at" timestamp with time zone DEFAULT now() NOT NULL;
 
@@ -46,6 +47,7 @@ export async function ensureDatabaseSchema(): Promise<void> {
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "card_type" text;
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "choices" text;
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "correct_index" integer;
+    ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "page_number" integer;
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "created_at" timestamp with time zone DEFAULT now() NOT NULL;
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "updated_at" timestamp with time zone DEFAULT now() NOT NULL;
 
