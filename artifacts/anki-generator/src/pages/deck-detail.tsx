@@ -22,7 +22,7 @@ import {
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
-  Brain, ClipboardList, Stethoscope, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle
+  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -88,7 +88,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
     (current.choices?.length ?? 0) > 0 &&
     typeof current.correctIndex === "number";
 
-  type ExplainMode = "full" | "revision" | "osce";
+  type ExplainMode = "full" | "revision" | "osce" | "brief";
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainMode, setExplainMode] = useState<ExplainMode | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
@@ -98,6 +98,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
     full: "Full Explanation",
     revision: "1-Page Revision Sheet",
     osce: "OSCE Questions",
+    brief: "Answer Breakdown",
   };
 
   const handleExplain = useCallback(async (mode: ExplainMode) => {
@@ -109,7 +110,15 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
       const resp = await fetch(apiUrl("api/explain"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ front: current.front, back: current.back, mode }),
+        body: JSON.stringify({
+          front: current.front,
+          back: current.back,
+          mode,
+          ...(mode === "brief" && Array.isArray(current.choices) ? {
+            choices: current.choices,
+            correctIndex: current.correctIndex,
+          } : {}),
+        }),
       });
       if (!resp.ok || !resp.body) {
         const err = await resp.json().catch(() => ({}));
@@ -534,7 +543,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
             <Sparkles className="h-3 w-3" /> AI Tools
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className={`grid grid-cols-2 gap-2 ${isMcq ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
             <button
               onClick={() => handleExplain("full")}
               disabled={isExplaining}
@@ -559,6 +568,16 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
               <Stethoscope className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
               <span className="text-[11px] font-medium leading-tight text-foreground">OSCE Questions</span>
             </button>
+            {isMcq && (
+              <button
+                onClick={() => handleExplain("brief")}
+                disabled={isExplaining}
+                className="flex flex-col items-center gap-1.5 rounded-lg border border-violet-500/40 bg-background hover:bg-violet-500/5 hover:border-violet-500/60 p-3 transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed group"
+              >
+                <ListChecks className="h-5 w-5 text-violet-500 group-hover:scale-110 transition-transform" />
+                <span className="text-[11px] font-medium leading-tight text-foreground">Answer Breakdown</span>
+              </button>
+            )}
           </div>
         </div>
       )}

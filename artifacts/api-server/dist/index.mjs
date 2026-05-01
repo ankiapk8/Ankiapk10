@@ -84175,7 +84175,7 @@ async function getOpenAIClient2() {
   const { openai: openai3 } = await Promise.resolve().then(() => (init_src(), src_exports));
   return openai3;
 }
-function buildPrompts(mode, front, back) {
+function buildPrompts(mode, front, back, choices, correctIndex) {
   const topic = `${front}: ${back}`;
   if (mode === "full") {
     return {
@@ -84242,6 +84242,30 @@ STYLE: Concise, structured, exam-ready.`,
       user: `Create a 1-page revision sheet for: ${topic}`
     };
   }
+  if (mode === "brief") {
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    const choiceLines = Array.isArray(choices) && choices.length > 0 ? choices.map((c, i) => `  ${letters[i] ?? i}. ${c}${i === correctIndex ? " \u2713 CORRECT" : ""}`).join("\n") : "(no choices provided)";
+    return {
+      maxTokens: 1500,
+      system: `You are a concise MCQ tutor. For the multiple-choice question given, produce a brief answer breakdown in this exact format:
+
+\u2705 Correct answer: [letter]. [choice text]
+[1\u20132 sentences: why this is correct \u2014 mechanism or key fact.]
+
+\u274C Why each wrong answer is incorrect:
+[letter]. [choice text] \u2014 [1 sentence reason]
+[letter]. [choice text] \u2014 [1 sentence reason]
+... (one line per wrong option)
+
+Be precise and clinically accurate. No preamble, no section headers, no markdown fences \u2014 just the two sections above.`,
+      user: `Question: ${front}
+
+Options:
+${choiceLines}
+
+Explanation given: ${back}`
+    };
+  }
   return {
     maxTokens: 8e3,
     system: `Act as a senior OSCE examiner and clinical educator. Generate realistic OSCE (Objective Structured Clinical Examination) questions.
@@ -84264,14 +84288,14 @@ STYLE:
   };
 }
 router7.post("/explain", async (req, res) => {
-  const { front, back, mode = "full" } = req.body;
+  const { front, back, mode = "full", choices, correctIndex } = req.body;
   if (!front || !back) {
     res.status(400).json({ error: "front and back are required." });
     return;
   }
-  const validModes = ["full", "revision", "osce"];
+  const validModes = ["full", "revision", "osce", "brief"];
   const resolvedMode = validModes.includes(mode) ? mode : "full";
-  const { system: systemPrompt, user: userPrompt, maxTokens } = buildPrompts(resolvedMode, front, back);
+  const { system: systemPrompt, user: userPrompt, maxTokens } = buildPrompts(resolvedMode, front, back, choices, correctIndex);
   let openai3;
   try {
     openai3 = await getOpenAIClient2();

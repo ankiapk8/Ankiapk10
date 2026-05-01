@@ -146,17 +146,20 @@ STYLE:
 }
 
 router.post("/explain", async (req, res): Promise<void> => {
-  const { front, back, mode = "full" } = req.body as { front?: string; back?: string; mode?: ExplainMode };
+  const { front, back, mode = "full", choices, correctIndex } = req.body as {
+    front?: string; back?: string; mode?: ExplainMode;
+    choices?: string[]; correctIndex?: number;
+  };
 
   if (!front || !back) {
     res.status(400).json({ error: "front and back are required." });
     return;
   }
 
-  const validModes: ExplainMode[] = ["full", "revision", "osce"];
+  const validModes: ExplainMode[] = ["full", "revision", "osce", "brief"];
   const resolvedMode: ExplainMode = validModes.includes(mode as ExplainMode) ? (mode as ExplainMode) : "full";
 
-  const { system: systemPrompt, user: userPrompt, maxTokens } = buildPrompts(resolvedMode, front, back);
+  const { system: systemPrompt, user: userPrompt, maxTokens } = buildPrompts(resolvedMode, front, back, choices, correctIndex);
 
   let openai;
   try {
