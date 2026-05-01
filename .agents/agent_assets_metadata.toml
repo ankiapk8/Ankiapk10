@@ -23,3 +23,9 @@ id = "vZFilpmYFlYTQWT1VH4UJ"
 uri = "file://exports/anki-generator-rebuild-prompts-openrouter-neon.md"
 type = "text"
 title = "Anki Generator — Full Rebuild Prompt Pack (OpenRouter + Neon)"
+
+[[outputs]]
+id = "zDvaPurxWcGJcEGXPII5j"
+uri = "file://exports/anki-generator-master-rebuild-prompts.md"
+type = "text"
+title = "AnkiGen — Master Rebuild Prompt Pack (31 prompts)"

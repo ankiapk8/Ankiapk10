@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 
-type ExplainMode = "full" | "revision" | "osce";
+type ExplainMode = "full" | "revision" | "osce" | "brief";
 
 async function getOpenAIClient() {
   if (
@@ -19,7 +19,13 @@ async function getOpenAIClient() {
   return openai;
 }
 
-function buildPrompts(mode: ExplainMode, front: string, back: string): { system: string; user: string; maxTokens: number } {
+function buildPrompts(
+  mode: ExplainMode,
+  front: string,
+  back: string,
+  choices?: string[],
+  correctIndex?: number,
+): { system: string; user: string; maxTokens: number } {
   const topic = `${front}: ${back}`;
 
   if (mode === "full") {
@@ -86,6 +92,33 @@ FORMAT:
 
 STYLE: Concise, structured, exam-ready.`,
       user: `Create a 1-page revision sheet for: ${topic}`,
+    };
+  }
+
+  if (mode === "brief") {
+    const letters = ["A", "B", "C", "D", "E", "F"];
+    const choiceLines = Array.isArray(choices) && choices.length > 0
+      ? choices.map((c, i) => `  ${letters[i] ?? i}. ${c}${i === correctIndex ? " ✓ CORRECT" : ""}`).join("\n")
+      : "(no choices provided)";
+    return {
+      maxTokens: 1500,
+      system: `You are a concise MCQ tutor. For the multiple-choice question given, produce a brief answer breakdown in this exact format:
+
+✅ Correct answer: [letter]. [choice text]
+[1–2 sentences: why this is correct — mechanism or key fact.]
+
+❌ Why each wrong answer is incorrect:
+[letter]. [choice text] — [1 sentence reason]
+[letter]. [choice text] — [1 sentence reason]
+... (one line per wrong option)
+
+Be precise and clinically accurate. No preamble, no section headers, no markdown fences — just the two sections above.`,
+      user: `Question: ${front}
+
+Options:
+${choiceLines}
+
+Explanation given: ${back}`,
     };
   }
 
