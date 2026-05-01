@@ -472,9 +472,6 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
                 <Button
                   onClick={() => {
                     setRevealed(true);
-                    if (isQbank && isMcq) {
-                      handleExplain("full");
-                    }
                   }}
                   className="gap-2"
                   size="lg"
