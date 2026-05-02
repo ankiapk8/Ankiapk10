@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 
 const LOGO_URL = `${import.meta.env.BASE_URL}favicon.svg`;
-const LOGO_PHASE_MS = 3000;
+const LOGO_PHASE_MS = 2500;
 
 // ── Animated feature previews ─────────────────────────────────────────────
 
@@ -844,13 +844,19 @@ const FEATURES = [
 ];
 
 export function SplashScreen({ children }: { children: React.ReactNode }) {
-  const [isDark] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem("ankigen-theme");
-      if (stored) return stored === "dark";
-    } catch {}
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
+  const [isDark, setIsDark] = useState<boolean>(
+    () => document.documentElement.classList.contains("dark"),
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   const [phase, setPhase] = useState<"logo" | "features" | "done">("logo");
   const [featureIndex, setFeatureIndex] = useState(0);
