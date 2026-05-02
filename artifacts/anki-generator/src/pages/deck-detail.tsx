@@ -51,7 +51,7 @@ import { Drawer } from "vaul";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CropCompare, parseBbox } from "@/components/crop-compare";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { SourcePageModal, type VisualCardRef } from "@/components/source-page-modal";
 
 type DeckWithSubDecks = Deck & { subDecks?: Deck[] };
@@ -255,6 +255,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
     (current.choices?.length ?? 0) > 0 &&
     typeof current.correctIndex === "number";
   const hasImage = !!(current as Card & { image?: string | null })?.image;
+  const isCurrentCorrect = revealed && isMcq && mcqSelected === (current?.correctIndex ?? -1);
 
   type ExplainMode = "full" | "revision" | "osce" | "brief";
   const [explanation, setExplanation] = useState<string | null>(null);
@@ -573,60 +574,223 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
       </div>
 
       {!isMcq && !hasImage ? (
-        /* ── 3D Flip card for regular flashcards ── */
-        <div style={{ perspective: "1100px" }} className={`transition-all duration-150 ${flipping ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}>
+        /* ── Regular flashcard: polished 3D flip ── */
+        <motion.div
+          style={{ perspective: "1100px" }}
+          animate={{ opacity: flipping ? 0 : 1, scale: flipping ? 0.97 : 1 }}
+          transition={{ duration: 0.15 }}
+        >
           <motion.div
             animate={{ rotateY: revealed ? 180 : 0 }}
-            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            style={{ transformStyle: "preserve-3d" }}
-            className="relative"
+            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+            style={{ transformStyle: "preserve-3d", position: "relative" }}
+            onClick={() => !revealed && setRevealed(true)}
+            className="cursor-pointer"
           >
-            {/* Front face — in normal flow to define height */}
-            <div style={{ backfaceVisibility: "hidden" }} className="rounded-xl border border-border/50 shadow-lg bg-card overflow-hidden flex flex-col min-h-[280px] sm:min-h-[320px]">
-              <div className="flex-1 flex flex-col p-6 sm:p-8 justify-center">
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">Q</span>
-                  Front
-                </div>
-                <p className="text-lg sm:text-xl font-medium text-foreground leading-relaxed">{current?.front}</p>
+            {/* Front face */}
+            <div
+              style={{ backfaceVisibility: "hidden" }}
+              className="rounded-2xl border border-border/50 shadow-lg bg-card overflow-hidden flex flex-col min-h-[300px] sm:min-h-[340px]"
+            >
+              <div className="flex items-center justify-between px-5 pt-4">
+                <span className="text-[10px] font-mono text-muted-foreground/50 tabular-nums">{index + 1} / {total}</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border" style={{ color: "#38bdf8", background: "rgba(56,189,248,0.07)", borderColor: "rgba(56,189,248,0.2)" }}>Flashcard</span>
               </div>
-              <div className="border-t border-dashed border-border/30 p-4 sm:p-6 flex justify-center">
-                <button
-                  onClick={() => setRevealed(true)}
-                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
+              <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
+                <p className="text-lg sm:text-xl font-medium text-foreground leading-relaxed text-center">{current?.front}</p>
+              </div>
+              <div className="border-t border-dashed border-border/25 px-5 py-3 flex justify-center">
+                <motion.span
+                  className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground/60 select-none pointer-events-none"
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
                 >
-                  <Eye className="h-4 w-4 group-hover:scale-110 transition-transform" /> Tap to reveal
-                </button>
+                  <Eye className="h-3.5 w-3.5" /> tap to flip
+                </motion.span>
               </div>
             </div>
-            {/* Back face — absolutely overlaid, pre-rotated 180deg */}
+            {/* Back face */}
             <div
               style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
-              className="absolute inset-0 rounded-xl border border-emerald-500/25 shadow-lg bg-card overflow-hidden flex flex-col"
+              className="absolute inset-0 rounded-2xl border border-sky-400/25 shadow-xl bg-card overflow-hidden flex flex-col"
             >
-              <div aria-hidden className="pointer-events-none absolute -inset-px rounded-xl opacity-40 blur-xl" style={{ background: "linear-gradient(135deg, rgba(255,60,0,0.15), rgba(34,197,94,0.15))" }} />
-              <div className="flex-1 flex flex-col p-6 sm:p-8 justify-center relative">
-                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <span className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-[9px] font-bold">A</span>
-                  Back
-                </div>
-                <p className="text-base sm:text-lg text-foreground leading-relaxed whitespace-pre-wrap">{current?.back}</p>
+              <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(ellipse at 25% 20%, rgba(56,189,248,0.14) 0%, rgba(34,197,94,0.06) 55%, transparent 100%)" }} />
+              <div className="flex items-center justify-between px-5 pt-4 relative">
+                <span className="text-[10px] font-mono text-muted-foreground/50 tabular-nums">{index + 1} / {total}</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border" style={{ color: "#34d399", background: "rgba(52,211,153,0.07)", borderColor: "rgba(52,211,153,0.2)" }}>Answer</span>
+              </div>
+              <div className="flex-1 flex items-center justify-center p-6 sm:p-8 relative">
+                <p className="text-base sm:text-lg font-semibold leading-relaxed text-center whitespace-pre-wrap" style={{ color: "#38bdf8" }}>{current?.back}</p>
               </div>
             </div>
           </motion.div>
-        </div>
+        </motion.div>
+
+      ) : isMcq ? (
+        /* ── MCQ: 3D flip verdict + colored letter badges ── */
+        <motion.div
+          animate={{ opacity: flipping ? 0 : 1, scale: flipping ? 0.97 : 1 }}
+          transition={{ duration: 0.15 }}
+          className="space-y-3"
+        >
+          {/* Flip card — front: question, back: correct/incorrect verdict */}
+          <div style={{ perspective: "1100px" }}>
+            <motion.div
+              animate={{ rotateY: revealed ? 180 : 0 }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              style={{ transformStyle: "preserve-3d", position: "relative" }}
+            >
+              {/* Front: question (+ image if any) */}
+              <div
+                style={{ backfaceVisibility: "hidden" }}
+                className="rounded-2xl border border-border/50 bg-card shadow-sm p-5"
+              >
+                {(() => {
+                  const c = current as Card & { image?: string | null; sourceImage?: string | null; bbox?: string | null };
+                  if (!c?.image) return null;
+                  return (
+                    <div className="mb-4">
+                      <CropCompare image={c.image} sourceImage={c.sourceImage} bbox={parseBbox(c.bbox)} onLightbox={setLightboxSrc} />
+                    </div>
+                  );
+                })()}
+                <p className="text-base sm:text-lg font-medium text-foreground leading-relaxed">{current?.front}</p>
+              </div>
+              {/* Back: verdict */}
+              <div
+                style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+                className={`absolute inset-0 rounded-2xl border p-5 flex items-center justify-center gap-4 ${
+                  isCurrentCorrect
+                    ? "bg-emerald-500/10 border-emerald-400/60 dark:bg-emerald-950/20"
+                    : "bg-rose-500/10 border-rose-400/60 dark:bg-rose-950/20"
+                }`}
+              >
+                <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 shadow-lg ${
+                  isCurrentCorrect ? "bg-emerald-500 shadow-emerald-500/30" : "bg-rose-500 shadow-rose-500/30"
+                }`}>
+                  {isCurrentCorrect
+                    ? <Check className="h-6 w-6 text-white stroke-[3]" />
+                    : <X className="h-6 w-6 text-white stroke-[3]" />}
+                </div>
+                <div className="min-w-0">
+                  <p className={`font-bold text-xl font-serif leading-tight ${
+                    isCurrentCorrect ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"
+                  }`}>
+                    {isCurrentCorrect ? "Correct!" : "Incorrect"}
+                  </p>
+                  {current?.choices && typeof current?.correctIndex === "number" && (
+                    <p className="text-sm text-muted-foreground mt-0.5 leading-snug line-clamp-2">
+                      {String.fromCharCode(65 + current.correctIndex)}. {current.choices[current.correctIndex]}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Colored letter choice buttons */}
+          <ul className="space-y-2.5">
+            {current?.choices?.map((choice, i) => {
+              const letter = String.fromCharCode(65 + i);
+              const isCorrect = i === current.correctIndex;
+              const isSelected = mcqSelected === i;
+              let cardCls = "border-border/50 bg-background hover:border-violet-400/50 hover:bg-violet-500/5";
+              let letterBg = LETTER_COLORS[letter] ?? "bg-slate-500";
+              let textCls = "text-foreground";
+              let icon: React.ReactNode = null;
+              if (revealed) {
+                if (isCorrect) {
+                  cardCls = "border-emerald-400/70 bg-emerald-500/8 dark:bg-emerald-950/30 shadow-sm";
+                  letterBg = "bg-emerald-500";
+                  textCls = "text-emerald-900 dark:text-emerald-100";
+                  icon = <Check className="h-3.5 w-3.5 text-white stroke-[3]" />;
+                } else if (isSelected) {
+                  cardCls = "border-rose-400/70 bg-rose-500/8 dark:bg-rose-950/30";
+                  letterBg = "bg-rose-500";
+                  textCls = "text-rose-900 dark:text-rose-100";
+                  icon = <X className="h-3.5 w-3.5 text-white stroke-[3]" />;
+                } else {
+                  cardCls = "border-border/30 bg-muted/30";
+                  textCls = "text-muted-foreground";
+                  letterBg = "bg-muted-foreground/20";
+                }
+              } else if (isSelected) {
+                cardCls = "border-violet-500/60 bg-violet-500/8 shadow-sm shadow-violet-500/10";
+                letterBg = "bg-violet-600";
+                textCls = "text-violet-900 dark:text-violet-100";
+              }
+              return (
+                <motion.li
+                  key={i}
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.06 + 0.08, type: "spring", stiffness: 320, damping: 26 }}
+                >
+                  <button
+                    type="button"
+                    disabled={revealed}
+                    onClick={() => setMcqSelected(i)}
+                    className={`w-full flex items-start gap-3 text-left px-4 py-3.5 rounded-xl border-2 transition-all duration-200 ${cardCls} ${revealed ? "cursor-default" : "cursor-pointer"}`}
+                  >
+                    <span className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white transition-colors duration-200 ${letterBg}`}>
+                      {icon ?? letter}
+                    </span>
+                    <span className={`flex-1 text-sm sm:text-base leading-relaxed font-medium transition-colors duration-200 ${textCls}`}>{choice}</span>
+                  </button>
+                </motion.li>
+              );
+            })}
+          </ul>
+
+          {/* Explanation panel */}
+          <AnimatePresence>
+            {revealed && current?.back && (
+              <motion.div
+                initial={{ opacity: 0, y: 14, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ type: "spring", stiffness: 280, damping: 26 }}
+                className="rounded-2xl border p-4 relative overflow-hidden"
+                style={{ background: "rgba(167,139,250,0.05)", borderColor: "rgba(167,139,250,0.25)" }}
+              >
+                <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(ellipse at 0% 0%, rgba(167,139,250,0.12) 0%, transparent 60%)" }} />
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-2.5">
+                    <div className="h-5 w-5 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(167,139,250,0.2)", border: "1px solid rgba(167,139,250,0.35)" }}>
+                      <span className="text-[9px] font-bold" style={{ color: "#a78bfa" }}>E</span>
+                    </div>
+                    <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#a78bfa" }}>Explanation</span>
+                  </div>
+                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{current.back}</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Show answer button */}
+          {!revealed && (
+            <div className="flex justify-center pt-1">
+              <Button
+                onClick={() => setRevealed(true)}
+                className="gap-2"
+                size="lg"
+                disabled={mcqSelected === null}
+              >
+                <Eye className="h-4 w-4" />
+                {mcqSelected === null ? "Pick an answer" : "Show Answer"}
+              </Button>
+            </div>
+          )}
+        </motion.div>
+
       ) : (
-        /* ── Card with reveal (MCQ or has image) ── */
-        <div className={`relative transition-all duration-150 ${flipping ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}>
+        /* ── Image card: flat reveal ── */
+        <div className={`relative transition-opacity duration-150 ${flipping ? "opacity-0" : "opacity-100"}`}>
           {revealed && (
             <div
               aria-hidden
               className="pointer-events-none absolute -inset-px rounded-xl opacity-60 blur-xl animate-in fade-in duration-500"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(255,60,0,0.18), rgba(34,197,94,0.18))",
-                zIndex: -1,
-              }}
+              style={{ background: "linear-gradient(135deg, rgba(255,60,0,0.18), rgba(34,197,94,0.18))", zIndex: -1 }}
             />
           )}
           <CardUI className="min-h-[280px] sm:min-h-[320px] border-border/50 shadow-lg overflow-hidden relative">
@@ -641,95 +805,24 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
                   if (!c?.image) return null;
                   return (
                     <div className="mb-4">
-                      <CropCompare
-                        image={c.image}
-                        sourceImage={c.sourceImage}
-                        bbox={parseBbox(c.bbox)}
-                        onLightbox={setLightboxSrc}
-                      />
+                      <CropCompare image={c.image} sourceImage={c.sourceImage} bbox={parseBbox(c.bbox)} onLightbox={setLightboxSrc} />
                     </div>
                   );
                 })()}
-                <p className="text-lg sm:text-xl font-medium text-foreground leading-relaxed">
-                  {current?.front}
-                </p>
-
-                {isMcq && current?.choices && (
-                  <ul className="mt-5 space-y-2 flex-1">
-                    {current.choices.map((choice, i) => {
-                      const isCorrect = i === current.correctIndex;
-                      const isSelected = mcqSelected === i;
-                      let stateClasses = "border-border/50 bg-background hover:bg-muted/50";
-                      let boxClasses = "border-border/60 bg-background";
-                      let boxContent: React.ReactNode = null;
-                      if (revealed) {
-                        if (isCorrect) {
-                          stateClasses = "border-green-500/60 bg-green-500/10 text-green-900 dark:text-green-100";
-                          boxClasses = "border-green-600 bg-green-600 text-white";
-                          boxContent = <Check className="h-3.5 w-3.5" strokeWidth={3} />;
-                        } else if (isSelected) {
-                          stateClasses = "border-red-500/60 bg-red-500/10 text-red-900 dark:text-red-100";
-                          boxClasses = "border-red-600 bg-red-600 text-white";
-                          boxContent = <X className="h-3.5 w-3.5" strokeWidth={3} />;
-                        } else {
-                          stateClasses = "border-border/40 bg-background/50 text-muted-foreground";
-                        }
-                      } else if (isSelected) {
-                        stateClasses = "border-primary bg-primary/5";
-                        boxClasses = "border-primary bg-primary text-primary-foreground";
-                        boxContent = <Check className="h-3.5 w-3.5" strokeWidth={3} />;
-                      }
-                      return (
-                        <li key={i}>
-                          <button
-                            type="button"
-                            disabled={revealed}
-                            onClick={() => setMcqSelected(i)}
-                            className={`w-full flex items-start gap-3 text-left p-3 sm:p-4 rounded-lg border transition-colors ${stateClasses} ${revealed ? "cursor-default" : "cursor-pointer"}`}
-                          >
-                            <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 text-[10px] font-bold ${boxClasses}`}>
-                              {boxContent ?? String.fromCharCode(65 + i)}
-                            </span>
-                            <span className="flex-1 text-sm sm:text-base leading-relaxed">
-                              <span className="font-semibold mr-1.5 opacity-70">{String.fromCharCode(65 + i)}.</span>
-                              {choice}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                <p className="text-lg sm:text-xl font-medium text-foreground leading-relaxed">{current?.front}</p>
               </div>
-
               {revealed ? (
                 <div className="border-t border-dashed border-border/60 bg-muted/30 flex flex-col p-6 sm:p-8 animate-in slide-in-from-bottom-2 duration-200">
                   <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
                     <span className="h-5 w-5 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center text-[9px] font-bold">A</span>
-                    {isMcq ? "Explanation" : "Back"}
+                    Back
                   </div>
-                  {isMcq && Array.isArray(current?.choices) && typeof current?.correctIndex === "number"
-                    && current.correctIndex >= 0 && current.correctIndex < current.choices.length && (
-                    <p className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2">
-                      Correct answer: {String.fromCharCode(65 + current.correctIndex)}. {current.choices[current.correctIndex]}
-                    </p>
-                  )}
-                  <p className="text-base sm:text-lg text-foreground leading-relaxed whitespace-pre-wrap">
-                    {current?.back}
-                  </p>
+                  <p className="text-base sm:text-lg text-foreground leading-relaxed whitespace-pre-wrap">{current?.back}</p>
                 </div>
               ) : (
                 <div className="border-t border-dashed border-border/30 p-4 sm:p-6 flex justify-center">
-                  <Button
-                    onClick={() => {
-                      setRevealed(true);
-                    }}
-                    className="gap-2"
-                    size="lg"
-                    disabled={isMcq && mcqSelected === null}
-                  >
-                    <Eye className="h-4 w-4" />
-                    {isMcq ? (mcqSelected === null ? "Pick an answer" : "Show Answer") : "Reveal Answer"}
+                  <Button onClick={() => setRevealed(true)} className="gap-2" size="lg">
+                    <Eye className="h-4 w-4" /> Reveal Answer
                   </Button>
                 </div>
               )}
@@ -743,7 +836,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
           className="flex flex-col sm:flex-row gap-3"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 28, delay: !isMcq && !hasImage ? 0.45 : 0.1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28, delay: !isMcq && !hasImage ? 0.45 : isMcq ? 0.5 : 0.1 }}
         >
           <button
             className="flex-1 flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl border-2 border-red-200 dark:border-red-800/50 text-red-500 dark:text-red-400 bg-red-500/5 hover:bg-red-500/10 transition-all font-semibold text-base"

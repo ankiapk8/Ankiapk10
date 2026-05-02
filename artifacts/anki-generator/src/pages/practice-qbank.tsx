@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, Check, X, ChevronRight, ChevronLeft, Trophy,
-  RotateCcw, Stethoscope, BookOpen, Target,
+  RotateCcw, Stethoscope, BookOpen, Target, Sparkles,
 } from "lucide-react";
 import { saveSession } from "@/lib/study-stats";
 import type { Question } from "@workspace/api-client-react";
@@ -498,15 +498,19 @@ function PracticeSession({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ type: "spring", stiffness: 280, damping: 26 }}
-                  className="rounded-2xl border border-border/60 bg-muted/30 p-4"
+                  className="rounded-2xl border p-4 relative overflow-hidden"
+                  style={{ background: "rgba(167,139,250,0.05)", borderColor: "rgba(167,139,250,0.25)" }}
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-4 w-4 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
-                      <span className="text-[9px] font-bold text-amber-600">E</span>
+                  <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(ellipse at 0% 0%, rgba(167,139,250,0.12) 0%, transparent 60%)" }} />
+                  <div className="relative">
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <div className="h-5 w-5 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(167,139,250,0.2)", border: "1px solid rgba(167,139,250,0.35)" }}>
+                        <Sparkles className="h-3 w-3" style={{ color: "#a78bfa" }} />
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#a78bfa" }}>Explanation</span>
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Explanation</span>
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{current.back}</p>
                   </div>
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{current.back}</p>
                 </motion.div>
               )}
             </AnimatePresence>
