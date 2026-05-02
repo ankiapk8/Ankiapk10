@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, X, Activity, MessageSquarePlus,
-  FileImage, Cpu, Network, FlaskConical,
+  Sparkles, X, CalendarDays, MessageSquarePlus,
+  FileImage, Network, FlaskConical,
   Target, LayoutDashboard, Download, BookOpen,
-  Image, Check,
+  Image, Check, Layers3,
 } from "lucide-react";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 
@@ -12,7 +12,7 @@ import { useDarkMode } from "@/hooks/use-dark-mode";
 // Bump APP_VERSION whenever you ship a new release. The banner will show once
 // for any user who hasn't seen this version yet.
 
-export const APP_VERSION = "1.4";
+export const APP_VERSION = "1.5";
 
 interface ChangelogEntry {
   icon: React.ElementType;
@@ -23,29 +23,40 @@ interface ChangelogEntry {
 }
 
 const CHANGELOG: Record<string, { headline: string; entries: ChangelogEntry[] }> = {
-  "1.4": {
-    headline: "Prodrome Study & Smarter Feedback",
+  "1.5": {
+    headline: "Study Planner & 3D Feature Showcase",
     entries: [
       {
-        icon: Activity,
-        color: "#f87171",
-        title: "Prodrome Study",
-        desc: "Master early warning signs before disease onset — AI generates prodrome flashcards with mnemonics for USMLE & licensing exams.",
+        icon: CalendarDays,
+        color: "#34d399",
+        title: "Final Year Study Planner",
+        desc: "Plan all 14 medical subjects across months, track topics, streaks, and export your schedule as CSV or ZIP.",
         badge: "New",
+      },
+      {
+        icon: Layers3,
+        color: "#4ade80",
+        title: "3D Feature Showcase",
+        desc: "The features carousel now auto-advances with a live progress bar, 3D flip transitions, and mouse-tracking tilt.",
+        badge: "Improved",
       },
       {
         icon: MessageSquarePlus,
-        color: "#e879f9",
+        color: "#2dd4bf",
+        title: "Feedback & Support",
+        desc: "Send bug reports, feature ideas, or kind words right from the app. Every response is read and actioned.",
+      },
+    ],
+  },
+  "1.4": {
+    headline: "Feedback & Support",
+    entries: [
+      {
+        icon: MessageSquarePlus,
+        color: "#34d399",
         title: "Feedback & Support",
         desc: "Send bug reports, feature ideas, or kind words right from the app. Every response is read and actioned.",
         badge: "New",
-      },
-      {
-        icon: Cpu,
-        color: "#38bdf8",
-        title: "Model Status Badge",
-        desc: "Dev builds now show the active AI model and FREE / PAID tier at a glance in the dashboard.",
-        badge: "Dev",
       },
     ],
   },
@@ -66,7 +77,7 @@ const CHANGELOG: Record<string, { headline: string; entries: ChangelogEntry[] }>
       },
       {
         icon: Download,
-        color: "#facc15",
+        color: "#34d399",
         title: "Export & Desktop App",
         desc: "Export decks as .apkg or download the native Mac app for offline study.",
       },
@@ -147,7 +158,6 @@ export function WhatsNewBanner() {
     return cleanup;
   }, []);
 
-  // Keyboard dismiss
   useEffect(() => {
     if (!visible) return;
     const handler = (e: KeyboardEvent) => {
@@ -169,8 +179,8 @@ export function WhatsNewBanner() {
 
   const overlayBg = isDark ? "rgba(0,0,0,0.65)" : "rgba(0,0,0,0.40)";
   const cardBg = isDark
-    ? "bg-zinc-900 border-white/10"
-    : "bg-white border-black/8";
+    ? "bg-zinc-900 border-emerald-500/20"
+    : "bg-white border-emerald-500/25";
   const headingColor = isDark ? "text-white" : "text-zinc-900";
   const subColor = isDark ? "text-white/50" : "text-zinc-500";
   const divider = isDark ? "bg-white/8" : "bg-black/6";
@@ -201,19 +211,23 @@ export function WhatsNewBanner() {
             aria-modal="true"
             aria-label="What's New"
             className={`fixed left-1/2 -translate-x-1/2 z-[201] w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden ${cardBg}`}
-            style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
+            style={{
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+              boxShadow: isDark
+                ? "0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(52,211,153,0.15), 0 0 40px rgba(52,211,153,0.08)"
+                : "0 24px 64px rgba(0,0,0,0.12), 0 0 0 1px rgba(52,211,153,0.2), 0 0 40px rgba(52,211,153,0.06)",
+            }}
             initial={{ opacity: 0, y: 60, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 40, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 320, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Gradient accent bar */}
+            {/* Green gradient accent bar */}
             <div
               className="h-1 w-full"
               style={{
-                background:
-                  "linear-gradient(90deg, #f87171 0%, #e879f9 40%, #38bdf8 80%, #34d399 100%)",
+                background: "linear-gradient(90deg, #059669 0%, #34d399 40%, #4ade80 70%, #2dd4bf 100%)",
               }}
             />
 
@@ -221,15 +235,16 @@ export function WhatsNewBanner() {
               {/* Header */}
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2.5">
-                  <div
+                  <motion.div
                     className="flex items-center justify-center w-9 h-9 rounded-xl shadow shrink-0"
                     style={{
-                      background:
-                        "linear-gradient(135deg, #f87171 0%, #e879f9 100%)",
+                      background: "linear-gradient(135deg, #059669 0%, #34d399 100%)",
                     }}
+                    animate={{ boxShadow: ["0 0 0px #34d39900", "0 0 18px #34d39955", "0 0 0px #34d39900"] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                   >
-                    <Sparkles className="h-4.5 w-4.5 text-white" style={{ width: 18, height: 18 }} />
-                  </div>
+                    <Sparkles className="text-white" style={{ width: 18, height: 18 }} />
+                  </motion.div>
                   <div>
                     <div className="flex items-center gap-2">
                       <h2 className={`text-sm font-bold leading-tight ${headingColor}`}>
@@ -238,9 +253,9 @@ export function WhatsNewBanner() {
                       <span
                         className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded-full"
                         style={{
-                          background: "rgba(248,113,113,0.12)",
-                          color: "#f87171",
-                          border: "1px solid rgba(248,113,113,0.25)",
+                          background: "rgba(52,211,153,0.12)",
+                          color: "#34d399",
+                          border: "1px solid rgba(52,211,153,0.28)",
                         }}
                       >
                         v{APP_VERSION}
@@ -267,7 +282,7 @@ export function WhatsNewBanner() {
 
               {/* Feature entries */}
               <div className="flex flex-col gap-1.5">
-                {changelog.entries.map((entry) => {
+                {changelog.entries.map((entry, i) => {
                   const Icon = entry.icon;
                   return (
                     <motion.div
@@ -275,7 +290,7 @@ export function WhatsNewBanner() {
                       className={`flex items-start gap-3 px-2.5 py-2 rounded-xl transition-colors ${entryBg}`}
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.3, delay: 0.1 }}
+                      transition={{ duration: 0.3, delay: 0.08 * i }}
                     >
                       <div
                         className="flex items-center justify-center w-7 h-7 rounded-lg shrink-0 mt-0.5"
@@ -284,25 +299,20 @@ export function WhatsNewBanner() {
                           border: `1px solid ${entry.color}35`,
                         }}
                       >
-                        <Icon
-                          className="h-3.5 w-3.5"
-                          style={{ color: entry.color }}
-                        />
+                        <Icon className="h-3.5 w-3.5" style={{ color: entry.color }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span
-                            className={`text-[12px] font-semibold leading-tight ${headingColor}`}
-                          >
+                          <span className={`text-[12px] font-semibold leading-tight ${headingColor}`}>
                             {entry.title}
                           </span>
                           {entry.badge && (
                             <span
                               className="text-[9px] font-bold px-1 py-0.5 rounded-md"
                               style={{
-                                background: `${entry.color}18`,
-                                color: entry.color,
-                                border: `1px solid ${entry.color}30`,
+                                background: "rgba(52,211,153,0.12)",
+                                color: "#34d399",
+                                border: "1px solid rgba(52,211,153,0.28)",
                               }}
                             >
                               {entry.badge}
@@ -323,8 +333,7 @@ export function WhatsNewBanner() {
                 onClick={dismiss}
                 className="mt-3 w-full flex items-center justify-center gap-1.5 h-9 rounded-xl text-sm font-semibold text-white shadow transition-opacity hover:opacity-90 active:scale-[0.98]"
                 style={{
-                  background:
-                    "linear-gradient(120deg, #f87171 0%, #e879f9 60%, #a78bfa 100%)",
+                  background: "linear-gradient(120deg, #059669 0%, #34d399 60%, #2dd4bf 100%)",
                 }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
