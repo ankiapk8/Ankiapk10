@@ -297,6 +297,7 @@ function PracticeSession({
   const progress = ((index) / total) * 100;
   const correctSoFar = answers.filter(a => a.correct).length;
   const wrongSoFar = answers.filter(a => !a.correct).length;
+  const isCurrentCorrect = revealed && answers.length > 0 && answers[answers.length - 1]?.correct === true;
 
   const handleSelect = useCallback((i: number) => {
     if (revealed) return;
@@ -432,13 +433,53 @@ function PracticeSession({
             exit="exit"
             className="space-y-4"
           >
-            {/* Question */}
-            <div className={`rounded-2xl border bg-card shadow-sm p-5 transition-all duration-300 ${
-              wrongFlash ? "border-rose-400/60 shadow-rose-500/10 shadow-lg" : "border-border/50"
-            }`}>
-              <p className="text-base sm:text-lg font-medium text-foreground leading-relaxed">
-                {current.front}
-              </p>
+            {/* 3D Flip question card */}
+            <div style={{ perspective: "1100px" }}>
+              <motion.div
+                animate={{ rotateY: revealed ? 180 : 0 }}
+                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                style={{ transformStyle: "preserve-3d", position: "relative" }}
+              >
+                {/* Front face — question */}
+                <div
+                  className={`rounded-2xl border bg-card shadow-sm p-5 transition-all duration-300 ${
+                    wrongFlash ? "border-rose-400/60 shadow-rose-500/10 shadow-lg" : "border-border/50"
+                  }`}
+                  style={{ backfaceVisibility: "hidden" }}
+                >
+                  <p className="text-base sm:text-lg font-medium text-foreground leading-relaxed">
+                    {current.front}
+                  </p>
+                </div>
+                {/* Back face — result verdict */}
+                <div
+                  className={`absolute inset-0 rounded-2xl border p-5 flex items-center justify-center gap-4 ${
+                    isCurrentCorrect
+                      ? "bg-emerald-500/10 border-emerald-400/60 dark:bg-emerald-950/20"
+                      : "bg-rose-500/10 border-rose-400/60 dark:bg-rose-950/20"
+                  }`}
+                  style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+                >
+                  <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 shadow-lg ${
+                    isCurrentCorrect ? "bg-emerald-500 shadow-emerald-500/30" : "bg-rose-500 shadow-rose-500/30"
+                  }`}>
+                    {isCurrentCorrect
+                      ? <Check className="h-6 w-6 text-white stroke-[3]" />
+                      : <X className="h-6 w-6 text-white stroke-[3]" />
+                    }
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`font-bold text-xl font-serif leading-tight ${
+                      isCurrentCorrect ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"
+                    }`}>
+                      {isCurrentCorrect ? "Correct!" : "Incorrect"}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-0.5 leading-snug line-clamp-2">
+                      {LETTER[current.correctIndex]}. {current.choices[current.correctIndex]}
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
             </div>
 
             {/* Choices */}

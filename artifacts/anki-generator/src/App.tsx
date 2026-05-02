@@ -11,6 +11,7 @@ import { OfflineBanner } from "@/components/offline-indicator";
 import { UpdateBanner } from "@/components/update-banner";
 import { WhatsNewBanner } from "@/components/whats-new-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { SplashScreen } from "@/components/splash-screen";
 
 import Dashboard from "@/pages/dashboard";
 import Generate from "@/pages/generate";
@@ -74,14 +75,16 @@ function AppRouter() {
 
 function AppContent() {
   return (
-    <>
-      <OfflineBanner />
-      <UpdateBanner />
-      <WhatsNewBanner />
-      <AppRouter />
-      <ClickRipple />
-      <Toaster />
-    </>
+    <SplashScreen>
+      <>
+        <OfflineBanner />
+        <UpdateBanner />
+        <WhatsNewBanner />
+        <AppRouter />
+        <ClickRipple />
+        <Toaster />
+      </>
+    </SplashScreen>
   );
 }
 
