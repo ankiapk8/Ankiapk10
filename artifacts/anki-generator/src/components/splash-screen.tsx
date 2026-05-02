@@ -22,6 +22,7 @@ import {
   Star,
   Stethoscope,
   Layers,
+  Activity,
 } from "lucide-react";
 
 const LOGO_URL = `${import.meta.env.BASE_URL}favicon.svg`;
@@ -772,6 +773,70 @@ function PreviewFeedback({ isDark }: { isDark: boolean }) {
   );
 }
 
+function PreviewProdromes({ isDark }: { isDark: boolean }) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const t1 = setTimeout(() => setStep(1), 700);
+    const t2 = setTimeout(() => setStep(2), 1600);
+    const t3 = setTimeout(() => setStep(3), 2500);
+    const t4 = setTimeout(() => setStep(0), 5200);
+    return () => [t1, t2, t3, t4].forEach(clearTimeout);
+  }, []);
+  useEffect(() => {
+    if (step !== 0) return;
+    const t = setTimeout(() => setStep(1), 800);
+    return () => clearTimeout(t);
+  }, [step]);
+
+  const surface = isDark ? "bg-white/6 border-white/8" : "bg-white border-black/8";
+  const text = isDark ? "text-white/65" : "text-black/60";
+  const sub = isDark ? "text-white/30" : "text-black/25";
+  const symptoms = ["Koplik spots", "Coryza", "Conjunctivitis", "High fever"];
+
+  return (
+    <div className="w-full h-full flex flex-col gap-1.5 justify-center">
+      <div className={`rounded-lg border ${surface} px-2 py-1 flex items-center gap-1.5`}>
+        <Activity className="h-3.5 w-3.5 shrink-0" style={{ color: "#f87171" }} />
+        <span className="text-[9px] font-semibold truncate" style={{ color: "#f87171" }}>Prodrome Study</span>
+        <span className={`ml-auto text-[8px] ${sub} shrink-0`}>Early Signs</span>
+      </div>
+      <div className={`rounded-xl border ${surface} p-2`}>
+        <div className={`text-[8px] font-medium ${sub} mb-1`}>What are the prodromes of…</div>
+        <div className={`text-[10px] font-bold ${text}`}>Measles (Rubeola)</div>
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        {symptoms.map((s, i) => (
+          <motion.div key={s}
+            className="flex items-center gap-1 px-1.5 py-1 rounded-lg border"
+            style={{
+              borderColor: step >= 2 ? "rgba(248,113,113,0.35)" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+              background: step >= 2 ? "rgba(248,113,113,0.06)" : "transparent",
+            }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: step >= 2 ? 1 : 0, scale: step >= 2 ? 1 : 0.9 }}
+            transition={{ delay: i * 0.08 + 0.05, type: "spring", stiffness: 300, damping: 24 }}>
+            <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: step >= 2 ? "#f87171" : (isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)") }} />
+            <span className="text-[8.5px] font-medium truncate" style={{ color: step >= 2 ? (isDark ? "#fca5a5" : "#b91c1c") : (isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.40)") }}>
+              {s}
+            </span>
+          </motion.div>
+        ))}
+      </div>
+      <AnimatePresence>
+        {step >= 3 && (
+          <motion.div className="rounded-lg border p-1.5"
+            style={{ background: "rgba(248,113,113,0.06)", borderColor: "rgba(248,113,113,0.22)" }}
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35 }}>
+            <div className="text-[8px] font-bold mb-0.5" style={{ color: "#f87171" }}>Mnemonic</div>
+            <div className={`text-[8px] leading-snug ${text}`}>3 C's + Koplik: Cough, Coryza, Conjunctivitis — rash appears day 3–5.</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // Feature previews mapped by index
 const FEATURE_PREVIEWS = [
   PreviewGeneration,
@@ -784,6 +849,7 @@ const FEATURE_PREVIEWS = [
   PreviewExport,
   PreviewMindMapExport,
   PreviewFeedback,
+  PreviewProdromes,
 ];
 
 const FEATURES = [
@@ -886,6 +952,16 @@ const FEATURES = [
     accent: "from-fuchsia-400 to-pink-500",
     bgDark: "from-fuchsia-500/10 via-pink-500/5 to-transparent",
     bgLight: "from-fuchsia-500/8 via-pink-500/4 to-transparent",
+  },
+  {
+    icon: Activity,
+    color: "#f87171",
+    glow: "hsl(0 91% 71% / 0.5)",
+    label: "Prodrome Study",
+    desc: "Master early warning signs before disease onset. AI generates prodrome flashcards with mnemonics — high-yield for USMLE, MCCQE, and licensing exams.",
+    accent: "from-red-400 to-rose-500",
+    bgDark: "from-red-500/10 via-rose-500/5 to-transparent",
+    bgLight: "from-red-500/8 via-rose-500/4 to-transparent",
   },
 ];
 
