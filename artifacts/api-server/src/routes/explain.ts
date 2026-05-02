@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { createRateLimiter } from "../lib/rate-limiter";
+import { FREE_TEXT_MODEL } from "../lib/models";
 
 const router: IRouter = Router();
 
@@ -188,7 +189,7 @@ router.post("/explain", async (req, res): Promise<void> => {
 
   try {
     const stream = await openai.chat.completions.create({
-      model: process.env.AI_TEXT_MODEL || "openai/gpt-oss-120b:free",
+      model: FREE_TEXT_MODEL,
       max_completion_tokens: maxTokens,
       stream: true,
       messages: [

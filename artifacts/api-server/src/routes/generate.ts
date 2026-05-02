@@ -4,6 +4,7 @@ import { GenerateCardsBody } from "@workspace/api-zod";
 import { createCanvas, loadImage } from "canvas";
 import { serializeCard } from "../lib/serialize-card";
 import { createRateLimiter } from "../lib/rate-limiter";
+import { FREE_TEXT_MODEL, FREE_VISION_MODEL } from "../lib/models";
 
 const router: IRouter = Router();
 
@@ -424,7 +425,7 @@ ${chunk}
 Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
 
   const response = await createChatCompletionWithRetry(openai, {
-    model: process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free",
+    model: FREE_TEXT_MODEL,
     max_completion_tokens: 16384,
     stream: false as const,
     messages: [
@@ -641,7 +642,7 @@ No markdown, no commentary, no \`\`\` fences — just the JSON array.${regionHin
 
   try {
     const response = await createChatCompletionWithRetry(openai, {
-      model: process.env.AI_VISION_MODEL ?? "google/gemini-2.0-flash-exp:free",
+      model: FREE_VISION_MODEL,
       max_completion_tokens: 16384,
       stream: false as const,
       messages: [
@@ -1188,7 +1189,7 @@ ${chunk}
 Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
 
   const response = await createChatCompletionWithRetry(openai, {
-    model: process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free",
+    model: FREE_TEXT_MODEL,
     max_completion_tokens: 16384,
     stream: false as const,
     messages: [

@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { createRateLimiter } from "../lib/rate-limiter";
+import { FREE_TEXT_MODEL } from "../lib/models";
 
 const router: IRouter = Router();
 const mindMapRateLimiter = createRateLimiter(10, 60_000);
@@ -55,7 +56,7 @@ Rules:
 
   try {
     const completion = await openai.chat.completions.create({
-      model: process.env.AI_TEXT_MODEL ?? "openai/gpt-4o-mini",
+      model: FREE_TEXT_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content },

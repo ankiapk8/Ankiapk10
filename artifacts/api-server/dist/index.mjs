@@ -97148,6 +97148,10 @@ function createRateLimiter(maxRequests, windowMs) {
   };
 }
 
+// src/lib/models.ts
+var FREE_TEXT_MODEL = process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free";
+var FREE_VISION_MODEL = process.env.AI_VISION_MODEL ?? "google/gemini-2.0-flash-exp:free";
+
 // src/routes/generate.ts
 var router4 = (0, import_express4.Router)();
 var generateRateLimiter = createRateLimiter(10, 6e4);
@@ -97466,7 +97470,7 @@ ${chunk}
 
 Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free",
+    model: FREE_TEXT_MODEL,
     max_completion_tokens: 16384,
     stream: false,
     messages: [
@@ -97637,7 +97641,7 @@ Aim for ${cardsRange} card(s) per page WHEN qualifying figures exist. Pages with
 No markdown, no commentary, no \`\`\` fences \u2014 just the JSON array.${regionHints}${customPromptBlock(customPrompt)}`;
   try {
     const response = await createChatCompletionWithRetry(openai3, {
-      model: process.env.AI_VISION_MODEL ?? "google/gemini-2.0-flash-exp:free",
+      model: FREE_VISION_MODEL,
       max_completion_tokens: 16384,
       stream: false,
       messages: [
@@ -98085,7 +98089,7 @@ ${chunk}
 
 Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free",
+    model: FREE_TEXT_MODEL,
     max_completion_tokens: 16384,
     stream: false,
     messages: [
@@ -99220,7 +99224,7 @@ router8.post("/explain", async (req, res) => {
   }
   try {
     const stream = await openai3.chat.completions.create({
-      model: process.env.AI_TEXT_MODEL || "openai/gpt-oss-120b:free",
+      model: FREE_TEXT_MODEL,
       max_completion_tokens: maxTokens,
       stream: true,
       messages: [
@@ -100221,7 +100225,7 @@ Rules:
 - All text must be concise and educational`;
   try {
     const completion = await openai3.chat.completions.create({
-      model: process.env.AI_TEXT_MODEL ?? "openai/gpt-4o-mini",
+      model: FREE_TEXT_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content }
