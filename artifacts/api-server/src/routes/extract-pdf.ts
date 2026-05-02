@@ -69,12 +69,12 @@ const VGRID_COLS = 20;
 const VGRID_ROWS = 20;
 
 // BFS connected-component labelling over the density grid.  Returns true if
-// any cluster meets the minimum size gate (8% width × 6% height of the page).
-function gridHasSignificantClusters(grid: Uint8Array): boolean {
+// any single cluster meets the minimum size gate (8% width × 6% height).
+// One qualifying figure is enough to mark the page as visual.
+function gridHasAnyCluster(grid: Uint8Array): boolean {
   const visited = new Uint8Array(VGRID_ROWS * VGRID_COLS);
   const cellW = 1 / VGRID_COLS;
   const cellH = 1 / VGRID_ROWS;
-  let clusterCount = 0;
 
   for (let r0 = 0; r0 < VGRID_ROWS; r0++) {
     for (let c0 = 0; c0 < VGRID_COLS; c0++) {
@@ -100,8 +100,7 @@ function gridHasSignificantClusters(grid: Uint8Array): boolean {
       }
       const clusterW = (maxC - minC + 1) * cellW;
       const clusterH = (maxR - minR + 1) * cellH;
-      if (clusterW >= 0.08 && clusterH >= 0.06) clusterCount++;
-      if (clusterCount >= 2) return true;
+      if (clusterW >= 0.08 && clusterH >= 0.06) return true;
     }
   }
   return false;
@@ -173,13 +172,14 @@ async function detectPagesWithVisuals(buffer: Buffer): Promise<boolean[]> {
           const xs = corners.map(p => p[0]), ys = corners.map(p => p[1]);
           const w = (Math.max(...xs) - Math.min(...xs)) / pageW;
           const h = (Math.max(...ys) - Math.min(...ys)) / pageH;
-          // Large raster image (>15% area) → visual page.
-          if (w >= 0.04 && h >= 0.04 && w * h > 0.15) { foundRaster = true; }
+          // Any raster image meeting the minimum region size → visual page.
+          if (w >= 0.08 && h >= 0.06) { foundRaster = true; }
         }
       }
       page.cleanup();
-      // A page is visual if it has a large raster image OR 2+ meaningful vector clusters.
-      result.push(foundRaster || gridHasSignificantClusters(vGrid));
+      // A page is visual if it has any qualifying raster image OR any vector cluster
+      // that meets the minimum size gate — mirrors client-side pageHasVisuals semantics.
+      result.push(foundRaster || gridHasAnyCluster(vGrid));
     }
   } finally {
     await pdf.destroy();

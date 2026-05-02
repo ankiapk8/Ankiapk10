@@ -129,15 +129,18 @@ async function extractPageImages(buffer: ArrayBuffer, onProgress?: ProgressCallb
         } catch {
           // ignore — fall back to text-only width
         }
-        // Upgrade to high-res render when a significant visual is detected:
-        //   • any raster region covering > 15% of the page area, OR
-        //   • 2+ vector clusters (chart, table, diagram, flowchart…)
+        // pageHasVisuals: true whenever any qualifying region is detected on the page,
+        // regardless of size — this drives the UI badge and AI focus hints.
+        const hasVisuals = pageRegions.length > 0;
+        // Render-resolution heuristic: upgrade to 1600px only when the page has a
+        // large raster image (>20% area) or 2+ distinct vector clusters, which
+        // suggests a chart/table/diagram worth high-fidelity capture.
         const rasterArea = pageRegions
           .filter(r => r.source === "raster")
           .reduce((max, r) => Math.max(max, r.w * r.h), 0);
         const vectorCount = pageRegions.filter(r => r.source === "vector").length;
-        const hasVisuals = rasterArea > 0.15 || vectorCount >= 2;
-        const targetWidth = hasVisuals ? IMAGE_WIDTH_VISUAL : IMAGE_WIDTH_TEXT;
+        const useHighRes = rasterArea > 0.20 || vectorCount >= 2;
+        const targetWidth = useHighRes ? IMAGE_WIDTH_VISUAL : IMAGE_WIDTH_TEXT;
         const dataUrl = await renderPageToJpeg(pdf, pageNumber, targetWidth);
         images.push(dataUrl);
         regions.push(pageRegions);
