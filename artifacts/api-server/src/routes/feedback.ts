@@ -4,7 +4,7 @@ import { desc } from "drizzle-orm";
 
 const router: IRouter = Router();
 
-router.post("/api/feedback", async (req, res): Promise<void> => {
+router.post("/feedback", async (req, res): Promise<void> => {
   const { type, rating, message, email, userId, page } = req.body as {
     type?: string;
     rating?: number;
@@ -40,7 +40,7 @@ router.post("/api/feedback", async (req, res): Promise<void> => {
   res.status(201).json(entry);
 });
 
-router.get("/api/feedback", async (_req, res): Promise<void> => {
+router.get("/feedback", async (_req, res): Promise<void> => {
   const rows = await db
     .select()
     .from(feedbackTable)

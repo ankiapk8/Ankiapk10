@@ -20,6 +20,7 @@ import Practice from "@/pages/practice";
 import History from "@/pages/history";
 import QbankDetail from "@/pages/qbank-detail";
 import PracticeQbank from "@/pages/practice-qbank";
+import AdminFeedback from "@/pages/admin-feedback";
 import NotFound from "@/pages/not-found";
 
 const ONE_WEEK = 1000 * 60 * 60 * 24 * 7;
@@ -47,25 +48,39 @@ const persister = createSyncStoragePersister({
   throttleTime: 1000,
 });
 
-function Router() {
+function AppRouter() {
   return (
     <Layout>
       <ErrorBoundary>
-      <PageTransition>
-        <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/generate" component={Generate} />
-          <Route path="/decks" component={Decks} />
-          <Route path="/decks/:id" component={DeckDetail} />
-          <Route path="/practice/:id" component={Practice} />
-          <Route path="/history" component={History} />
-          <Route path="/qbanks/:id" component={QbankDetail} />
-          <Route path="/practice-qbank/:id" component={PracticeQbank} />
-          <Route component={NotFound} />
-        </Switch>
-      </PageTransition>
+        <PageTransition>
+          <Switch>
+            <Route path="/" component={Dashboard} />
+            <Route path="/generate" component={Generate} />
+            <Route path="/decks" component={Decks} />
+            <Route path="/decks/:id" component={DeckDetail} />
+            <Route path="/practice/:id" component={Practice} />
+            <Route path="/history" component={History} />
+            <Route path="/qbanks/:id" component={QbankDetail} />
+            <Route path="/practice-qbank/:id" component={PracticeQbank} />
+            <Route component={NotFound} />
+          </Switch>
+        </PageTransition>
       </ErrorBoundary>
     </Layout>
+  );
+}
+
+function AppContent() {
+  return (
+    <>
+      <OfflineBanner />
+      <UpdateBanner />
+      <SplashScreen>
+        <AppRouter />
+      </SplashScreen>
+      <ClickRipple />
+      <Toaster />
+    </>
   );
 }
 
@@ -96,15 +111,12 @@ function App() {
       }}
     >
       <TooltipProvider>
-        <OfflineBanner />
-        <UpdateBanner />
-        <SplashScreen>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <Router />
-          </WouterRouter>
-        </SplashScreen>
-        <ClickRipple />
-        <Toaster />
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <Switch>
+            <Route path="/admin/feedback-9x7k" component={AdminFeedback} />
+            <Route component={AppContent} />
+          </Switch>
+        </WouterRouter>
       </TooltipProvider>
     </PersistQueryClientProvider>
   );

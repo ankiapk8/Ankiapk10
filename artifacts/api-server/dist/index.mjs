@@ -100315,7 +100315,7 @@ var deck_mind_maps_default = router14;
 var import_express15 = __toESM(require_express2(), 1);
 init_drizzle_orm();
 var router15 = (0, import_express15.Router)();
-router15.post("/api/feedback", async (req, res) => {
+router15.post("/feedback", async (req, res) => {
   const { type, rating, message, email: email3, userId, page } = req.body;
   if (!message || String(message).trim().length === 0) {
     res.status(400).json({ error: "message is required" });
@@ -100334,7 +100334,7 @@ router15.post("/api/feedback", async (req, res) => {
   }).returning();
   res.status(201).json(entry);
 });
-router15.get("/api/feedback", async (_req, res) => {
+router15.get("/feedback", async (_req, res) => {
   const rows = await db.select().from(feedbackTable).orderBy(desc(feedbackTable.createdAt)).limit(200);
   res.json(rows);
 });
