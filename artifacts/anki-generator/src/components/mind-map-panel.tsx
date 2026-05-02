@@ -246,31 +246,33 @@ function MindMapContent({ data }: { data: MindMapNode }) {
 }
 
 /* ─────────────────────────────────────────────────────────────────
-   Zoomable Viewer
+   Zoomable Viewer  (mouse wheel + mouse drag + touch pan + pinch zoom)
 ───────────────────────────────────────────────────────────────── */
 function MindMapViewer({ data }: { data: MindMapNode }) {
-  const [zoom, setZoom] = useState(1);
-  const [panX, setPanX] = useState(0);
-  const [panY, setPanY] = useState(0);
-  const zoomRef = useRef(1);
-  const panRef  = useRef({ x: 0, y: 0 });
-  const drag    = useRef({ active: false, lastX: 0, lastY: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [zoom, setZoom]   = useState(1);
+  const [panX, setPanX]   = useState(0);
+  const [panY, setPanY]   = useState(0);
+  const [grabbing, setGrabbing] = useState(false);
 
-  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
-  useEffect(() => { panRef.current = { x: panX, y: panY }; }, [panX, panY]);
+  // Keep a synchronous snapshot of state for use inside event handlers
+  const stateRef = useRef({ zoom: 1, panX: 0, panY: 0 });
+  useEffect(() => { stateRef.current = { zoom, panX, panY }; }, [zoom, panX, panY]);
 
+  const containerRef      = useRef<HTMLDivElement>(null);
+  const pointersRef       = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const prevPinchDistRef  = useRef<number | null>(null);
+
+  /* ── Wheel zoom ─────────────────────────────────────────────── */
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     const rect = containerRef.current!.getBoundingClientRect();
-    const mouseVX = (e.clientX - rect.left)  * (VW / rect.width);
-    const mouseVY = (e.clientY - rect.top)   * (VH / rect.height);
+    const mouseVX = (e.clientX - rect.left) * (VW / rect.width);
+    const mouseVY = (e.clientY - rect.top)  * (VH / rect.height);
     const factor  = e.deltaY < 0 ? 1.14 : 1 / 1.14;
-    const prevZoom = zoomRef.current;
-    const prevPan  = panRef.current;
-    const newZoom  = Math.max(0.2, Math.min(8, prevZoom * factor));
-    const wx = (mouseVX - VW / 2 - prevPan.x) / prevZoom;
-    const wy = (mouseVY - VH / 2 - prevPan.y) / prevZoom;
+    const { zoom: pz, panX: px, panY: py } = stateRef.current;
+    const newZoom = Math.max(0.2, Math.min(8, pz * factor));
+    const wx = (mouseVX - VW / 2 - px) / pz;
+    const wy = (mouseVY - VH / 2 - py) / pz;
     setZoom(newZoom);
     setPanX(mouseVX - VW / 2 - wx * newZoom);
     setPanY(mouseVY - VH / 2 - wy * newZoom);
@@ -283,23 +285,59 @@ function MindMapViewer({ data }: { data: MindMapNode }) {
     return () => el.removeEventListener("wheel", handleWheel);
   }, [handleWheel]);
 
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    drag.current = { active: true, lastX: e.clientX, lastY: e.clientY };
+  /* ── Pointer down ────────────────────────────────────────────── */
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     e.preventDefault();
-  };
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!drag.current.active) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    setGrabbing(true);
+  }, []);
+
+  /* ── Pointer move: single=pan, two=pinch ─────────────────────── */
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    const pointers = pointersRef.current;
+    if (!pointers.has(e.pointerId)) return;
+
     const rect = containerRef.current!.getBoundingClientRect();
     const scaleX = VW / rect.width;
     const scaleY = VH / rect.height;
-    setPanX(p => p + (e.clientX - drag.current.lastX) * scaleX);
-    setPanY(p => p + (e.clientY - drag.current.lastY) * scaleY);
-    drag.current.lastX = e.clientX;
-    drag.current.lastY = e.clientY;
-  };
-  const onPointerUp = () => { drag.current.active = false; };
+    const prev = pointers.get(e.pointerId)!;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.size === 1) {
+      /* ── Pan ── */
+      setPanX(p => p + (e.clientX - prev.x) * scaleX);
+      setPanY(p => p + (e.clientY - prev.y) * scaleY);
+    } else if (pointers.size >= 2) {
+      /* ── Pinch zoom ── */
+      const pts = Array.from(pointers.values());
+      const curDist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+
+      if (prevPinchDistRef.current !== null && prevPinchDistRef.current > 0) {
+        const factor = curDist / prevPinchDistRef.current;
+        const midClientX = (pts[0].x + pts[1].x) / 2;
+        const midClientY = (pts[0].y + pts[1].y) / 2;
+        const midVX = (midClientX - rect.left) * scaleX;
+        const midVY = (midClientY - rect.top)  * scaleY;
+
+        const { zoom: pz, panX: px, panY: py } = stateRef.current;
+        const newZoom = Math.max(0.2, Math.min(8, pz * factor));
+        const wx = (midVX - VW / 2 - px) / pz;
+        const wy = (midVY - VH / 2 - py) / pz;
+        setZoom(newZoom);
+        setPanX(midVX - VW / 2 - wx * newZoom);
+        setPanY(midVY - VH / 2 - wy * newZoom);
+      }
+      prevPinchDistRef.current = curDist;
+    }
+  }, []);
+
+  /* ── Pointer up / cancel ────────────────────────────────────── */
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) prevPinchDistRef.current = null;
+    if (pointersRef.current.size === 0) setGrabbing(false);
+  }, []);
 
   const transform = `translate(${VW / 2 + panX} ${VH / 2 + panY}) scale(${zoom})`;
 
@@ -320,13 +358,22 @@ function MindMapViewer({ data }: { data: MindMapNode }) {
       <div className="absolute bottom-3 left-3 z-10 px-2 py-0.5 rounded-md bg-background/80 border border-border/40 text-[10px] text-muted-foreground font-mono">
         {Math.round(zoom * 100)}%
       </div>
-      <div className="absolute bottom-3 right-3 z-10 text-[10px] text-muted-foreground/50 pointer-events-none">
+      <div className="absolute bottom-3 right-3 z-10 text-[10px] text-muted-foreground/50 pointer-events-none hidden sm:block">
         scroll to zoom · drag to pan
       </div>
-      <div ref={containerRef} className="w-full h-full"
-        style={{ cursor: drag.current.active ? "grabbing" : "grab" }}
-        onPointerDown={onPointerDown} onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp} onPointerLeave={onPointerUp}>
+      <div className="absolute bottom-3 right-3 z-10 text-[10px] text-muted-foreground/50 pointer-events-none sm:hidden">
+        pinch to zoom · drag to pan
+      </div>
+      <div
+        ref={containerRef}
+        className="w-full h-full"
+        style={{ cursor: grabbing ? "grabbing" : "grab", touchAction: "none" }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
         <svg width="100%" height="100%" viewBox={`0 0 ${VW} ${VH}`}
           style={{ display: "block" }} xmlns="http://www.w3.org/2000/svg">
           <g transform={transform}>
