@@ -8,6 +8,9 @@ import SubMedicine from "@/pages/study-planner/sub-medicine";
 import SubSurgery from "@/pages/study-planner/sub-surgery";
 import SPGynecology from "@/pages/study-planner/gynecology";
 import TopicPage from "@/pages/study-planner/topic-page";
+import ManageSubjects from "@/pages/study-planner/manage-subjects";
+import CustomGroupPage from "@/pages/study-planner/custom-group-page";
+import DynamicTopicPage from "@/pages/study-planner/dynamic-topic-page";
 
 const { hook: usePlannerLocation } = memoryLocation({ path: "/" });
 
@@ -18,6 +21,9 @@ export function StudyPlannerTab() {
         <Switch>
           <Route path="/" component={SPHome} />
           <Route path="/settings" component={SPSettings} />
+          <Route path="/manage-subjects" component={ManageSubjects} />
+          <Route path="/custom/:groupId" component={CustomGroupPage} />
+          <Route path="/subject/:storageKey" component={DynamicTopicPage} />
           <Route path="/sub-medicine" component={SubMedicine} />
           <Route path="/sub-surgery" component={SubSurgery} />
           <Route path="/gynecology" component={SPGynecology} />

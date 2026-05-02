@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Camera, CalendarIcon } from "lucide-react";
+import { ChevronLeft, Camera, CalendarIcon, Flag, FlagOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   type SubjectGroup, type Topic,
   computeSchedule, isoDate, PARENT_DOT_COLORS, STATUS_COLORS, PRIORITY_COLORS,
-  writeStudyActivity,
+  CUSTOM_DOT_COLORS,
+  writeStudyActivity, getDateOverrides,
 } from "@/lib/study-planner/topics";
 import { useStudyTopicsContext } from "@/context/study-topics-context";
 
@@ -15,31 +16,46 @@ interface Props {
   endDate: Date;
   spacing: number;
   weightByDifficulty: boolean;
+  onStartDateChange?: (d: Date) => void;
+  onEndDateChange?: (d: Date) => void;
 }
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-function addMonths(d: Date, n: number): Date {
-  const r = new Date(d);
-  r.setMonth(r.getMonth() + n);
-  return r;
+// Dot color that works for both hardcoded (PARENT_DOT_COLORS) and custom (CUSTOM_DOT_COLORS)
+function getDotColor(parentLabel: string): string {
+  return PARENT_DOT_COLORS[parentLabel] ?? CUSTOM_DOT_COLORS["blue"] ?? "bg-gray-400";
 }
 
+function addMonths(d: Date, n: number): Date {
+  const r = new Date(d); r.setMonth(r.getMonth() + n); return r;
+}
 function startOfMonth(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
-
 function daysInMonth(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
 }
 
-export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, weightByDifficulty }: Props) {
+export function CalendarView({
+  groups, topicsMap, startDate, endDate, spacing, weightByDifficulty,
+  onStartDateChange, onEndDateChange,
+}: Props) {
   const { upsertTopics } = useStudyTopicsContext();
   const calRef = useRef<HTMLDivElement>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [visibleMonth, setVisibleMonth] = useState(0);
+  const [selectMode, setSelectMode] = useState<"start" | "end" | null>(null);
+  const [overridesTick, setOverridesTick] = useState(0);
+
+  // Listen for override changes so byDay refreshes
+  useEffect(() => {
+    const handler = () => setOverridesTick(t => t + 1);
+    window.addEventListener("sp-overrides-updated", handler);
+    return () => window.removeEventListener("sp-overrides-updated", handler);
+  }, []);
 
   const scheduled = useMemo(
     () => computeSchedule(groups, topicsMap, startDate, endDate, spacing, weightByDifficulty),
@@ -48,8 +64,10 @@ export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, w
 
   const byDay = useMemo(() => {
     const map: Record<string, typeof scheduled> = {};
+    const overrides = getDateOverrides();
     for (const item of scheduled) {
-      const k1 = isoDate(item.firstDate);
+      const override = overrides[item.topic.id];
+      const k1 = override ?? isoDate(item.firstDate);
       const k2 = isoDate(item.secondDate);
       if (!map[k1]) map[k1] = [];
       map[k1].push(item);
@@ -59,50 +77,46 @@ export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, w
       }
     }
     return map;
-  }, [scheduled]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduled, overridesTick]);
 
-  // Build list of months to render
+  const startStr = isoDate(startDate);
+  const endStr   = isoDate(endDate);
+
+  // Build list of months to render (always show at least the start date's month)
   const months = useMemo(() => {
     const list: Date[] = [];
-    const start = startOfMonth(startDate);
-    const end = startOfMonth(endDate);
-    let cur = new Date(start);
-    while (cur <= end) {
-      list.push(new Date(cur));
-      cur = addMonths(cur, 1);
-    }
+    const s = startOfMonth(startDate);
+    const e = startOfMonth(endDate);
+    let cur = new Date(s);
+    while (cur <= e) { list.push(new Date(cur)); cur = addMonths(cur, 1); }
     return list;
   }, [startDate, endDate]);
 
   const monthRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // IntersectionObserver for sticky month tab
   useEffect(() => {
     if (months.length <= 1) return;
-    const obs = new IntersectionObserver(
-      entries => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const idx = parseInt(entry.target.getAttribute("data-month-idx") ?? "0", 10);
-            setVisibleMonth(idx);
-          }
+    const obs = new IntersectionObserver(entries => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          const idx = parseInt(entry.target.getAttribute("data-month-idx") ?? "0", 10);
+          setVisibleMonth(idx);
         }
-      },
-      { threshold: 0.3 },
-    );
+      }
+    }, { threshold: 0.3 });
     monthRefs.current.forEach(r => r && obs.observe(r));
     return () => obs.disconnect();
   }, [months.length]);
 
-  const scrollToMonth = (idx: number) => {
+  const scrollToMonth = (idx: number) =>
     monthRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   const scrollToToday = () => {
-    const todayIdx = months.findIndex(m =>
+    const idx = months.findIndex(m =>
       m.getFullYear() === new Date().getFullYear() && m.getMonth() === new Date().getMonth()
     );
-    if (todayIdx >= 0) scrollToMonth(todayIdx);
+    if (idx >= 0) scrollToMonth(idx);
   };
 
   const saveAsImage = async () => {
@@ -119,7 +133,7 @@ export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, w
   const selectedItems = selectedDay ? (byDay[selectedDay] ?? []) : [];
 
   const cycleStatus = (item: typeof scheduled[0]) => {
-    const statuses = ["Not Started", "In Progress", "Done", "Revised"] as const;
+    const statuses = ["Not Started","In Progress","Done","Revised"] as const;
     const topics = topicsMap[item.storageKey] ?? [];
     const t = topics.find(x => x.id === item.topic.id);
     if (!t) return;
@@ -129,6 +143,20 @@ export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, w
     if (newStatus === "Done" || newStatus === "Revised") writeStudyActivity();
   };
 
+  const handleDayClick = (dateStr: string) => {
+    if (selectMode === "start") {
+      const d = new Date(dateStr + "T00:00:00");
+      onStartDateChange?.(d);
+      setSelectMode(null);
+    } else if (selectMode === "end") {
+      const d = new Date(dateStr + "T00:00:00");
+      onEndDateChange?.(d);
+      setSelectMode(null);
+    } else {
+      setSelectedDay(prev => prev === dateStr ? null : dateStr);
+    }
+  };
+
   return (
     <div className="space-y-3">
       {/* Toolbar */}
@@ -136,11 +164,45 @@ export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, w
         <Button variant="outline" size="sm" onClick={scrollToToday} className="h-8 text-xs gap-1">
           <CalendarIcon className="h-3.5 w-3.5" /> Today
         </Button>
-        <Button variant="outline" size="sm" onClick={saveAsImage} className="h-8 text-xs gap-1">
-          <Camera className="h-3.5 w-3.5" /> Save as Image
+        {(onStartDateChange || onEndDateChange) && (
+          <>
+            <Button
+              variant={selectMode === "start" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectMode(m => m === "start" ? null : "start")}
+              className="h-8 text-xs gap-1"
+            >
+              <Flag className="h-3.5 w-3.5 text-green-500" />
+              {selectMode === "start" ? "Click a date..." : "Set Start"}
+            </Button>
+            <Button
+              variant={selectMode === "end" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectMode(m => m === "end" ? null : "end")}
+              className="h-8 text-xs gap-1"
+            >
+              <FlagOff className="h-3.5 w-3.5 text-red-500" />
+              {selectMode === "end" ? "Click a date..." : "Set End"}
+            </Button>
+          </>
+        )}
+        <Button variant="outline" size="sm" onClick={saveAsImage} className="h-8 text-xs gap-1 ml-auto">
+          <Camera className="h-3.5 w-3.5" /> Save Image
         </Button>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {scheduled.length} topics scheduled
+        <span className="text-xs text-muted-foreground">
+          {scheduled.length} scheduled
+        </span>
+      </div>
+
+      {/* Range legend */}
+      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded-sm ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30" />
+          Start {startStr}
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="inline-block w-3 h-3 rounded-sm ring-2 ring-red-500 bg-red-50 dark:bg-red-950/30" />
+          End {endStr}
         </span>
       </div>
 
@@ -148,15 +210,12 @@ export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, w
       {months.length > 1 && (
         <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
           {months.map((m, i) => (
-            <button
-              key={i}
-              onClick={() => scrollToMonth(i)}
+            <button key={i} onClick={() => scrollToMonth(i)}
               className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
                 i === visibleMonth
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-accent"
-              }`}
-            >
+              }`}>
               {MONTHS_SHORT[m.getMonth()]} {m.getFullYear() !== startDate.getFullYear() ? m.getFullYear() : ""}
             </button>
           ))}
@@ -174,52 +233,84 @@ export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, w
 
           return (
             <div key={mi} ref={el => { monthRefs.current[mi] = el; }} data-month-idx={mi}>
-              {/* Month header */}
-              {mi > 0 && <div className="flex items-center gap-2 mb-3"><div className="h-px flex-1 bg-border" /><span className="text-xs text-muted-foreground font-semibold">{MONTHS[month.getMonth()].toUpperCase()} {month.getFullYear()}</span><div className="h-px flex-1 bg-border" /></div>}
-              {mi === 0 && <h3 className="text-sm font-semibold text-center mb-3">{MONTHS[month.getMonth()].toUpperCase()} {month.getFullYear()}</h3>}
+              {mi > 0 && (
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground font-semibold">
+                    {MONTHS[month.getMonth()].toUpperCase()} {month.getFullYear()}
+                  </span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+              )}
+              {mi === 0 && (
+                <h3 className="text-sm font-semibold text-center mb-3">
+                  {MONTHS[month.getMonth()].toUpperCase()} {month.getFullYear()}
+                </h3>
+              )}
 
-              {/* Day headers */}
               <div className="grid grid-cols-7 mb-1">
                 {DAYS.map(d => (
                   <div key={d} className="text-center text-[10px] font-medium text-muted-foreground py-1">{d}</div>
                 ))}
               </div>
 
-              {/* Day cells */}
               <div className="grid grid-cols-7 gap-px">
                 {cells.map((day, ci) => {
                   if (!day) return <div key={ci} />;
-                  const dateStr = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                  const y = month.getFullYear();
+                  const m2 = String(month.getMonth() + 1).padStart(2, "0");
+                  const d2 = String(day).padStart(2, "0");
+                  const dateStr = `${y}-${m2}-${d2}`;
                   const dayItems = byDay[dateStr] ?? [];
-                  const isToday = dateStr === todayStr;
+                  const isToday    = dateStr === todayStr;
                   const isSelected = dateStr === selectedDay;
+                  const isStart    = dateStr === startStr;
+                  const isEnd      = dateStr === endStr;
+                  const isInRange  = dateStr > startStr && dateStr < endStr;
+                  const isSelecting = !!selectMode;
 
                   return (
                     <button
                       key={ci}
-                      onClick={() => setSelectedDay(isSelected ? null : dateStr)}
-                      className={`relative aspect-square rounded-lg flex flex-col items-center justify-start pt-1 transition-colors text-xs ${
-                        isSelected ? "bg-primary/15 border border-primary/40" :
-                        isToday ? "bg-primary/8 border border-primary/20" :
-                        "hover:bg-accent"
-                      }`}
+                      onClick={() => handleDayClick(dateStr)}
+                      title={isSelecting ? `Set as ${selectMode} date: ${dateStr}` : dateStr}
+                      className={`relative aspect-square rounded-lg flex flex-col items-center justify-start pt-1 transition-colors text-xs
+                        ${isStart    ? "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30 z-10" :
+                          isEnd      ? "ring-2 ring-red-500 bg-red-50 dark:bg-red-950/30 z-10" :
+                          isSelected ? "bg-primary/15 border border-primary/40" :
+                          isToday    ? "bg-primary/8 border border-primary/20" :
+                          isInRange  ? "bg-blue-50/60 dark:bg-blue-950/10" :
+                          "hover:bg-accent"}
+                        ${isSelecting ? "cursor-crosshair" : "cursor-pointer"}
+                      `}
                     >
                       <span className={`font-medium text-[11px] leading-none ${
-                        isToday ? "text-primary font-bold" :
+                        isStart    ? "text-green-700 dark:text-green-400 font-bold" :
+                        isEnd      ? "text-red-700 dark:text-red-400 font-bold" :
+                        isToday    ? "text-primary font-bold" :
                         isSelected ? "text-primary" :
                         "text-foreground/70"
                       }`}>
                         {day}
                       </span>
-                      {dayItems.length > 0 && (
+                      {/* Start/end flags */}
+                      {isStart && <span className="text-[7px] text-green-600 font-bold leading-none mt-0.5">START</span>}
+                      {isEnd   && <span className="text-[7px] text-red-600 font-bold leading-none mt-0.5">END</span>}
+                      {dayItems.length > 0 && !isStart && !isEnd && (
                         <div className="flex flex-wrap gap-0.5 mt-0.5 justify-center">
                           {dayItems.slice(0, 3).map((item, di) => (
-                            <div
-                              key={di}
-                              className={`w-1.5 h-1.5 rounded-full ${PARENT_DOT_COLORS[item.parentLabel] ?? "bg-gray-400"}`}
-                            />
+                            <div key={di} className={`w-1.5 h-1.5 rounded-full ${getDotColor(item.parentLabel)}`} />
                           ))}
-                          {dayItems.length > 3 && <span className="text-[8px] text-muted-foreground">+{dayItems.length - 3}</span>}
+                          {dayItems.length > 3 && (
+                            <span className="text-[8px] text-muted-foreground">+{dayItems.length - 3}</span>
+                          )}
+                        </div>
+                      )}
+                      {dayItems.length > 0 && (isStart || isEnd) && (
+                        <div className="flex flex-wrap gap-0.5 justify-center">
+                          {dayItems.slice(0, 2).map((item, di) => (
+                            <div key={di} className={`w-1.5 h-1.5 rounded-full ${getDotColor(item.parentLabel)}`} />
+                          ))}
                         </div>
                       )}
                     </button>
@@ -232,7 +323,7 @@ export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, w
       </div>
 
       {/* Day detail panel */}
-      {selectedDay && (
+      {selectedDay && !selectMode && (
         <div className="rounded-xl border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">{selectedDay}</h3>
@@ -241,14 +332,14 @@ export function CalendarView({ groups, topicsMap, startDate, endDate, spacing, w
             </button>
           </div>
           {selectedItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No topics scheduled today.</p>
+            <p className="text-sm text-muted-foreground">No topics scheduled.</p>
           ) : (
             <div className="space-y-2">
               {selectedItems.map((item, i) => {
                 const live = (topicsMap[item.storageKey] ?? []).find(t => t.id === item.topic.id) ?? item.topic;
                 return (
                   <div key={i} className="flex items-center gap-2 rounded-lg border bg-background p-2">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${PARENT_DOT_COLORS[item.parentLabel] ?? "bg-gray-400"}`} />
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${getDotColor(item.parentLabel)}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold truncate">{live.name}</p>
                       <p className="text-[10px] text-muted-foreground">{item.subjectLabel}</p>
