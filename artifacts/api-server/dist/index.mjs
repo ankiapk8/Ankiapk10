@@ -97185,8 +97185,8 @@ function createRateLimiter(maxRequests, windowMs) {
 }
 
 // src/lib/models.ts
-var FREE_TEXT_MODEL = process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free";
-var FREE_VISION_MODEL = process.env.AI_VISION_MODEL ?? "google/gemini-2.0-flash-exp:free";
+var FREE_TEXT_MODEL = process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-001";
+var FREE_VISION_MODEL = process.env.AI_VISION_MODEL ?? "google/gemini-2.0-flash-001";
 
 // src/routes/generate.ts
 var router4 = (0, import_express4.Router)();
