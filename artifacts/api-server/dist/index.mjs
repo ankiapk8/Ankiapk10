@@ -92381,6 +92381,44 @@ async function ensureDatabaseSchema() {
           ON DELETE cascade ON UPDATE no action;
       END IF;
     END $$;
+
+    CREATE TABLE IF NOT EXISTS "sessions" (
+      "sid" varchar PRIMARY KEY NOT NULL,
+      "sess" jsonb NOT NULL,
+      "expire" timestamp NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "sessions" ("expire");
+
+    CREATE TABLE IF NOT EXISTS "users" (
+      "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "email" varchar UNIQUE,
+      "first_name" varchar,
+      "last_name" varchar,
+      "profile_image_url" varchar,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS "user_topics" (
+      "user_id" varchar NOT NULL,
+      "storage_key" varchar NOT NULL,
+      "topics" jsonb NOT NULL DEFAULT '[]',
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+      PRIMARY KEY ("user_id", "storage_key")
+    );
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'user_topics_user_id_users_id_fk'
+      ) THEN
+        ALTER TABLE "user_topics"
+          ADD CONSTRAINT "user_topics_user_id_users_id_fk"
+          FOREIGN KEY ("user_id") REFERENCES "public"."users"("id")
+          ON DELETE cascade ON UPDATE no action;
+      END IF;
+    END $$;
   `);
 }
 
@@ -97396,7 +97434,7 @@ ${chunk}
 
 Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: "openai/gpt-oss-120b:free",
+    model: process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free",
     max_completion_tokens: 16384,
     stream: false,
     messages: [
@@ -97567,7 +97605,7 @@ Aim for ${cardsRange} card(s) per page WHEN qualifying figures exist. Pages with
 No markdown, no commentary, no \`\`\` fences \u2014 just the JSON array.${regionHints}${customPromptBlock(customPrompt)}`;
   try {
     const response = await createChatCompletionWithRetry(openai3, {
-      model: "google/gemini-2.0-flash-001",
+      model: process.env.AI_VISION_MODEL ?? "google/gemini-2.0-flash-exp:free",
       max_completion_tokens: 16384,
       stream: false,
       messages: [
@@ -98015,7 +98053,7 @@ ${chunk}
 
 Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
   const response = await createChatCompletionWithRetry(openai3, {
-    model: "openai/gpt-oss-120b:free",
+    model: process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free",
     max_completion_tokens: 16384,
     stream: false,
     messages: [

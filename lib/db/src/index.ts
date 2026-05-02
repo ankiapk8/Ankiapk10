@@ -125,6 +125,44 @@ export async function ensureDatabaseSchema(): Promise<void> {
           ON DELETE cascade ON UPDATE no action;
       END IF;
     END $$;
+
+    CREATE TABLE IF NOT EXISTS "sessions" (
+      "sid" varchar PRIMARY KEY NOT NULL,
+      "sess" jsonb NOT NULL,
+      "expire" timestamp NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "sessions" ("expire");
+
+    CREATE TABLE IF NOT EXISTS "users" (
+      "id" varchar PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "email" varchar UNIQUE,
+      "first_name" varchar,
+      "last_name" varchar,
+      "profile_image_url" varchar,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS "user_topics" (
+      "user_id" varchar NOT NULL,
+      "storage_key" varchar NOT NULL,
+      "topics" jsonb NOT NULL DEFAULT '[]',
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+      PRIMARY KEY ("user_id", "storage_key")
+    );
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'user_topics_user_id_users_id_fk'
+      ) THEN
+        ALTER TABLE "user_topics"
+          ADD CONSTRAINT "user_topics_user_id_users_id_fk"
+          FOREIGN KEY ("user_id") REFERENCES "public"."users"("id")
+          ON DELETE cascade ON UPDATE no action;
+      END IF;
+    END $$;
   `);
 }
 

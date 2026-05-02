@@ -424,7 +424,7 @@ ${chunk}
 Goal: ~${targetCards} cards for this segment, but you MUST add more if the segment contains more distinct facts/MCQs. You may add fewer ONLY if the segment is genuinely thin (e.g. a heading or a few words). Preserve any multiple-choice questions verbatim as MCQ cards. Output JSON array only.`;
 
   const response = await createChatCompletionWithRetry(openai, {
-    model: "openai/gpt-oss-120b:free",
+    model: process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free",
     max_completion_tokens: 16384,
     stream: false as const,
     messages: [
@@ -641,7 +641,7 @@ No markdown, no commentary, no \`\`\` fences — just the JSON array.${regionHin
 
   try {
     const response = await createChatCompletionWithRetry(openai, {
-      model: "google/gemini-2.0-flash-001",
+      model: process.env.AI_VISION_MODEL ?? "google/gemini-2.0-flash-exp:free",
       max_completion_tokens: 16384,
       stream: false as const,
       messages: [
@@ -1188,7 +1188,7 @@ ${chunk}
 Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add more if the segment contains more testable concepts. You may add fewer ONLY if the segment is genuinely thin. Every output card MUST be type="mcq". Output JSON array only.`;
 
   const response = await createChatCompletionWithRetry(openai, {
-    model: "openai/gpt-oss-120b:free",
+    model: process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free",
     max_completion_tokens: 16384,
     stream: false as const,
     messages: [
