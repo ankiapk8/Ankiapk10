@@ -536,8 +536,9 @@ async function generateVisualCardsForBatch(
   const cardsRange = cardsPerPage <= 1 ? "1" : `1–${cardsPerPage}`;
 
   // Build a deterministic per-page hint listing the bounding boxes of real
-  // embedded raster images detected by the PDF parser. The model is told to
-  // STRONGLY prefer these regions and to skip pages that have none.
+  // visual regions detected by the PDF parser — both embedded raster images
+  // and vector-drawn figures (charts, tables, diagrams, flowcharts). The model
+  // is told to STRONGLY prefer these regions and to skip pages that have none.
   let regionHints = "";
   if (batchRegions && batchRegions.length === batchImages.length) {
     const lines: string[] = [];
@@ -547,16 +548,19 @@ async function generateVisualCardsForBatch(
       totalRegions += regs.length;
       const pageNum = batchStart + i + 1;
       if (regs.length === 0) {
-        lines.push(`  • Page ${pageNum}: NO embedded raster images detected. Only output a card if you can clearly see a vector chart, diagram, table, equation, or trace. Otherwise output ZERO cards for this page.`);
+        lines.push(`  • Page ${pageNum}: NO visual regions detected (no raster images, no vector charts/tables/diagrams). Only output a card if you can clearly see a figure, equation, or trace. Otherwise output ZERO cards for this page.`);
       } else {
         const formatted = regs
-          .map((r, idx) => `[#${idx + 1}: x=${r.x.toFixed(3)}, y=${r.y.toFixed(3)}, w=${r.w.toFixed(3)}, h=${r.h.toFixed(3)}]`)
+          .map((r, idx) => {
+            const kind = r.source === "vector" ? "vector" : "raster";
+            return `[#${idx + 1} (${kind}): x=${r.x.toFixed(3)}, y=${r.y.toFixed(3)}, w=${r.w.toFixed(3)}, h=${r.h.toFixed(3)}]`;
+          })
           .join(", ");
-        lines.push(`  • Page ${pageNum}: ${regs.length} embedded image region(s) detected by the PDF parser → ${formatted}. STRONGLY PREFER making cards from these regions; the system will snap your bbox to the nearest one.`);
+        lines.push(`  • Page ${pageNum}: ${regs.length} visual region(s) detected by the PDF parser (raster images and/or vector-drawn figures) → ${formatted}. STRONGLY PREFER making cards from these regions; the system will snap your bbox to the nearest one.`);
       }
     }
     if (totalRegions > 0 || lines.length > 0) {
-      regionHints = `\n\n═══════════════════════════════════════════════\nDETERMINISTIC PAGE ANALYSIS — STRONG HINT\n═══════════════════════════════════════════════\nThe PDF parser has scanned each page and listed every embedded raster image it found, with exact normalized coordinates (top-left origin, x/y/w/h between 0 and 1):\n${lines.join("\n")}\n\nWhen a listed region matches a real figure, point your bbox at it — the system will snap it for a perfect crop. If a page contains a vector chart, table, equation, or scanned-as-page diagram with NO listed region, you may STILL emit a card with a tight bbox around that figure (3–6% margin). Do not invent figures from prose, but never skip a real visual just because the parser missed it.`;
+      regionHints = `\n\n═══════════════════════════════════════════════\nDETERMINISTIC PAGE ANALYSIS — STRONG HINT\n═══════════════════════════════════════════════\nThe PDF parser has scanned each page and detected visual regions — both embedded raster images AND vector-drawn figures (charts, bar graphs, tables, flowcharts, diagrams). Exact normalized coordinates are given (top-left origin, x/y/w/h between 0 and 1):\n${lines.join("\n")}\n\nWhen a listed region matches a real figure, point your bbox at it — the system will snap it for a perfect crop. If a page contains a visual with NO listed region, you may STILL emit a card with a tight bbox around that figure (3–6% margin). Do not invent figures from prose, but never skip a real visual just because the parser missed it.`;
     }
   }
 
