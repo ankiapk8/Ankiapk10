@@ -68,6 +68,7 @@ type FileEntry = {
   pageImages: string[];
   pageTexts: string[];
   pageImageRegions: ImageRegion[][];
+  pageHasVisuals?: boolean[];
   progress: string;
   deckName: string;
   cardCount: number | "";
@@ -212,24 +213,24 @@ export function GenerateForm({
     }
     const id = `${file.name}-${Date.now()}-${Math.random()}`;
     const baseName = file.name.replace(/\.[^.]+$/, "");
-    setFiles(prev => [...prev, { id, name: file.name, status: "extracting", text: "", pageImages: [], pageTexts: [], pageImageRegions: [], progress: "Reading…", deckName: baseName, cardCount: "", visualCardCount: "", deckType: "both" }]);
+    setFiles(prev => [...prev, { id, name: file.name, status: "extracting", text: "", pageImages: [], pageTexts: [], pageImageRegions: [], pageHasVisuals: [], progress: "Reading…", deckName: baseName, cardCount: "", visualCardCount: "", deckType: "both" }]);
     try {
       if (isTxt) {
         const text = await file.text();
-        updateFile(id, { status: "ready", text, pageImages: [], pageTexts: [], pageImageRegions: [], progress: "" });
+        updateFile(id, { status: "ready", text, pageImages: [], pageTexts: [], pageImageRegions: [], pageHasVisuals: [], progress: "" });
       } else if (isImg) {
         throttledProgressUpdate(id, "Reading image…");
         const { text, pageImages, pageTexts, pageImageRegions } = await extractImage(file);
-        updateFile(id, { status: "ready", text, pageImages, pageTexts, pageImageRegions, progress: "", deckType: "visual" });
+        updateFile(id, { status: "ready", text, pageImages, pageTexts, pageImageRegions, pageHasVisuals: [true], progress: "", deckType: "visual" });
       } else if (isPptx || isDocx) {
         throttledProgressUpdate(id, "Sending to server…");
         const { text, pageImages, pageTexts, pageImageRegions } = await extractOffice(file, (progress) => throttledProgressUpdate(id, progress));
-        updateFile(id, { status: "ready", text, pageImages, pageTexts, pageImageRegions, progress: "", deckType: "text" });
+        updateFile(id, { status: "ready", text, pageImages, pageTexts, pageImageRegions, pageHasVisuals: [], progress: "", deckType: "text" });
       } else {
         const buffer = await file.arrayBuffer();
-        const { text, pageImages, pageTexts, pageImageRegions } = await extractPdf(buffer, (progress) => throttledProgressUpdate(id, progress));
+        const { text, pageImages, pageTexts, pageImageRegions, pageHasVisuals } = await extractPdf(buffer, (progress) => throttledProgressUpdate(id, progress));
         const hasAnyEmbeddedImage = pageImageRegions.some(r => r.length > 0);
-        updateFile(id, { status: "ready", text, pageImages, pageTexts, pageImageRegions, progress: "", deckType: hasAnyEmbeddedImage ? "both" : "text" });
+        updateFile(id, { status: "ready", text, pageImages, pageTexts, pageImageRegions, pageHasVisuals: pageHasVisuals ?? [], progress: "", deckType: hasAnyEmbeddedImage ? "both" : "text" });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Extraction failed";
@@ -643,6 +644,11 @@ export function GenerateForm({
                     {f.pageImages.length > 0 && (
                       <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 h-5 font-normal">
                         <ImageIcon className="h-2.5 w-2.5" />{f.pageImages.length} pg
+                      </Badge>
+                    )}
+                    {(f.pageHasVisuals ?? []).filter(Boolean).length > 0 && (
+                      <Badge variant="outline" className="text-[10px] gap-1 px-1.5 py-0 h-5 font-normal border-primary/40 text-primary">
+                        <Sparkles className="h-2.5 w-2.5" />{(f.pageHasVisuals ?? []).filter(Boolean).length} visual
                       </Badge>
                     )}
                   </div>

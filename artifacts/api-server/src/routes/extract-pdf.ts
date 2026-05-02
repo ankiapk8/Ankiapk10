@@ -27,8 +27,8 @@ class NodeCanvasFactory {
 
 const router: IRouter = Router();
 const MIN_TEXT_LENGTH = 20;
-const OCR_SCALE = 2;
-const MAX_OCR_DIMENSION = 2200;
+const OCR_SCALE = 3;
+const MAX_OCR_DIMENSION = 3200;
 const MAX_PDF_SIZE = 200 * 1024 * 1024; // 200 MB — matches express body limit
 
 const upload = multer({

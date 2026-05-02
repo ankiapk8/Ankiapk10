@@ -8,12 +8,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 type ProgressCallback = (message: string) => void;
 
 const MIN_TEXT_LENGTH = 20;
-const MAX_OCR_DIMENSION = 2200;
+const MAX_OCR_DIMENSION = 3200;
 const SERVER_EXTRACT_URL = apiUrl("api/extract-pdf");
 const CLIENT_MAX_PAGES = Number.MAX_SAFE_INTEGER;
 const SERVER_THRESHOLD_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGE_PAGES = Number.MAX_SAFE_INTEGER;
-const IMAGE_WIDTH = 1100;
+const IMAGE_WIDTH_TEXT = 1100;
+const IMAGE_WIDTH_VISUAL = 1600;
 const IMAGE_QUALITY = 0.85;
 
 export interface ImageRegion {
@@ -21,6 +22,7 @@ export interface ImageRegion {
   y: number;
   w: number;
   h: number;
+  source?: "raster" | "vector";
 }
 
 export interface PdfExtractionResult {
@@ -28,6 +30,7 @@ export interface PdfExtractionResult {
   pageImages: string[];
   pageTexts: string[];
   pageImageRegions: ImageRegion[][];
+  pageHasVisuals?: boolean[];
 }
 
 function normalizeText(text: string): string {
@@ -46,10 +49,11 @@ async function loadPdf(buffer: ArrayBuffer) {
 async function renderPageToJpeg(
   pdf: Awaited<ReturnType<typeof loadPdf>>,
   pageNumber: number,
+  targetWidth: number = IMAGE_WIDTH_TEXT,
 ): Promise<string> {
   const page = await pdf.getPage(pageNumber);
   const baseViewport = page.getViewport({ scale: 1 });
-  const scale = IMAGE_WIDTH / baseViewport.width;
+  const scale = targetWidth / baseViewport.width;
   const viewport = page.getViewport({ scale });
 
   const canvas = document.createElement("canvas");
@@ -106,23 +110,31 @@ async function extractEmbeddedText(
   return { text: normalizeText(pageTexts.join("\n")), pageTexts };
 }
 
-async function extractPageImages(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<{ images: string[]; regions: ImageRegion[][] }> {
+async function extractPageImages(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<{ images: string[]; regions: ImageRegion[][]; pageHasVisuals: boolean[] }> {
   const pdf = await loadPdf(buffer);
   const images: string[] = [];
   const regions: ImageRegion[][] = [];
+  const pageHasVisuals: boolean[] = [];
   const pagesToRender = Math.min(pdf.numPages, MAX_IMAGE_PAGES);
 
   try {
     for (let pageNumber = 1; pageNumber <= pagesToRender; pageNumber++) {
       onProgress?.(`Capturing page ${pageNumber}/${pagesToRender} image…`);
       try {
-        const dataUrl = await renderPageToJpeg(pdf, pageNumber);
-        images.push(dataUrl);
+        // Detect regions first (cheap — no canvas rendering) so we can pick
+        // the right resolution for this specific page.
+        let pageRegions: ImageRegion[] = [];
         try {
-          regions.push(await detectPageImageRegions(pdf, pageNumber));
+          pageRegions = await detectPageImageRegions(pdf, pageNumber);
         } catch {
-          regions.push([]);
+          // ignore — fall back to text-only width
         }
+        const hasVisuals = pageRegions.length > 0;
+        const targetWidth = hasVisuals ? IMAGE_WIDTH_VISUAL : IMAGE_WIDTH_TEXT;
+        const dataUrl = await renderPageToJpeg(pdf, pageNumber, targetWidth);
+        images.push(dataUrl);
+        regions.push(pageRegions);
+        pageHasVisuals.push(hasVisuals);
       } catch {
         // skip failed page renders
       }
@@ -131,7 +143,7 @@ async function extractPageImages(buffer: ArrayBuffer, onProgress?: ProgressCallb
     await pdf.destroy();
   }
 
-  return { images, regions };
+  return { images, regions, pageHasVisuals };
 }
 
 // Walks PDF.js operator list to find embedded raster images and returns their
@@ -158,9 +170,18 @@ async function detectPageImageRegions(
       OPS.paintJpegXObject,
     ].filter((v) => typeof v === "number"));
 
+    // Vector paint ops — used to detect charts, tables, and diagrams that are
+    // drawn as PDF path operations rather than embedded raster images.
+    const fillOpCodes = new Set<number>([
+      OPS.fill, OPS.eoFill, OPS.fillStroke, OPS.eoFillStroke,
+    ].filter((v): v is number => typeof v === "number"));
+
     const stack: number[][] = [];
     let ctm: number[] = [1, 0, 0, 1, 0, 0];
     const out: ImageRegion[] = [];
+
+    // Accumulate path control points between path-construction ops and each paint op.
+    let pathPoints: [number, number][] = [];
 
     const multiply = (a: number[], b: number[]): number[] => [
       a[0] * b[0] + a[2] * b[1],
@@ -175,6 +196,17 @@ async function detectPageImageRegions(
       m[1] * x + m[3] * y + m[5],
     ];
 
+    const pageW = viewport.width;
+    const pageH = viewport.height;
+
+    const toNormRegion = (minX: number, maxX: number, minY: number, maxY: number, source: "raster" | "vector"): ImageRegion => ({
+      x: Math.max(0, Math.min(1, minX / pageW)),
+      y: Math.max(0, Math.min(1, 1 - maxY / pageH)),
+      w: Math.max(0, Math.min(1, (maxX - minX) / pageW)),
+      h: Math.max(0, Math.min(1, (maxY - minY) / pageH)),
+      source,
+    });
+
     for (let i = 0; i < ops.fnArray.length; i++) {
       const fn = ops.fnArray[i];
       const args = ops.argsArray[i];
@@ -182,8 +214,41 @@ async function detectPageImageRegions(
         stack.push(ctm.slice());
       } else if (fn === OPS.restore) {
         ctm = stack.pop() ?? ctm;
+        // End any open path on restore (PDF spec: current path is cleared on restore)
+        pathPoints = [];
       } else if (fn === OPS.transform && Array.isArray(args) && args.length >= 6) {
         ctm = multiply(ctm, args as number[]);
+      } else if (fn === OPS.moveTo && Array.isArray(args) && args.length >= 2) {
+        pathPoints.push(tx(ctm, args[0] as number, args[1] as number));
+      } else if (fn === OPS.lineTo && Array.isArray(args) && args.length >= 2) {
+        pathPoints.push(tx(ctm, args[0] as number, args[1] as number));
+      } else if (fn === OPS.curveTo && Array.isArray(args) && args.length >= 6) {
+        // Approximate curve with endpoint only (sufficient for bbox estimation)
+        pathPoints.push(tx(ctm, args[4] as number, args[5] as number));
+      } else if (fn === OPS.rectangle && Array.isArray(args) && args.length >= 4) {
+        const [rx, ry, rw, rh] = args as number[];
+        pathPoints.push(
+          tx(ctm, rx, ry),
+          tx(ctm, rx + rw, ry),
+          tx(ctm, rx, ry + rh),
+          tx(ctm, rx + rw, ry + rh),
+        );
+      } else if (fillOpCodes.has(fn)) {
+        // Paint the accumulated path. If it's large enough, treat it as a
+        // vector visual region (chart bar, table cell group, diagram shape…).
+        if (pathPoints.length >= 3) {
+          const xs = pathPoints.map((p) => p[0]);
+          const ys = pathPoints.map((p) => p[1]);
+          const minX = Math.min(...xs), maxX = Math.max(...xs);
+          const minY = Math.min(...ys), maxY = Math.max(...ys);
+          const region = toNormRegion(minX, maxX, minY, maxY, "vector");
+          // Use stricter size thresholds for vector to avoid false-positives
+          // from decorative fills (rule lines, shaded backgrounds, etc.).
+          if (region.w >= 0.06 && region.h >= 0.06 && region.w * region.h >= 0.015) {
+            out.push(region);
+          }
+        }
+        pathPoints = [];
       } else if (imageOpCodes.has(fn)) {
         // PDF image XObjects are drawn into the unit square (0,0)-(1,1) under
         // the current CTM. Compute the bounding rect of the four transformed
@@ -200,15 +265,7 @@ async function detectPageImageRegions(
         const maxX = Math.max(...xs);
         const minY = Math.min(...ys);
         const maxY = Math.max(...ys);
-        const pageW = viewport.width;
-        const pageH = viewport.height;
-        // PDF origin is bottom-left; convert to top-left normalized.
-        const region: ImageRegion = {
-          x: Math.max(0, Math.min(1, minX / pageW)),
-          y: Math.max(0, Math.min(1, 1 - maxY / pageH)),
-          w: Math.max(0, Math.min(1, (maxX - minX) / pageW)),
-          h: Math.max(0, Math.min(1, (maxY - minY) / pageH)),
-        };
+        const region = toNormRegion(minX, maxX, minY, maxY, "raster");
         // Skip background patterns / icons / 1px decorations.
         if (region.w >= 0.04 && region.h >= 0.04 && region.w * region.h >= 0.008) {
           out.push(region);
@@ -412,15 +469,17 @@ export async function extractPdf(buffer: ArrayBuffer, onProgress?: ProgressCallb
   onProgress?.("Capturing page images…");
   let pageImages: string[] = [];
   let pageImageRegions: ImageRegion[][] = [];
+  let pageHasVisuals: boolean[] = [];
   try {
     const result = await extractPageImages(buffer, onProgress);
     pageImages = result.images;
     pageImageRegions = result.regions;
+    pageHasVisuals = result.pageHasVisuals;
   } catch {
     // images are best-effort — don't fail the whole extraction
   }
 
-  return { text, pageImages, pageTexts, pageImageRegions };
+  return { text, pageImages, pageTexts, pageImageRegions, pageHasVisuals };
 }
 
 export function isPdfFile(file: File): boolean {

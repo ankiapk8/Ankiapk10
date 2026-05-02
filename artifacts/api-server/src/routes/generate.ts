@@ -29,7 +29,7 @@ const MAX_VISUAL_BBOX_DIM = 0.85;
 // The AI bbox must overlap a detected region by at least this fraction of the
 // AI bbox's area; otherwise the card is dropped (the AI is pointing at prose,
 // not at a real figure on the page).
-const REGION_OVERLAP_RATIO = 0.25;
+const REGION_OVERLAP_RATIO = 0.15;
 // Padding added around a snapped detected-image region so we keep the figure's
 // caption / labels just outside the raw image bounds.
 const REGION_SNAP_PADDING = 0.025;
@@ -637,7 +637,7 @@ No markdown, no commentary, no \`\`\` fences — just the JSON array.${regionHin
 
   try {
     const response = await createChatCompletionWithRetry(openai, {
-      model: "google/gemma-3-27b-it:free",
+      model: "google/gemini-2.0-flash-001",
       max_completion_tokens: 16384,
       stream: false as const,
       messages: [
@@ -807,6 +807,57 @@ async function generateAllVisualCards(
     onBatchGroupDone?.(doneBatches, batches.length);
 
     if (i + VISUAL_CONCURRENCY < batches.length) await sleep(500);
+  }
+
+  // Multi-pass retry: find pages that had detected visual regions but produced
+  // zero cards in the first pass, and re-run them with a focused prompt.
+  if (pageImageRegions && !signal?.aborted) {
+    const producedPageNums = new Set(results.map(r => r.pageNumber));
+    const missedIndices: number[] = [];
+    for (let i = 0; i < pagesToProcess.length; i++) {
+      if ((pageImageRegions[i] ?? []).length === 0) continue;
+      if (producedPageNums.has(i + 1)) continue;
+      missedIndices.push(i);
+    }
+
+    for (const pageIdx of missedIndices) {
+      if (signal?.aborted) break;
+      try {
+        const img = pagesToProcess[pageIdx];
+        const retryRegions = [pageImageRegions[pageIdx] ?? []];
+        const retried = await generateVisualCardsForBatch(
+          openai, [img], pageIdx, Math.min(8, cardsPerPage * 2),
+          requestLog, signal, customPrompt, retryRegions,
+        );
+        const thumbCache = new Map<number, string>();
+        for (const c of retried) {
+          if (c.pageIndex !== 0) continue;
+          const aiBbox = c.bbox ?? null;
+          let finalBbox: Bbox | null = aiBbox;
+          if (aiBbox) {
+            const snap = snapBboxToRegions(aiBbox, retryRegions[0]);
+            finalBbox = snap.matched ? snap.snapped : aiBbox;
+          }
+          const cropped = await cropImage(img, finalBbox);
+          let thumb = thumbCache.get(0);
+          if (!thumb) {
+            thumb = await downscaleSourcePage(img);
+            thumbCache.set(0, thumb);
+          }
+          results.push({
+            front: c.front.trim(),
+            back: c.back.trim(),
+            image: cropped,
+            sourceImage: thumb,
+            bbox: finalBbox,
+            figureType: c.figureType ?? null,
+            pageNumber: pageIdx + 1,
+          });
+        }
+      } catch {
+        // ignore per-page retry failures — best-effort
+      }
+    }
   }
 
   // If a target was given, trim down
