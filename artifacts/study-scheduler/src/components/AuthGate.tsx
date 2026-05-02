@@ -1,5 +1,6 @@
-import { BookOpen, CalendarDays, FileDown, ShieldCheck } from "lucide-react";
+import { BookOpen, CalendarDays, FileDown, ShieldCheck, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "@/hooks/use-theme";
 import type { UseAuthResult } from "@/hooks/use-auth";
 
 interface AuthGateProps {
@@ -8,6 +9,8 @@ interface AuthGateProps {
 }
 
 export function AuthGate({ auth, children }: AuthGateProps) {
+  const { theme, toggleTheme } = useTheme();
+
   if (auth.isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -21,11 +24,20 @@ export function AuthGate({ auth, children }: AuthGateProps) {
 
   if (!auth.isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 transition-colors duration-300">
+        <button
+          onClick={toggleTheme}
+          className="fixed top-4 right-4 p-2 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors z-50"
+          aria-label="Toggle theme"
+          data-testid="button-theme-toggle"
+        >
+          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
+
         <div className="w-full max-w-md">
-          <div className="rounded-2xl border border-card-border bg-card shadow-md p-8">
+          <div className="rounded-2xl border border-card-border bg-card shadow-md p-8 transition-colors duration-300">
             <div className="flex items-center gap-3 mb-6">
-              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
+              <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shrink-0">
                 <BookOpen className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>

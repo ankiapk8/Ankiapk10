@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { useGetAllTopics, getGetAllTopicsQueryKey, useUpsertTopics } from "@workspace/api-client-react";
 import {
   ChevronDown, LogOut, LayoutDashboard, FileDown, Save, Upload,
-  Stethoscope, Scissors, Baby, Brain, Activity
+  Stethoscope, Scissors, Baby, Brain, Activity, Sun, Moon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import {
   downloadCSV, downloadZip, exportBackup, importBackup, type Topic, ALL_SUBJECT_GROUPS
 } from "@/lib/topics";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/hooks/use-theme";
 import type { AuthUser } from "@/hooks/use-auth";
 
 interface HomeProps {
@@ -141,6 +142,8 @@ export function Home({ user, onLogout }: HomeProps) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  const { theme, toggleTheme } = useTheme();
+
   const displayName = user.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
     : user.email?.split("@")[0] ?? "Student";
@@ -160,8 +163,11 @@ export function Home({ user, onLogout }: HomeProps) {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground hidden sm:block">{displayName}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground hidden sm:block mr-1">{displayName}</span>
+            <Button variant="ghost" size="sm" onClick={toggleTheme} className="text-muted-foreground hover:text-foreground" data-testid="button-theme-toggle">
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             <Button variant="ghost" size="sm" onClick={onLogout} className="text-muted-foreground hover:text-foreground" data-testid="button-logout">
               <LogOut className="h-4 w-4" />
             </Button>
