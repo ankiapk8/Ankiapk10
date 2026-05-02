@@ -23,7 +23,7 @@ import {
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
-  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network
+  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network, CheckCircle2
 } from "lucide-react";
 import {
   Dialog,
@@ -51,6 +51,7 @@ import { Drawer } from "vaul";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CropCompare, parseBbox } from "@/components/crop-compare";
+import { motion } from "framer-motion";
 import { SourcePageModal, type VisualCardRef } from "@/components/source-page-modal";
 
 type DeckWithSubDecks = Deck & { subDecks?: Deck[] };
@@ -253,6 +254,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
     Array.isArray(current?.choices) &&
     (current.choices?.length ?? 0) > 0 &&
     typeof current.correctIndex === "number";
+  const hasImage = !!(current as Card & { image?: string | null })?.image;
 
   type ExplainMode = "full" | "revision" | "osce" | "brief";
   const [explanation, setExplanation] = useState<string | null>(null);
@@ -570,146 +572,194 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
         <Progress value={progress} className="h-1.5" />
       </div>
 
-      <div
-        className={`relative transition-all duration-150 ${flipping ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}
-      >
-        {revealed && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -inset-px rounded-xl opacity-60 blur-xl animate-in fade-in duration-500"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(255,60,0,0.18), rgba(34,197,94,0.18))",
-              zIndex: -1,
-            }}
-          />
-        )}
-        <CardUI className="min-h-[280px] sm:min-h-[320px] border-border/50 shadow-lg overflow-hidden relative">
-          <CardContent className="p-0 flex flex-col h-full min-h-[280px] sm:min-h-[320px]">
-            <div className="flex-1 flex flex-col p-6 sm:p-8">
-              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
-                <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">Q</span>
-                Front
-              </div>
-              {(() => {
-                const c = current as Card & { image?: string | null; sourceImage?: string | null; bbox?: string | null };
-                if (!c?.image) return null;
-                return (
-                  <div className="mb-4">
-                    <CropCompare
-                      image={c.image}
-                      sourceImage={c.sourceImage}
-                      bbox={parseBbox(c.bbox)}
-                      onLightbox={setLightboxSrc}
-                    />
-                  </div>
-                );
-              })()}
-              <p className="text-lg sm:text-xl font-medium text-foreground leading-relaxed">
-                {current?.front}
-              </p>
-
-              {isMcq && current?.choices && (
-                <ul className="mt-5 space-y-2 flex-1">
-                  {current.choices.map((choice, i) => {
-                    const isCorrect = i === current.correctIndex;
-                    const isSelected = mcqSelected === i;
-                    let stateClasses = "border-border/50 bg-background hover:bg-muted/50";
-                    let boxClasses = "border-border/60 bg-background";
-                    let boxContent: React.ReactNode = null;
-                    if (revealed) {
-                      if (isCorrect) {
-                        stateClasses = "border-green-500/60 bg-green-500/10 text-green-900 dark:text-green-100";
-                        boxClasses = "border-green-600 bg-green-600 text-white";
-                        boxContent = <Check className="h-3.5 w-3.5" strokeWidth={3} />;
-                      } else if (isSelected) {
-                        stateClasses = "border-red-500/60 bg-red-500/10 text-red-900 dark:text-red-100";
-                        boxClasses = "border-red-600 bg-red-600 text-white";
-                        boxContent = <X className="h-3.5 w-3.5" strokeWidth={3} />;
-                      } else {
-                        stateClasses = "border-border/40 bg-background/50 text-muted-foreground";
-                      }
-                    } else if (isSelected) {
-                      stateClasses = "border-primary bg-primary/5";
-                      boxClasses = "border-primary bg-primary text-primary-foreground";
-                      boxContent = <Check className="h-3.5 w-3.5" strokeWidth={3} />;
-                    }
-                    return (
-                      <li key={i}>
-                        <button
-                          type="button"
-                          disabled={revealed}
-                          onClick={() => setMcqSelected(i)}
-                          className={`w-full flex items-start gap-3 text-left p-3 sm:p-4 rounded-lg border transition-colors ${stateClasses} ${revealed ? "cursor-default" : "cursor-pointer"}`}
-                        >
-                          <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 text-[10px] font-bold ${boxClasses}`}>
-                            {boxContent ?? String.fromCharCode(65 + i)}
-                          </span>
-                          <span className="flex-1 text-sm sm:text-base leading-relaxed">
-                            <span className="font-semibold mr-1.5 opacity-70">{String.fromCharCode(65 + i)}.</span>
-                            {choice}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-
-            {revealed ? (
-              <div className="border-t border-dashed border-border/60 bg-muted/30 flex flex-col p-6 sm:p-8 animate-in slide-in-from-bottom-2 duration-200">
+      {!isMcq && !hasImage ? (
+        /* ── 3D Flip card for regular flashcards ── */
+        <div style={{ perspective: "1100px" }} className={`transition-all duration-150 ${flipping ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}>
+          <motion.div
+            animate={{ rotateY: revealed ? 180 : 0 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+            style={{ transformStyle: "preserve-3d" }}
+            className="relative"
+          >
+            {/* Front face — in normal flow to define height */}
+            <div style={{ backfaceVisibility: "hidden" }} className="rounded-xl border border-border/50 shadow-lg bg-card overflow-hidden flex flex-col min-h-[280px] sm:min-h-[320px]">
+              <div className="flex-1 flex flex-col p-6 sm:p-8 justify-center">
                 <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <span className="h-5 w-5 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center text-[9px] font-bold">A</span>
-                  {isMcq ? "Explanation" : "Back"}
+                  <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">Q</span>
+                  Front
                 </div>
-                {isMcq && Array.isArray(current?.choices) && typeof current?.correctIndex === "number"
-                  && current.correctIndex >= 0 && current.correctIndex < current.choices.length && (
-                  <p className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2">
-                    Correct answer: {String.fromCharCode(65 + current.correctIndex)}. {current.choices[current.correctIndex]}
-                  </p>
-                )}
-                <p className="text-base sm:text-lg text-foreground leading-relaxed whitespace-pre-wrap">
-                  {current?.back}
-                </p>
+                <p className="text-lg sm:text-xl font-medium text-foreground leading-relaxed">{current?.front}</p>
               </div>
-            ) : (
               <div className="border-t border-dashed border-border/30 p-4 sm:p-6 flex justify-center">
-                <Button
-                  onClick={() => {
-                    setRevealed(true);
-                  }}
-                  className="gap-2"
-                  size="lg"
-                  disabled={isMcq && mcqSelected === null}
+                <button
+                  onClick={() => setRevealed(true)}
+                  className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group"
                 >
-                  <Eye className="h-4 w-4" />
-                  {isMcq ? (mcqSelected === null ? "Pick an answer" : "Show Answer") : "Reveal Answer"}
-                </Button>
+                  <Eye className="h-4 w-4 group-hover:scale-110 transition-transform" /> Tap to reveal
+                </button>
               </div>
-            )}
-          </CardContent>
-        </CardUI>
-      </div>
+            </div>
+            {/* Back face — absolutely overlaid, pre-rotated 180deg */}
+            <div
+              style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+              className="absolute inset-0 rounded-xl border border-emerald-500/25 shadow-lg bg-card overflow-hidden flex flex-col"
+            >
+              <div aria-hidden className="pointer-events-none absolute -inset-px rounded-xl opacity-40 blur-xl" style={{ background: "linear-gradient(135deg, rgba(255,60,0,0.15), rgba(34,197,94,0.15))" }} />
+              <div className="flex-1 flex flex-col p-6 sm:p-8 justify-center relative">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center text-[9px] font-bold">A</span>
+                  Back
+                </div>
+                <p className="text-base sm:text-lg text-foreground leading-relaxed whitespace-pre-wrap">{current?.back}</p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      ) : (
+        /* ── Card with reveal (MCQ or has image) ── */
+        <div className={`relative transition-all duration-150 ${flipping ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}>
+          {revealed && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -inset-px rounded-xl opacity-60 blur-xl animate-in fade-in duration-500"
+              style={{
+                background:
+                  "linear-gradient(135deg, rgba(255,60,0,0.18), rgba(34,197,94,0.18))",
+                zIndex: -1,
+              }}
+            />
+          )}
+          <CardUI className="min-h-[280px] sm:min-h-[320px] border-border/50 shadow-lg overflow-hidden relative">
+            <CardContent className="p-0 flex flex-col h-full min-h-[280px] sm:min-h-[320px]">
+              <div className="flex-1 flex flex-col p-6 sm:p-8">
+                <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">Q</span>
+                  Front
+                </div>
+                {(() => {
+                  const c = current as Card & { image?: string | null; sourceImage?: string | null; bbox?: string | null };
+                  if (!c?.image) return null;
+                  return (
+                    <div className="mb-4">
+                      <CropCompare
+                        image={c.image}
+                        sourceImage={c.sourceImage}
+                        bbox={parseBbox(c.bbox)}
+                        onLightbox={setLightboxSrc}
+                      />
+                    </div>
+                  );
+                })()}
+                <p className="text-lg sm:text-xl font-medium text-foreground leading-relaxed">
+                  {current?.front}
+                </p>
+
+                {isMcq && current?.choices && (
+                  <ul className="mt-5 space-y-2 flex-1">
+                    {current.choices.map((choice, i) => {
+                      const isCorrect = i === current.correctIndex;
+                      const isSelected = mcqSelected === i;
+                      let stateClasses = "border-border/50 bg-background hover:bg-muted/50";
+                      let boxClasses = "border-border/60 bg-background";
+                      let boxContent: React.ReactNode = null;
+                      if (revealed) {
+                        if (isCorrect) {
+                          stateClasses = "border-green-500/60 bg-green-500/10 text-green-900 dark:text-green-100";
+                          boxClasses = "border-green-600 bg-green-600 text-white";
+                          boxContent = <Check className="h-3.5 w-3.5" strokeWidth={3} />;
+                        } else if (isSelected) {
+                          stateClasses = "border-red-500/60 bg-red-500/10 text-red-900 dark:text-red-100";
+                          boxClasses = "border-red-600 bg-red-600 text-white";
+                          boxContent = <X className="h-3.5 w-3.5" strokeWidth={3} />;
+                        } else {
+                          stateClasses = "border-border/40 bg-background/50 text-muted-foreground";
+                        }
+                      } else if (isSelected) {
+                        stateClasses = "border-primary bg-primary/5";
+                        boxClasses = "border-primary bg-primary text-primary-foreground";
+                        boxContent = <Check className="h-3.5 w-3.5" strokeWidth={3} />;
+                      }
+                      return (
+                        <li key={i}>
+                          <button
+                            type="button"
+                            disabled={revealed}
+                            onClick={() => setMcqSelected(i)}
+                            className={`w-full flex items-start gap-3 text-left p-3 sm:p-4 rounded-lg border transition-colors ${stateClasses} ${revealed ? "cursor-default" : "cursor-pointer"}`}
+                          >
+                            <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 text-[10px] font-bold ${boxClasses}`}>
+                              {boxContent ?? String.fromCharCode(65 + i)}
+                            </span>
+                            <span className="flex-1 text-sm sm:text-base leading-relaxed">
+                              <span className="font-semibold mr-1.5 opacity-70">{String.fromCharCode(65 + i)}.</span>
+                              {choice}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              {revealed ? (
+                <div className="border-t border-dashed border-border/60 bg-muted/30 flex flex-col p-6 sm:p-8 animate-in slide-in-from-bottom-2 duration-200">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span className="h-5 w-5 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center text-[9px] font-bold">A</span>
+                    {isMcq ? "Explanation" : "Back"}
+                  </div>
+                  {isMcq && Array.isArray(current?.choices) && typeof current?.correctIndex === "number"
+                    && current.correctIndex >= 0 && current.correctIndex < current.choices.length && (
+                    <p className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2">
+                      Correct answer: {String.fromCharCode(65 + current.correctIndex)}. {current.choices[current.correctIndex]}
+                    </p>
+                  )}
+                  <p className="text-base sm:text-lg text-foreground leading-relaxed whitespace-pre-wrap">
+                    {current?.back}
+                  </p>
+                </div>
+              ) : (
+                <div className="border-t border-dashed border-border/30 p-4 sm:p-6 flex justify-center">
+                  <Button
+                    onClick={() => {
+                      setRevealed(true);
+                    }}
+                    className="gap-2"
+                    size="lg"
+                    disabled={isMcq && mcqSelected === null}
+                  >
+                    <Eye className="h-4 w-4" />
+                    {isMcq ? (mcqSelected === null ? "Pick an answer" : "Show Answer") : "Reveal Answer"}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </CardUI>
+        </div>
+      )}
 
       {revealed && (
-        <div className="flex flex-col sm:flex-row gap-3 animate-in fade-in duration-200">
-          <Button
-            variant="outline"
-            className="flex-1 gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300 h-12"
+        <motion.div
+          className="flex flex-col sm:flex-row gap-3"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 28, delay: !isMcq && !hasImage ? 0.45 : 0.1 }}
+        >
+          <button
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl border-2 border-red-200 dark:border-red-800/50 text-red-500 dark:text-red-400 bg-red-500/5 hover:bg-red-500/10 transition-all font-semibold text-base"
             onClick={markUnknown}
           >
-            <X className="h-4 w-4" /> Still Learning
-            <span className="ml-auto text-xs opacity-50">2</span>
-          </Button>
-          <Button
-            className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white h-12"
+            <XCircle className="h-5 w-5" /> Still learning
+            <span className="ml-auto text-xs opacity-50 font-normal">2</span>
+          </button>
+          <button
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white transition-all font-semibold text-base shadow-lg shadow-emerald-500/20"
             onClick={markKnown}
           >
-            <Check className="h-4 w-4" /> Got It
-            <span className="ml-auto text-xs opacity-70">1</span>
-          </Button>
-        </div>
+            <CheckCircle2 className="h-5 w-5" /> Got it!
+            <span className="ml-auto text-xs opacity-70 font-normal">1</span>
+          </button>
+        </motion.div>
       )}
 
       <div className="flex justify-between items-center">

@@ -73,11 +73,11 @@ export default function Dashboard() {
       {/* Top stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Flashcard Decks", value: totalDecks, icon: Layers, color: "text-primary" },
-          { label: "Total Cards", value: totalCards, icon: FileText, color: "text-blue-500" },
-          { label: "Question Banks", value: totalQbanks, icon: Stethoscope, color: "text-violet-500" },
-          { label: "Study Streak", value: streak > 0 ? `${streak}d` : "—", icon: Flame, color: "text-emerald-500" },
-        ].map(({ label, value, icon: Icon, color }, idx) => (
+          { label: "Flashcard Decks", value: totalDecks, icon: Layers, hexColor: "#34d399", bgClass: "bg-emerald-500/10", glowRgb: "52,211,153" },
+          { label: "Total Cards", value: totalCards, icon: FileText, hexColor: "#38bdf8", bgClass: "bg-sky-500/10", glowRgb: "56,189,248" },
+          { label: "Question Banks", value: totalQbanks, icon: Stethoscope, hexColor: "#a78bfa", bgClass: "bg-violet-500/10", glowRgb: "167,139,250" },
+          { label: "Study Streak", value: streak > 0 ? `${streak}d` : "—", icon: Flame, hexColor: "#fb923c", bgClass: "bg-orange-500/10", glowRgb: "251,146,60" },
+        ].map(({ label, value, icon: Icon, hexColor, bgClass, glowRgb }, idx) => (
           <motion.div
             key={label}
             initial={{ opacity: 0, y: 16 }}
@@ -85,19 +85,20 @@ export default function Dashboard() {
             transition={{ delay: 0.05 * idx, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             whileHover={{ y: -3, transition: { duration: 0.15 } }}
           >
-          <Card className="border-border/50 shadow-sm h-full hover:shadow-md transition-shadow">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{label}</p>
-                <Icon className={`h-4 w-4 ${color}`} />
+          <Card className="border-border/50 shadow-sm h-full hover:shadow-md transition-shadow overflow-hidden relative">
+            <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(circle at 15% 50%, rgba(${glowRgb},0.1) 0%, transparent 65%)` }} />
+            <CardContent className="p-4 flex flex-col gap-3 relative">
+              <div className={`h-9 w-9 rounded-xl ${bgClass} flex items-center justify-center`}>
+                <Icon className="h-4 w-4" style={{ color: hexColor }} />
               </div>
-            </CardHeader>
-            <CardContent className="pb-4 px-4">
-              {isLoading && label === "Total Decks" ? (
-                <Skeleton className="h-8 w-16" />
-              ) : (
-                <p className="text-3xl font-bold tracking-tight">{value}</p>
-              )}
+              <div>
+                {isLoading ? (
+                  <Skeleton className="h-7 w-14" />
+                ) : (
+                  <p className="text-2xl font-bold tracking-tight">{value}</p>
+                )}
+                <p className="text-xs text-muted-foreground font-medium mt-0.5">{label}</p>
+              </div>
             </CardContent>
           </Card>
           </motion.div>
@@ -164,7 +165,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="flex items-end gap-2 h-28">
-                {last7.map(day => {
+                {last7.map((day, idx) => {
                   const knownH = day.total > 0 ? Math.round((day.known / maxDay) * 96) : 0;
                   const unknownH = day.total > 0 ? Math.round(((day.total - day.known) / maxDay) * 96) : 0;
                   const isEmpty = day.total === 0;
@@ -172,21 +173,23 @@ export default function Dashboard() {
                     <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
                       <div className="w-full flex flex-col-reverse items-stretch gap-0" style={{ height: 96 }}>
                         {isEmpty ? (
-                          <div
-                            className="w-full rounded-sm bg-border/50"
-                            style={{ height: 4 }}
-                            title="No activity"
-                          />
+                          <div className="w-full rounded-sm bg-border/50" style={{ height: 4 }} title="No activity" />
                         ) : (
                           <>
-                            <div
-                              className="w-full rounded-b-sm bg-green-500/80"
-                              style={{ height: knownH }}
+                            <motion.div
+                              className="w-full rounded-b-sm"
+                              style={{ background: "linear-gradient(180deg,#4ade80,#16a34a)", minHeight: 2 }}
+                              initial={{ height: 0 }}
+                              animate={{ height: knownH }}
+                              transition={{ duration: 0.6, delay: 0.3 + idx * 0.07, ease: [0.22, 1, 0.36, 1] }}
                               title={`${day.known} known`}
                             />
-                            <div
-                              className="w-full rounded-t-sm bg-orange-400/70"
-                              style={{ height: unknownH }}
+                            <motion.div
+                              className="w-full rounded-t-sm"
+                              style={{ background: "linear-gradient(180deg,#fb923c,#ea580c)", minHeight: 2 }}
+                              initial={{ height: 0 }}
+                              animate={{ height: unknownH }}
+                              transition={{ duration: 0.6, delay: 0.3 + idx * 0.07, ease: [0.22, 1, 0.36, 1] }}
                               title={`${day.total - day.known} still learning`}
                             />
                           </>
@@ -203,7 +206,7 @@ export default function Dashboard() {
                   <span className="text-xs text-muted-foreground">Known</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="h-2.5 w-2.5 rounded-sm bg-orange-400/70" />
+                  <div className="h-2.5 w-2.5 rounded-sm bg-orange-500/80" />
                   <span className="text-xs text-muted-foreground">Still learning</span>
                 </div>
               </div>
