@@ -1,6 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCreateDeck, useUpdateDeck, useListDecks, getListDecksQueryKey } from "@workspace/api-client-react";
+import {
+  useCreateDeck, useUpdateDeck, useListDecks, getListDecksQueryKey,
+  useCreateQbank, useUpdateQbank, useListQbanks, getListQbanksQueryKey,
+} from "@workspace/api-client-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, FolderOpen, Layers, FileText, Plus, X, Stethoscope } from "lucide-react";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Qbank } from "@workspace/api-client-react";
 
 type DeckWithParent = Deck & { parentId?: number | null };
 
@@ -19,7 +23,8 @@ export type DeckFormMode =
   | { type: "new-subdeck"; parentId?: number }
   | { type: "new-qbank-topic" }
   | { type: "new-qbank"; parentId?: number }
-  | { type: "edit"; deck: DeckWithParent };
+  | { type: "edit"; deck: DeckWithParent }
+  | { type: "edit-qbank"; qbank: Qbank };
 
 interface DeckFormSheetProps {
   open: boolean;
@@ -31,11 +36,8 @@ interface DeckFormSheetProps {
 function buildParentOptions(
   allDecks: DeckWithParent[],
   excludeId?: number,
-  kindFilter?: "qbank" | "deck"
 ): { id: number; label: string; depth: number }[] {
-  const filtered = kindFilter
-    ? allDecks.filter(d => kindFilter === "qbank" ? d.kind === "qbank" : (d.kind ?? "deck") !== "qbank")
-    : allDecks;
+  const filtered = allDecks.filter(d => (d.kind ?? "deck") !== "qbank");
   const rootDecks = filtered.filter(d => !d.parentId && d.id !== excludeId);
   const byParent = new Map<number, DeckWithParent[]>();
   filtered.filter(d => d.parentId).forEach(d => {
@@ -62,12 +64,45 @@ function buildParentOptions(
   return result;
 }
 
+function buildQbankParentOptions(
+  allQbanks: Qbank[],
+  excludeId?: number,
+): { id: number; label: string; depth: number }[] {
+  const rootQbanks = allQbanks.filter(q => !q.parentId && q.id !== excludeId);
+  const byParent = new Map<number, Qbank[]>();
+  allQbanks.filter(q => q.parentId).forEach(q => {
+    const pid = q.parentId!;
+    if (!byParent.has(pid)) byParent.set(pid, []);
+    byParent.get(pid)!.push(q);
+  });
+
+  const result: { id: number; label: string; depth: number }[] = [];
+
+  function walk(qbank: Qbank, label: string, depth: number) {
+    if (qbank.id === excludeId) return;
+    result.push({ id: qbank.id, label, depth });
+    const children = byParent.get(qbank.id) ?? [];
+    for (const child of children.sort((a, b) => a.name.localeCompare(b.name))) {
+      walk(child, `${label} › ${child.name}`, depth + 1);
+    }
+  }
+
+  for (const q of rootQbanks.sort((a, b) => a.name.localeCompare(b.name))) {
+    walk(q, q.name, 0);
+  }
+
+  return result;
+}
+
 export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormSheetProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createDeck = useCreateDeck();
   const updateDeck = useUpdateDeck();
+  const createQbank = useCreateQbank();
+  const updateQbank = useUpdateQbank();
   const { data: allDecks } = useListDecks();
+  const { data: allQbanks } = useListQbanks();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -75,18 +110,18 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
   const [isSaving, setIsSaving] = useState(false);
   const [subSlots, setSubSlots] = useState<{ id: string; name: string }[]>([]);
 
-  const isQbankMode = mode.type === "new-qbank-topic" || mode.type === "new-qbank";
-  const excludeId = mode.type === "edit" ? mode.deck.id : undefined;
+  const isQbankMode = mode.type === "new-qbank-topic" || mode.type === "new-qbank" || mode.type === "edit-qbank";
+  const excludeId = mode.type === "edit" ? mode.deck.id : mode.type === "edit-qbank" ? mode.qbank.id : undefined;
 
   const parentOptions = useMemo(() => {
     if (mode.type === "new-subdeck" || mode.type === "edit") {
-      return buildParentOptions((allDecks as DeckWithParent[]) ?? [], excludeId, "deck");
+      return buildParentOptions((allDecks as DeckWithParent[]) ?? [], excludeId);
     }
-    if (mode.type === "new-qbank") {
-      return buildParentOptions((allDecks as DeckWithParent[]) ?? [], excludeId, "qbank");
+    if (mode.type === "new-qbank" || mode.type === "edit-qbank") {
+      return buildQbankParentOptions((allQbanks as Qbank[]) ?? [], excludeId);
     }
-    return buildParentOptions((allDecks as DeckWithParent[]) ?? [], excludeId);
-  }, [allDecks, excludeId, mode.type]);
+    return [];
+  }, [allDecks, allQbanks, excludeId, mode.type]);
 
   useEffect(() => {
     if (!open) return;
@@ -100,10 +135,15 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
       setName(""); setDescription("");
       setParentId(mode.parentId?.toString() ?? "none");
       setSubSlots([]);
-    } else {
+    } else if (mode.type === "edit") {
       setName(mode.deck.name);
       setDescription(mode.deck.description ?? "");
       setParentId(mode.deck.parentId?.toString() ?? "none");
+      setSubSlots([]);
+    } else if (mode.type === "edit-qbank") {
+      setName(mode.qbank.name);
+      setDescription(mode.qbank.description ?? "");
+      setParentId(mode.qbank.parentId?.toString() ?? "none");
       setSubSlots([]);
     }
   }, [open, mode.type]);
@@ -127,39 +167,68 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
           id: mode.deck.id,
           data: { name: name.trim(), description: description.trim() || null, parentId: resolvedParentId },
         });
+        queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
         toast({ title: "Updated." });
-      } else if (mode.type === "new-topic" || mode.type === "new-qbank-topic") {
-        const kind = mode.type === "new-qbank-topic" ? "qbank" : "deck";
-        const created = await createDeck.mutateAsync({
-          data: { name: name.trim(), description: description.trim() || null, parentId: null, kind } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
-        }) as DeckWithParent;
 
-        if (subSlots.length > 0) {
-          const validSlots = subSlots.filter(s => s.name.trim());
-          for (const s of validSlots) {
-            await createDeck.mutateAsync({
-              data: { name: s.name.trim(), parentId: created.id, kind } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
-            });
-          }
-          const label = kind === "qbank" ? "question bank" : "sub-topic";
-          toast({
-            title: kind === "qbank" ? "QBank topic created!" : "Topic created!",
-            description: validSlots.length > 0
-              ? `"${name}" created with ${validSlots.length} ${label}${validSlots.length !== 1 ? "s" : ""}.`
-              : `"${name}" topic created.`,
-          });
-        } else {
-          toast({ title: mode.type === "new-qbank-topic" ? "QBank topic created!" : "Topic created!" });
-        }
-      } else {
-        const kind = mode.type === "new-qbank" ? "qbank" : "deck";
-        await createDeck.mutateAsync({
-          data: { name: name.trim(), description: description.trim() || null, parentId: resolvedParentId, kind } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
+      } else if (mode.type === "edit-qbank") {
+        await updateQbank.mutateAsync({
+          id: mode.qbank.id,
+          data: { name: name.trim(), description: description.trim() || null, parentId: resolvedParentId },
         });
-        toast({ title: mode.type === "new-qbank" ? "Question bank created!" : "Deck created!" });
+        queryClient.invalidateQueries({ queryKey: getListQbanksQueryKey() });
+        toast({ title: "Updated." });
+
+      } else if (mode.type === "new-topic") {
+        const created = await createDeck.mutateAsync({
+          data: { name: name.trim(), description: description.trim() || null, parentId: null, kind: "deck" } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
+        }) as DeckWithParent;
+        const validSlots = subSlots.filter(s => s.name.trim());
+        for (const s of validSlots) {
+          await createDeck.mutateAsync({
+            data: { name: s.name.trim(), parentId: created.id, kind: "deck" } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
+          });
+        }
+        toast({
+          title: "Topic created!",
+          description: validSlots.length > 0
+            ? `"${name}" created with ${validSlots.length} sub-topic${validSlots.length !== 1 ? "s" : ""}.`
+            : undefined,
+        });
+        queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
+
+      } else if (mode.type === "new-subdeck") {
+        await createDeck.mutateAsync({
+          data: { name: name.trim(), description: description.trim() || null, parentId: resolvedParentId, kind: "deck" } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
+        });
+        queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
+        toast({ title: "Deck created!" });
+
+      } else if (mode.type === "new-qbank-topic") {
+        const created = await createQbank.mutateAsync({
+          data: { name: name.trim(), description: description.trim() || null, parentId: null },
+        });
+        const validSlots = subSlots.filter(s => s.name.trim());
+        for (const s of validSlots) {
+          await createQbank.mutateAsync({
+            data: { name: s.name.trim(), parentId: created.id },
+          });
+        }
+        toast({
+          title: "QBank topic created!",
+          description: validSlots.length > 0
+            ? `"${name}" created with ${validSlots.length} question bank${validSlots.length !== 1 ? "s" : ""}.`
+            : undefined,
+        });
+        queryClient.invalidateQueries({ queryKey: getListQbanksQueryKey() });
+
+      } else if (mode.type === "new-qbank") {
+        await createQbank.mutateAsync({
+          data: { name: name.trim(), description: description.trim() || null, parentId: resolvedParentId },
+        });
+        queryClient.invalidateQueries({ queryKey: getListQbanksQueryKey() });
+        toast({ title: "Question bank created!" });
       }
 
-      queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
       onDone?.();
       onOpenChange(false);
     } catch {
@@ -230,16 +299,29 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
       badgeLabel: () => "",
       btnLabel: () => "Save Changes",
     },
+    "edit-qbank": {
+      title: "Edit Question Bank",
+      desc: "Update this question bank's name, description, or parent topic.",
+      icon: Stethoscope,
+      accent: "violet" as const,
+      namePlaceholder: "Question bank name…",
+      subLabel: "",
+      subPlaceholder: () => "",
+      subNote: () => "",
+      badgeLabel: () => "",
+      btnLabel: () => "Save Changes",
+    },
   }[mode.type];
 
   const isTopicMode = mode.type === "new-topic" || mode.type === "new-qbank-topic";
   const isNewWithParent = mode.type === "new-subdeck" || mode.type === "new-qbank";
+  const isEditWithParent = mode.type === "edit" || mode.type === "edit-qbank";
   const validSubCount = subSlots.filter(s => s.name.trim()).length;
   const Icon = config.icon;
   const isViolet = config.accent === "violet";
   const selectedParentOpt = parentOptions.find(o => o.id.toString() === parentId);
 
-  const parentLabel = mode.type === "new-qbank" ? "QBank Topic" : "Parent Topic";
+  const parentLabel = (mode.type === "new-qbank" || mode.type === "edit-qbank") ? "QBank Topic" : "Parent Topic";
   const parentRequired = isNewWithParent;
 
   return (
@@ -258,7 +340,7 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
         <div className="space-y-5">
           <div className="space-y-1.5">
             <Label htmlFor="deck-name">
-              {isTopicMode ? "Topic Name" : mode.type === "new-qbank" ? "Question Bank Name" : mode.type === "new-subdeck" ? "Sub-Topic Name" : "Deck Name"}{" "}
+              {isTopicMode ? "Topic Name" : (mode.type === "new-qbank" || mode.type === "edit-qbank") ? "Question Bank Name" : mode.type === "new-subdeck" ? "Sub-Topic Name" : "Deck Name"}{" "}
               <span className="text-destructive">*</span>
             </Label>
             <Input
@@ -284,7 +366,7 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
             />
           </div>
 
-          {(isNewWithParent || mode.type === "edit") && (
+          {(isNewWithParent || isEditWithParent) && (
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1.5">
                 {isViolet
@@ -306,7 +388,7 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
                   }
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  {mode.type === "edit" && <SelectItem value="none">No parent — standalone topic</SelectItem>}
+                  {isEditWithParent && <SelectItem value="none">No parent — standalone topic</SelectItem>}
                   {parentOptions.map(opt => (
                     <SelectItem key={opt.id} value={opt.id.toString()} className="py-1.5">
                       <span className="flex items-center gap-1 min-w-0">

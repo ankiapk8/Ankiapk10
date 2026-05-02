@@ -1137,7 +1137,7 @@ export default function Decks() {
         </div>
       )}
 
-      {allDecksCount > 0 && libraryTab === "qbanks" && (
+      {(qbanks?.length ?? 0) > 0 && libraryTab === "qbanks" && (
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 backdrop-blur-sm p-3.5 shadow-sm">
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
@@ -1311,9 +1311,17 @@ export default function Decks() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredQbanks.map((deck, idx) => (
-                      <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
-                        <DeckRow deck={deck} depth={0} {...sharedRowProps} isQbank={true} />
+                    {filteredQbanks.map((qb, idx) => (
+                      <div key={qb.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
+                        <QbankRow
+                          qbank={qb}
+                          depth={0}
+                          collapsedIds={collapsedIds}
+                          toggleCollapse={toggleCollapse}
+                          qbankChildrenMap={qbankChildrenMap}
+                          openDeckForm={openDeckForm}
+                          handleDeleteQbank={handleDeleteQbank}
+                        />
                       </div>
                     ))}
                   </div>

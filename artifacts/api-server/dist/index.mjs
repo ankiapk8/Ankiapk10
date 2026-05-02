@@ -20488,27 +20488,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router12;
+    module.exports = Router13;
     module.exports.Route = Route;
-    function Router12(options) {
-      if (!(this instanceof Router12)) {
-        return new Router12(options);
+    function Router13(options) {
+      if (!(this instanceof Router13)) {
+        return new Router13(options);
       }
       const opts = options || {};
-      function router12(req, res, next) {
-        router12.handle(req, res, next);
+      function router13(req, res, next) {
+        router13.handle(req, res, next);
       }
-      Object.setPrototypeOf(router12, this);
-      router12.caseSensitive = opts.caseSensitive;
-      router12.mergeParams = opts.mergeParams;
-      router12.params = {};
-      router12.strict = opts.strict;
-      router12.stack = [];
-      return router12;
+      Object.setPrototypeOf(router13, this);
+      router13.caseSensitive = opts.caseSensitive;
+      router13.mergeParams = opts.mergeParams;
+      router13.params = {};
+      router13.strict = opts.strict;
+      router13.stack = [];
+      return router13;
     }
-    Router12.prototype = function() {
+    Router13.prototype = function() {
     };
-    Router12.prototype.param = function param2(name2, fn) {
+    Router13.prototype.param = function param2(name2, fn) {
       if (!name2) {
         throw new TypeError("argument name is required");
       }
@@ -20528,7 +20528,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router12.prototype.handle = function handle(req, res, callback) {
+    Router13.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20655,7 +20655,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router12.prototype.use = function use(handler) {
+    Router13.prototype.use = function use(handler) {
       let offset = 0;
       let path4 = "/";
       if (typeof handler !== "function") {
@@ -20688,7 +20688,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router12.prototype.route = function route(path4) {
+    Router13.prototype.route = function route(path4) {
       const route2 = new Route(path4);
       const layer = new Layer(path4, {
         sensitive: this.caseSensitive,
@@ -20703,7 +20703,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router12.prototype[method] = function(path4) {
+      Router13.prototype[method] = function(path4) {
         const route = this.route(path4);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -20886,13 +20886,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router12 = require_router();
+    var Router13 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router12 = null;
+      var router13 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -20901,13 +20901,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router12 === null) {
-            router12 = new Router12({
+          if (router13 === null) {
+            router13 = new Router13({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router12;
+          return router13;
         }
       });
     };
@@ -20978,15 +20978,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router12 = this.router;
+      var router13 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router12.use(path4, fn2);
+          return router13.use(path4, fn2);
         }
         debug(".use app under %s", path4);
         fn2.mountpath = path4;
         fn2.parent = this;
-        router12.use(path4, function mounted_app(req, res, next) {
+        router13.use(path4, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23513,7 +23513,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router12 = require_router();
+    var Router13 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23535,8 +23535,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router12.Route;
-    exports.Router = Router12;
+    exports.Route = Router13.Route;
+    exports.Router = Router13;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -62716,14 +62716,14 @@ var require_multer = __commonJS({
 });
 
 // src/app.ts
-var import_express12 = __toESM(require_express2(), 1);
+var import_express13 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 import path3 from "node:path";
 import fs2 from "node:fs";
 
 // src/routes/index.ts
-var import_express11 = __toESM(require_express2(), 1);
+var import_express12 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -66520,7 +66520,11 @@ __export(schema_exports, {
   decksTable: () => decksTable,
   generationsTable: () => generationsTable,
   insertCardSchema: () => insertCardSchema,
-  insertDeckSchema: () => insertDeckSchema
+  insertDeckSchema: () => insertDeckSchema,
+  insertQbankSchema: () => insertQbankSchema,
+  insertQuestionSchema: () => insertQuestionSchema,
+  qbanksTable: () => qbanksTable,
+  questionsTable: () => questionsTable
 });
 
 // ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v4/classic/external.js
@@ -77956,6 +77960,32 @@ var generationsTable = pgTable("generations", {
   completedAt: timestamp("completed_at", { withTimezone: true })
 });
 
+// ../../lib/db/src/schema/qbanks.ts
+var qbanksTable = pgTable("qbanks", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  parentId: integer("parent_id").references(() => qbanksTable.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => /* @__PURE__ */ new Date())
+});
+var insertQbankSchema = createInsertSchema(qbanksTable).omit({ id: true, createdAt: true, updatedAt: true });
+
+// ../../lib/db/src/schema/questions.ts
+var questionsTable = pgTable("questions", {
+  id: serial("id").primaryKey(),
+  qbankId: integer("qbank_id").notNull().references(() => qbanksTable.id, { onDelete: "cascade" }),
+  front: text("front").notNull(),
+  back: text("back").notNull(),
+  choices: text("choices"),
+  correctIndex: integer("correct_index"),
+  tags: text("tags"),
+  pageNumber: integer("page_number"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => /* @__PURE__ */ new Date())
+});
+var insertQuestionSchema = createInsertSchema(questionsTable).omit({ id: true, createdAt: true, updatedAt: true });
+
 // ../../lib/db/src/index.ts
 var { Pool: Pool3 } = esm_default;
 if (!process.env.DATABASE_URL) {
@@ -78017,6 +78047,28 @@ async function ensureDatabaseSchema() {
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "created_at" timestamp with time zone DEFAULT now() NOT NULL;
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "updated_at" timestamp with time zone DEFAULT now() NOT NULL;
 
+    CREATE TABLE IF NOT EXISTS "qbanks" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "name" text NOT NULL,
+      "description" text,
+      "parent_id" integer,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS "questions" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "qbank_id" integer NOT NULL,
+      "front" text NOT NULL,
+      "back" text NOT NULL,
+      "choices" text,
+      "correct_index" integer,
+      "tags" text,
+      "page_number" integer,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
+
     DO $$
     BEGIN
       IF NOT EXISTS (
@@ -78034,6 +78086,24 @@ async function ensureDatabaseSchema() {
         ALTER TABLE "cards"
           ADD CONSTRAINT "cards_deck_id_decks_id_fk"
           FOREIGN KEY ("deck_id") REFERENCES "public"."decks"("id")
+          ON DELETE cascade ON UPDATE no action;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'qbanks_parent_id_qbanks_id_fk'
+      ) THEN
+        ALTER TABLE "qbanks"
+          ADD CONSTRAINT "qbanks_parent_id_qbanks_id_fk"
+          FOREIGN KEY ("parent_id") REFERENCES "public"."qbanks"("id")
+          ON DELETE set null ON UPDATE no action;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'questions_qbank_id_qbanks_id_fk'
+      ) THEN
+        ALTER TABLE "questions"
+          ADD CONSTRAINT "questions_qbank_id_qbanks_id_fk"
+          FOREIGN KEY ("qbank_id") REFERENCES "public"."qbanks"("id")
           ON DELETE cascade ON UPDATE no action;
       END IF;
     END $$;
@@ -83525,25 +83595,23 @@ router4.post("/generate-qbank", async (req, res, next) => {
     return;
   }
   try {
-    const [primaryDeck] = await db.insert(decksTable).values({ name: deckName, parentId: parentId ?? null, kind: "qbank" }).returning();
-    if (!primaryDeck) {
+    const [primaryQbank] = await db.insert(qbanksTable).values({ name: deckName, parentId: parentId ?? null }).returning();
+    if (!primaryQbank) {
       res.status(500).json({ error: "Failed to save question bank." });
       return;
     }
-    const cardRows = filtered.map((c) => ({
-      deckId: primaryDeck.id,
+    const questionRows = filtered.map((c) => ({
+      qbankId: primaryQbank.id,
       front: c.front,
       back: c.back,
-      image: null,
-      cardType: "mcq",
       choices: c.choices ? JSON.stringify(c.choices) : null,
       correctIndex: typeof c.correctIndex === "number" ? c.correctIndex : null,
       pageNumber: c.pageNumber ?? null
     }));
-    const inserted = await db.insert(cardsTable).values(cardRows).returning();
+    const inserted = await db.insert(questionsTable).values(questionRows).returning();
     res.status(201).json({
-      deck: { ...primaryDeck, cardCount: inserted.length, createdAt: primaryDeck.createdAt.toISOString() },
-      cards: inserted.map(serializeCard),
+      qbank: { ...primaryQbank, questionCount: inserted.length, createdAt: primaryQbank.createdAt.toISOString() },
+      questions: inserted.map((q) => ({ ...q, choices: q.choices ? JSON.parse(q.choices) : null, createdAt: q.createdAt.toISOString() })),
       generatedCount: inserted.length
     });
   } catch (err) {
@@ -83615,27 +83683,25 @@ router4.post("/generate-qbank/stream", async (req, res) => {
     return;
   }
   try {
-    const [primaryDeck] = await db.insert(decksTable).values({ name: deckName, parentId: parentId ?? null, kind: "qbank" }).returning();
-    if (!primaryDeck) {
+    const [primaryQbank] = await db.insert(qbanksTable).values({ name: deckName, parentId: parentId ?? null }).returning();
+    if (!primaryQbank) {
       sseEmit(res, { type: "error", message: "Failed to save question bank." });
       res.end();
       return;
     }
-    const cardRows = filtered.map((c) => ({
-      deckId: primaryDeck.id,
+    const questionRows = filtered.map((c) => ({
+      qbankId: primaryQbank.id,
       front: c.front,
       back: c.back,
-      image: null,
-      cardType: "mcq",
       choices: c.choices ? JSON.stringify(c.choices) : null,
       correctIndex: typeof c.correctIndex === "number" ? c.correctIndex : null,
       pageNumber: c.pageNumber ?? null
     }));
-    const inserted = await db.insert(cardsTable).values(cardRows).returning();
+    const inserted = await db.insert(questionsTable).values(questionRows).returning();
     sseEmit(res, {
       type: "done",
       generatedCount: inserted.length,
-      deck: { ...primaryDeck, cardCount: inserted.length, createdAt: primaryDeck.createdAt.toISOString() }
+      qbank: { ...primaryQbank, questionCount: inserted.length, createdAt: primaryQbank.createdAt.toISOString() }
     });
     res.end();
   } catch (err) {
@@ -85061,22 +85127,229 @@ router10.get("/download-apk", (req, res) => {
 });
 var download_apk_default = router10;
 
-// src/routes/index.ts
+// src/routes/qbanks.ts
+var import_express11 = __toESM(require_express2(), 1);
+init_drizzle_orm();
 var router11 = (0, import_express11.Router)();
-router11.use(health_default);
-router11.use(decks_default);
-router11.use(cards_default);
-router11.use(generate_default);
-router11.use(export_apkg_default);
-router11.use(extract_pdf_default);
-router11.use(explain_default);
-router11.use(transfer_default);
-router11.use(generations_default);
-router11.use(download_apk_default);
-var routes_default = router11;
+router11.get("/qbanks", async (_req, res, next) => {
+  try {
+    const qbanks = await db.select({
+      id: qbanksTable.id,
+      name: qbanksTable.name,
+      description: qbanksTable.description,
+      parentId: qbanksTable.parentId,
+      createdAt: qbanksTable.createdAt,
+      questionCount: sql`cast(count(${questionsTable.id}) as int)`
+    }).from(qbanksTable).leftJoin(questionsTable, eq(questionsTable.qbankId, qbanksTable.id)).groupBy(qbanksTable.id).orderBy(qbanksTable.createdAt);
+    res.json(qbanks.map((q) => ({ ...q, createdAt: q.createdAt.toISOString() })));
+  } catch (err) {
+    next(err);
+  }
+});
+router11.post("/qbanks", async (req, res, next) => {
+  const body = req.body;
+  const name2 = typeof body.name === "string" ? body.name.trim() : "";
+  if (!name2) {
+    res.status(400).json({ error: "name is required" });
+    return;
+  }
+  try {
+    const [qbank] = await db.insert(qbanksTable).values({
+      name: name2,
+      description: typeof body.description === "string" ? body.description : null,
+      parentId: typeof body.parentId === "number" ? body.parentId : null
+    }).returning();
+    res.status(201).json({ ...qbank, questionCount: 0, createdAt: qbank.createdAt.toISOString() });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.get("/qbanks/:id", async (req, res, next) => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  try {
+    const [row] = await db.select({
+      id: qbanksTable.id,
+      name: qbanksTable.name,
+      description: qbanksTable.description,
+      parentId: qbanksTable.parentId,
+      createdAt: qbanksTable.createdAt,
+      questionCount: sql`cast(count(${questionsTable.id}) as int)`
+    }).from(qbanksTable).leftJoin(questionsTable, eq(questionsTable.qbankId, qbanksTable.id)).where(eq(qbanksTable.id, id)).groupBy(qbanksTable.id);
+    if (!row) {
+      res.status(404).json({ error: "QBank not found" });
+      return;
+    }
+    const subQbanks = await db.select({
+      id: qbanksTable.id,
+      name: qbanksTable.name,
+      description: qbanksTable.description,
+      parentId: qbanksTable.parentId,
+      createdAt: qbanksTable.createdAt,
+      questionCount: sql`cast(count(${questionsTable.id}) as int)`
+    }).from(qbanksTable).leftJoin(questionsTable, eq(questionsTable.qbankId, qbanksTable.id)).where(eq(qbanksTable.parentId, id)).groupBy(qbanksTable.id).orderBy(asc(qbanksTable.name));
+    res.json({
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+      subQbanks: subQbanks.map((s) => ({ ...s, createdAt: s.createdAt.toISOString() }))
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.patch("/qbanks/:id", async (req, res, next) => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const body = req.body;
+  const updates = { updatedAt: /* @__PURE__ */ new Date() };
+  if (typeof body.name === "string") updates.name = body.name.trim();
+  if ("description" in body) updates.description = typeof body.description === "string" ? body.description : void 0;
+  if ("parentId" in body) updates.parentId = typeof body.parentId === "number" ? body.parentId : void 0;
+  if (Object.keys(updates).length <= 1) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  try {
+    const [updated] = await db.update(qbanksTable).set(updates).where(eq(qbanksTable.id, id)).returning();
+    if (!updated) {
+      res.status(404).json({ error: "QBank not found" });
+      return;
+    }
+    const [row] = await db.select({
+      id: qbanksTable.id,
+      name: qbanksTable.name,
+      description: qbanksTable.description,
+      parentId: qbanksTable.parentId,
+      createdAt: qbanksTable.createdAt,
+      questionCount: sql`cast(count(${questionsTable.id}) as int)`
+    }).from(qbanksTable).leftJoin(questionsTable, eq(questionsTable.qbankId, qbanksTable.id)).where(eq(qbanksTable.id, id)).groupBy(qbanksTable.id);
+    res.json({ ...row, createdAt: row.createdAt.toISOString() });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.delete("/qbanks/:id", async (req, res, next) => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  try {
+    let collectDescendants2 = function(pid) {
+      const direct = allQbanks.filter((q) => q.parentId === pid).map((q) => q.id);
+      return [...direct, ...direct.flatMap(collectDescendants2)];
+    };
+    var collectDescendants = collectDescendants2;
+    const allQbanks = await db.select({ id: qbanksTable.id, parentId: qbanksTable.parentId }).from(qbanksTable);
+    const idsToDelete = [id, ...collectDescendants2(id)];
+    const deleted = await db.delete(qbanksTable).where(inArray(qbanksTable.id, idsToDelete)).returning({ id: qbanksTable.id });
+    if (deleted.length === 0) {
+      res.status(404).json({ error: "QBank not found" });
+      return;
+    }
+    res.sendStatus(204);
+  } catch (err) {
+    next(err);
+  }
+});
+router11.get("/qbanks/:id/questions", async (req, res, next) => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  try {
+    let collectDescendantIds2 = function(pid) {
+      const children = allQbanks.filter((q) => q.parentId === pid);
+      return [...children.map((q) => q.id), ...children.flatMap((q) => collectDescendantIds2(q.id))];
+    };
+    var collectDescendantIds = collectDescendantIds2;
+    const allQbanks = await db.select().from(qbanksTable);
+    const allIds = [id, ...collectDescendantIds2(id)];
+    const questions = await db.select().from(questionsTable).where(inArray(questionsTable.qbankId, allIds)).orderBy(sql`${questionsTable.pageNumber} ASC NULLS LAST`, questionsTable.createdAt);
+    res.json(questions.map((q) => ({
+      ...q,
+      choices: q.choices ? JSON.parse(q.choices) : null,
+      createdAt: q.createdAt.toISOString(),
+      updatedAt: q.updatedAt.toISOString()
+    })));
+  } catch (err) {
+    next(err);
+  }
+});
+router11.patch("/questions/:id", async (req, res, next) => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const body = req.body;
+  const updates = { updatedAt: /* @__PURE__ */ new Date() };
+  if (typeof body.front === "string") updates.front = body.front;
+  if (typeof body.back === "string") updates.back = body.back;
+  if ("tags" in body) updates.tags = typeof body.tags === "string" ? body.tags : void 0;
+  if (Object.keys(updates).length <= 1) {
+    res.status(400).json({ error: "No fields to update" });
+    return;
+  }
+  try {
+    const [updated] = await db.update(questionsTable).set(updates).where(eq(questionsTable.id, id)).returning();
+    if (!updated) {
+      res.status(404).json({ error: "Question not found" });
+      return;
+    }
+    res.json({
+      ...updated,
+      choices: updated.choices ? JSON.parse(updated.choices) : null,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString()
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+router11.delete("/questions/:id", async (req, res, next) => {
+  const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  try {
+    const [deleted] = await db.delete(questionsTable).where(eq(questionsTable.id, id)).returning();
+    if (!deleted) {
+      res.status(404).json({ error: "Question not found" });
+      return;
+    }
+    res.sendStatus(204);
+  } catch (err) {
+    next(err);
+  }
+});
+var qbanks_default = router11;
+
+// src/routes/index.ts
+var router12 = (0, import_express12.Router)();
+router12.use(health_default);
+router12.use(decks_default);
+router12.use(cards_default);
+router12.use(generate_default);
+router12.use(export_apkg_default);
+router12.use(extract_pdf_default);
+router12.use(explain_default);
+router12.use(transfer_default);
+router12.use(generations_default);
+router12.use(download_apk_default);
+router12.use(qbanks_default);
+var routes_default = router12;
 
 // src/app.ts
-var app = (0, import_express12.default)();
+var app = (0, import_express13.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -85097,14 +85370,14 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express12.default.json({ limit: "200mb" }));
-app.use(import_express12.default.urlencoded({ extended: true, limit: "200mb" }));
+app.use(import_express13.default.json({ limit: "200mb" }));
+app.use(import_express13.default.urlencoded({ extended: true, limit: "200mb" }));
 app.use("/api", routes_default);
 var staticDir = process.env.STATIC_DIR ?? path3.resolve(process.cwd(), "public");
 if (fs2.existsSync(staticDir)) {
   logger.info({ staticDir }, "Serving static frontend");
   app.use(
-    import_express12.default.static(staticDir, {
+    import_express13.default.static(staticDir, {
       index: false,
       maxAge: "1h",
       setHeaders: (res, filePath) => {

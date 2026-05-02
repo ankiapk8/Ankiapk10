@@ -17,6 +17,8 @@ import Decks from "@/pages/decks";
 import DeckDetail from "@/pages/deck-detail";
 import Practice from "@/pages/practice";
 import History from "@/pages/history";
+import QbankDetail from "@/pages/qbank-detail";
+import PracticeQbank from "@/pages/practice-qbank";
 import NotFound from "@/pages/not-found";
 
 const ONE_WEEK = 1000 * 60 * 60 * 24 * 7;
@@ -55,6 +57,8 @@ function Router() {
           <Route path="/decks/:id" component={DeckDetail} />
           <Route path="/practice/:id" component={Practice} />
           <Route path="/history" component={History} />
+          <Route path="/qbanks/:id" component={QbankDetail} />
+          <Route path="/practice-qbank/:id" component={PracticeQbank} />
           <Route component={NotFound} />
         </Switch>
       </PageTransition>
@@ -79,7 +83,10 @@ function App() {
               key.includes("/cards") ||
               key.includes("listDecks") ||
               key.includes("getDeck") ||
-              key.includes("listDeckCards")
+              key.includes("listDeckCards") ||
+              key.includes("/qbanks") ||
+              key.includes("listQbanks") ||
+              key.includes("getQbank")
             );
           },
         },
