@@ -172,8 +172,10 @@ async function detectPageImageRegions(
 
     // Vector paint ops — used to detect charts, tables, and diagrams that are
     // drawn as PDF path operations rather than embedded raster images.
+    // Include stroke-only ops so flowcharts, decision trees, and line-art
+    // tables (which are often stroke-only, not filled) are also detected.
     const fillOpCodes = new Set<number>([
-      OPS.fill, OPS.eoFill, OPS.fillStroke, OPS.eoFillStroke,
+      OPS.fill, OPS.eoFill, OPS.fillStroke, OPS.eoFillStroke, OPS.stroke,
     ].filter((v): v is number => typeof v === "number"));
 
     const stack: number[][] = [];
@@ -275,7 +277,10 @@ async function detectPageImageRegions(
 
     // Merge overlapping or very-close regions (image often emitted in panels
     // or with separate mask + content). Greedy union by 1.05x bounding box.
-    return mergeRegions(out);
+    // Apply a final size gate after merging — individual sub-regions can be
+    // small, but the merged result must meet the minimum dimensions to be
+    // treated as a meaningful visual (not a decorative rule or icon).
+    return mergeRegions(out).filter(r => r.w >= 0.08 && r.h >= 0.06);
   } finally {
     page.cleanup();
   }
@@ -387,7 +392,7 @@ async function extractClientOcrText(
 async function extractServerText(
   buffer: ArrayBuffer,
   onProgress?: ProgressCallback,
-): Promise<{ text: string; pageTexts: string[] }> {
+): Promise<{ text: string; pageTexts: string[]; pageHasVisuals?: boolean[] }> {
   onProgress?.("Sending to server for extraction…");
   const blob = new Blob([buffer], { type: "application/pdf" });
   const formData = new FormData();
@@ -398,7 +403,7 @@ async function extractServerText(
     body: formData,
   });
 
-  const data = await response.json().catch(() => null) as { text?: unknown; pageTexts?: unknown; error?: unknown; method?: unknown } | null;
+  const data = await response.json().catch(() => null) as { text?: unknown; pageTexts?: unknown; pageHasVisuals?: unknown; error?: unknown; method?: unknown } | null;
 
   if (!response.ok) {
     const error = typeof data?.error === "string" ? data.error : "Server PDF extraction failed.";
@@ -413,7 +418,11 @@ async function extractServerText(
     ? (data.pageTexts as unknown[]).filter((t): t is string => typeof t === "string").map(normalizeText)
     : [];
 
-  return { text: normalizeText(data.text), pageTexts: serverPageTexts };
+  const serverPageHasVisuals = Array.isArray(data.pageHasVisuals)
+    ? (data.pageHasVisuals as unknown[]).map(Boolean)
+    : undefined;
+
+  return { text: normalizeText(data.text), pageTexts: serverPageTexts, pageHasVisuals: serverPageHasVisuals };
 }
 
 export async function extractPdfText(buffer: ArrayBuffer, onProgress?: ProgressCallback): Promise<string> {
@@ -425,6 +434,7 @@ export async function extractPdf(buffer: ArrayBuffer, onProgress?: ProgressCallb
   const isLargeFile = buffer.byteLength > SERVER_THRESHOLD_BYTES;
   let text = "";
   let pageTexts: string[] = [];
+  let serverPageHasVisuals: boolean[] | undefined;
 
   if (!isLargeFile) {
     try {
@@ -445,6 +455,7 @@ export async function extractPdf(buffer: ArrayBuffer, onProgress?: ProgressCallb
       const server = await extractServerText(buffer, onProgress);
       text = server.text;
       pageTexts = server.pageTexts;
+      serverPageHasVisuals = server.pageHasVisuals;
     } catch (serverError) {
       if (!isLargeFile) {
         onProgress?.("Server unavailable, trying local OCR…");
@@ -476,7 +487,8 @@ export async function extractPdf(buffer: ArrayBuffer, onProgress?: ProgressCallb
     pageImageRegions = result.regions;
     pageHasVisuals = result.pageHasVisuals;
   } catch {
-    // images are best-effort — don't fail the whole extraction
+    // images are best-effort; fall back to server's visual detection if available
+    pageHasVisuals = serverPageHasVisuals ?? [];
   }
 
   return { text, pageImages, pageTexts, pageImageRegions, pageHasVisuals };

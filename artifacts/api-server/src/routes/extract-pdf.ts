@@ -61,6 +61,86 @@ function pdfDocOptions(buffer: Buffer) {
   } as unknown as Parameters<(typeof import("pdfjs-dist/legacy/build/pdf.mjs"))["getDocument"]>[0];
 }
 
+// Walks the PDF.js operator list for each page to determine whether it contains
+// significant visual content (large raster images or substantial vector paths).
+// Returns a boolean per page — true when at least one qualifying region is found.
+async function detectPagesWithVisuals(buffer: Buffer): Promise<boolean[]> {
+  const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdf = await pdfjsLib.getDocument(pdfDocOptions(buffer)).promise;
+  const OPS = pdfjsLib.OPS as Record<string, number>;
+  const result: boolean[] = [];
+
+  const imageOpCodes = new Set<number>([
+    OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject,
+    OPS.paintImageXObjectRepeat, OPS.paintImageMaskXObjectGroup,
+    OPS.paintImageMaskXObjectRepeat, OPS.paintJpegXObject,
+  ].filter((v): v is number => typeof v === "number"));
+
+  const paintOpCodes = new Set<number>([
+    OPS.fill, OPS.eoFill, OPS.fillStroke, OPS.eoFillStroke, OPS.stroke,
+  ].filter((v): v is number => typeof v === "number"));
+
+  const multiply = (a: number[], b: number[]): number[] => [
+    a[0] * b[0] + a[2] * b[1], a[1] * b[0] + a[3] * b[1],
+    a[0] * b[2] + a[2] * b[3], a[1] * b[2] + a[3] * b[3],
+    a[0] * b[4] + a[2] * b[5] + a[4], a[1] * b[4] + a[3] * b[5] + a[5],
+  ];
+  const tx = (m: number[], x: number, y: number): [number, number] => [
+    m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5],
+  ];
+
+  try {
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale: 1 });
+      const pageW = viewport.width, pageH = viewport.height;
+      const ops = await page.getOperatorList();
+      let foundVisual = false;
+      const stack: number[][] = [];
+      let ctm: number[] = [1, 0, 0, 1, 0, 0];
+      let pathPts: [number, number][] = [];
+
+      outer: for (let i = 0; i < ops.fnArray.length; i++) {
+        const fn = ops.fnArray[i];
+        const args = ops.argsArray[i];
+        if (fn === OPS.save) { stack.push(ctm.slice()); }
+        else if (fn === OPS.restore) { ctm = stack.pop() ?? ctm; pathPts = []; }
+        else if (fn === OPS.transform && Array.isArray(args) && args.length >= 6) {
+          ctm = multiply(ctm, args as number[]);
+        } else if (fn === OPS.moveTo && Array.isArray(args) && args.length >= 2) {
+          pathPts.push(tx(ctm, args[0] as number, args[1] as number));
+        } else if (fn === OPS.lineTo && Array.isArray(args) && args.length >= 2) {
+          pathPts.push(tx(ctm, args[0] as number, args[1] as number));
+        } else if (fn === OPS.curveTo && Array.isArray(args) && args.length >= 6) {
+          pathPts.push(tx(ctm, args[4] as number, args[5] as number));
+        } else if (fn === OPS.rectangle && Array.isArray(args) && args.length >= 4) {
+          const [rx, ry, rw, rh] = args as number[];
+          pathPts.push(tx(ctm, rx, ry), tx(ctm, rx + rw, ry), tx(ctm, rx, ry + rh), tx(ctm, rx + rw, ry + rh));
+        } else if (paintOpCodes.has(fn)) {
+          if (pathPts.length >= 3) {
+            const xs = pathPts.map(p => p[0]), ys = pathPts.map(p => p[1]);
+            const w = (Math.max(...xs) - Math.min(...xs)) / pageW;
+            const h = (Math.max(...ys) - Math.min(...ys)) / pageH;
+            if (w >= 0.08 && h >= 0.06) { foundVisual = true; break outer; }
+          }
+          pathPts = [];
+        } else if (imageOpCodes.has(fn)) {
+          const corners: [number, number][] = [tx(ctm,0,0), tx(ctm,1,0), tx(ctm,0,1), tx(ctm,1,1)];
+          const xs = corners.map(p => p[0]), ys = corners.map(p => p[1]);
+          const w = (Math.max(...xs) - Math.min(...xs)) / pageW;
+          const h = (Math.max(...ys) - Math.min(...ys)) / pageH;
+          if (w >= 0.08 && h >= 0.06) { foundVisual = true; break outer; }
+        }
+      }
+      page.cleanup();
+      result.push(foundVisual);
+    }
+  } finally {
+    await pdf.destroy();
+  }
+  return result;
+}
+
 async function extractEmbeddedPdfText(buffer: Buffer): Promise<{ text: string; pageTexts: string[]; numPages: number }> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const pdf = await pdfjsLib.getDocument(pdfDocOptions(buffer)).promise;
@@ -133,10 +213,14 @@ async function extractOcrText(buffer: Buffer): Promise<string> {
 
 async function processPdfBuffer(buffer: Buffer, res: express.Response, log: { info: (msg: string) => void; error: (obj: object, msg: string) => void }): Promise<void> {
   try {
-    const { text: embeddedText, pageTexts: embeddedPageTexts } = await extractEmbeddedPdfText(buffer);
+    // Run text extraction and visual-region detection in parallel.
+    const [{ text: embeddedText, pageTexts: embeddedPageTexts }, pageHasVisuals] = await Promise.all([
+      extractEmbeddedPdfText(buffer),
+      detectPagesWithVisuals(buffer).catch(() => [] as boolean[]),
+    ]);
 
     if (embeddedText.length > MIN_TEXT_LENGTH) {
-      res.json({ text: embeddedText, pageTexts: embeddedPageTexts, length: embeddedText.length, method: "embedded" });
+      res.json({ text: embeddedText, pageTexts: embeddedPageTexts, pageHasVisuals, length: embeddedText.length, method: "embedded" });
       return;
     }
 
@@ -150,7 +234,7 @@ async function processPdfBuffer(buffer: Buffer, res: express.Response, log: { in
       return;
     }
 
-    res.json({ text: ocrText, length: ocrText.length, method: "ocr" });
+    res.json({ text: ocrText, pageHasVisuals, length: ocrText.length, method: "ocr" });
   } catch (error) {
     log.error({ err: error }, "Server-side PDF extraction failed");
     res.status(422).json({
