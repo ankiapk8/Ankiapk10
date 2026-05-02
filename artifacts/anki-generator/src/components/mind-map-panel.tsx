@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { apiUrl } from "@/lib/utils";
 import {
   Loader2, Network, X, ZoomIn, ZoomOut, Maximize2,
-  Trash2, Plus, Sparkles,
+  Trash2, Plus, Sparkles, FileImage, FileType2,
 } from "lucide-react";
 import type { Card } from "@workspace/api-client-react/src/generated/api.schemas";
 import {
@@ -48,6 +48,121 @@ function splitText(text: string, max: number): string[] {
   }
   if (cur) lines.push(cur);
   return lines;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Export Utilities
+───────────────────────────────────────────────────────────────── */
+function resolveCssColor(varName: string, fallback: string): string {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return raw ? `hsl(${raw})` : fallback;
+}
+
+function buildExportSvg(data: MindMapNode): string {
+  const primary  = resolveCssColor("--primary",    "#6366f1");
+  const textCol  = resolveCssColor("--foreground", "#0f172a");
+  const branches = data.branches;
+  const n = branches.length;
+
+  const lines: string[] = [];
+
+  const addText = (
+    x: number, y: number, text: string, maxChars: number,
+    fontSize: number, fontWeight: string, fill: string, lineHeight = 1.3,
+  ) => {
+    const parts = splitText(text, maxChars);
+    const startDy = `${-(parts.length - 1) * lineHeight * 0.5}em`;
+    lines.push(
+      `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle"`,
+      ` font-size="${fontSize}" font-weight="${fontWeight}" fill="${fill}"`,
+      ` font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">`,
+    );
+    parts.forEach((part, pi) => {
+      const dy = pi === 0 ? startDy : `${lineHeight}em`;
+      lines.push(`<tspan x="${x}" dy="${dy}">${part.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</tspan>`);
+    });
+    lines.push(`</text>`);
+  };
+
+  lines.push(`<rect width="${VW}" height="${VH}" fill="white"/>`);
+  lines.push(`<g transform="translate(${VW / 2} ${VH / 2})">`);
+
+  lines.push(`<circle cx="0" cy="0" r="${CENTER_R + 30}" fill="${primary}" fill-opacity="0.06"/>`);
+
+  branches.forEach((branch, bi) => {
+    const angleBase = (bi / n) * 2 * Math.PI - Math.PI / 2;
+    const bx = Math.round(BRANCH_RADIUS * Math.cos(angleBase) * 100) / 100;
+    const by = Math.round(BRANCH_RADIUS * Math.sin(angleBase) * 100) / 100;
+    const nc = branch.children.length;
+
+    lines.push(`<line x1="0" y1="0" x2="${bx}" y2="${by}" stroke="${branch.color}" stroke-width="2.8" stroke-opacity="0.55" stroke-linecap="round"/>`);
+
+    branch.children.forEach((child, ci) => {
+      const spread = Math.PI / 2.6;
+      const childAngle = angleBase + spread * (ci / Math.max(nc - 1, 1) - 0.5);
+      const chx = Math.round(CHILD_RADIUS * Math.cos(childAngle) * 100) / 100;
+      const chy = Math.round(CHILD_RADIUS * Math.sin(childAngle) * 100) / 100;
+      lines.push(
+        `<line x1="${bx}" y1="${by}" x2="${chx}" y2="${chy}" stroke="${branch.color}" stroke-width="1.5" stroke-opacity="0.35" stroke-dasharray="4,4" stroke-linecap="round"/>`,
+        `<rect x="${chx - CHILD_W / 2}" y="${chy - CHILD_H / 2}" width="${CHILD_W}" height="${CHILD_H}" rx="${CHILD_RX}" fill="${branch.color}" fill-opacity="0.12" stroke="${branch.color}" stroke-width="1.2" stroke-opacity="0.4"/>`,
+      );
+      addText(chx, chy, child, 16, 9.5, "400", textCol, 1.25);
+    });
+
+    lines.push(
+      `<circle cx="${bx}" cy="${by}" r="${NODE_R}" fill="${branch.color}" fill-opacity="0.16" stroke="${branch.color}" stroke-width="2"/>`,
+      `<circle cx="${bx}" cy="${by}" r="${NODE_R - 8}" fill="${branch.color}" fill-opacity="0.07"/>`,
+    );
+    addText(bx, by, branch.label, 10, 11, "700", branch.color, 1.3);
+  });
+
+  lines.push(
+    `<circle cx="0" cy="0" r="${CENTER_R}" fill="${primary}" fill-opacity="0.16" stroke="${primary}" stroke-width="2.5"/>`,
+    `<circle cx="0" cy="0" r="${CENTER_R - 10}" fill="${primary}" fill-opacity="0.08"/>`,
+  );
+  addText(0, 0, data.center, 12, 13, "800", primary, 1.3);
+
+  lines.push(`</g>`);
+
+  return [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${VW}" height="${VH}" viewBox="0 0 ${VW} ${VH}">`,
+    ...lines,
+    `</svg>`,
+  ].join("\n");
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function downloadAsSvg(data: MindMapNode, name: string) {
+  const svg = buildExportSvg(data);
+  triggerDownload(new Blob([svg], { type: "image/svg+xml;charset=utf-8" }), `${name}.svg`);
+}
+
+async function downloadAsPng(data: MindMapNode, name: string) {
+  const svg = buildExportSvg(data);
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url  = URL.createObjectURL(blob);
+  const img  = new Image();
+  img.onload = () => {
+    const scale  = 2;
+    const canvas = document.createElement("canvas");
+    canvas.width  = VW * scale;
+    canvas.height = VH * scale;
+    const ctx = canvas.getContext("2d")!;
+    ctx.scale(scale, scale);
+    ctx.drawImage(img, 0, 0, VW, VH);
+    URL.revokeObjectURL(url);
+    canvas.toBlob(png => { if (png) triggerDownload(png, `${name}.png`); }, "image/png");
+  };
+  img.src = url;
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -249,10 +364,28 @@ function MindMapViewerModal({ map, onClose }: { map: SavedMindMap; onClose: () =
               </p>
             </div>
           </div>
-          <button onClick={onClose}
-            className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => downloadAsSvg(parsed, parsed.center)}
+              title="Download as SVG"
+              className="h-8 flex items-center gap-1.5 px-2.5 rounded-md text-xs font-medium text-muted-foreground border border-border/50 bg-background hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <FileType2 className="h-3.5 w-3.5" />
+              SVG
+            </button>
+            <button
+              onClick={() => downloadAsPng(parsed, parsed.center)}
+              title="Download as PNG"
+              className="h-8 flex items-center gap-1.5 px-2.5 rounded-md text-xs font-medium text-muted-foreground border border-border/50 bg-background hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <FileImage className="h-3.5 w-3.5" />
+              PNG
+            </button>
+            <button onClick={onClose}
+              className="h-8 w-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 min-h-0 space-y-4">
