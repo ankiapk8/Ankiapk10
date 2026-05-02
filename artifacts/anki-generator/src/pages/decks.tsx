@@ -53,12 +53,13 @@ type DeckRowProps = {
   toggleSelect: (id: number, e: React.MouseEvent) => void;
   openDeckForm: (mode: DeckFormMode) => void;
   handleDelete: (id: number, e: React.MouseEvent) => void;
+  isQbank?: boolean;
 };
 
 function DeckRow({
   deck, depth, collapsedIds, toggleCollapse,
   deckChildrenMap, selectMode, selectedIds, toggleSelect,
-  openDeckForm, handleDelete,
+  openDeckForm, handleDelete, isQbank = false,
 }: DeckRowProps) {
   const children = (deckChildrenMap.get(deck.id) ?? []).sort(
     (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
@@ -74,22 +75,39 @@ function DeckRow({
   const cardClass = [
     "cursor-pointer transition-all border",
     clampedDepth === 0
-      ? "border-border/50 shadow-sm hover:border-primary/40 hover:shadow-md"
+      ? isQbank
+        ? "border-border/50 shadow-sm hover:border-violet-500/40 hover:shadow-md"
+        : "border-border/50 shadow-sm hover:border-primary/40 hover:shadow-md"
       : clampedDepth === 1
-      ? "border-border/30 bg-muted/20 hover:border-primary/30 hover:shadow-sm"
-      : "border-border/20 bg-muted/30 hover:border-primary/20",
+      ? isQbank
+        ? "border-border/30 bg-muted/20 hover:border-violet-500/30 hover:shadow-sm"
+        : "border-border/30 bg-muted/20 hover:border-primary/30 hover:shadow-sm"
+      : isQbank
+        ? "border-border/20 bg-muted/30 hover:border-violet-500/20"
+        : "border-border/20 bg-muted/30 hover:border-primary/20",
     selectMode
-      ? isSelected ? "border-primary ring-1 ring-primary/20 bg-primary/5" : "opacity-80"
+      ? isSelected
+        ? isQbank
+          ? "border-violet-500 ring-1 ring-violet-500/20 bg-violet-500/5"
+          : "border-primary ring-1 ring-primary/20 bg-primary/5"
+        : "opacity-80"
       : "",
   ].join(" ");
 
-  const iconBg = clampedDepth === 0
+  const iconBg = isQbank
+    ? clampedDepth === 0
+      ? (hasChildren ? "bg-violet-600/15" : "bg-violet-600/10")
+      : "bg-violet-500/10"
+    : clampedDepth === 0
     ? (hasChildren ? "bg-primary/15" : "bg-primary/10")
     : clampedDepth === 1
     ? (hasChildren ? "bg-blue-500/15" : "bg-blue-500/10")
     : (hasChildren ? "bg-violet-500/15" : "bg-violet-500/10");
 
-  const iconColor = clampedDepth === 0 ? "text-primary" : clampedDepth === 1 ? "text-blue-500" : "text-violet-500";
+  const iconColor = isQbank
+    ? clampedDepth === 0 ? "text-violet-600" : "text-violet-500"
+    : clampedDepth === 0 ? "text-primary" : clampedDepth === 1 ? "text-blue-500" : "text-violet-500";
+
   const iconBoxSize = clampedDepth === 0 ? "h-9 w-9" : clampedDepth === 1 ? "h-7 w-7" : "h-6 w-6";
   const iconSize = clampedDepth === 0 ? "h-4 w-4" : clampedDepth === 1 ? "h-3.5 w-3.5" : "h-3 w-3";
   const cardPadding = clampedDepth === 0 ? "p-4" : clampedDepth === 1 ? "py-2.5 px-3" : "py-2 px-3";
@@ -99,19 +117,28 @@ function DeckRow({
   const btnSize = clampedDepth === 0 ? "h-8 w-8" : "h-7 w-7";
   const btnIconSize = clampedDepth === 0 ? "h-3.5 w-3.5" : "h-3 w-3";
   const cardCount = hasChildren ? totalCards : deck.cardCount;
-  const cardCountClass = clampedDepth === 0
+  const cardCountClass = isQbank
+    ? clampedDepth === 0
+      ? "text-sm font-medium text-violet-600 bg-violet-500/10 px-2.5 py-1 rounded-md"
+      : "text-xs font-medium text-violet-600 bg-violet-500/10 px-2 py-0.5 rounded"
+    : clampedDepth === 0
     ? "text-sm font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-md"
     : "text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded";
 
   const indentClass = depth === 0
     ? ""
     : depth === 1
-    ? "ml-3 sm:ml-6 mt-1.5 space-y-1 border-l-2 border-primary/20 pl-2 sm:pl-4"
-    : "ml-2 sm:ml-5 mt-1 space-y-1 border-l-2 border-blue-200/40 pl-2 sm:pl-3";
+    ? `ml-3 sm:ml-6 mt-1.5 space-y-1 border-l-2 pl-2 sm:pl-4 ${isQbank ? "border-violet-500/20" : "border-primary/20"}`
+    : `ml-2 sm:ml-5 mt-1 space-y-1 border-l-2 pl-2 sm:pl-3 ${isQbank ? "border-violet-300/30" : "border-blue-200/40"}`;
 
-  const addBtnHover = depth <= 1
+  const addBtnHover = isQbank
+    ? "hover:text-violet-600 hover:bg-violet-500/5"
+    : depth <= 1
     ? "hover:text-primary hover:bg-primary/5"
     : "hover:text-violet-500 hover:bg-violet-500/5";
+
+  const subLabel = isQbank ? "question bank" : "sub-deck";
+  const subFormType = isQbank ? "new-qbank" : "new-subdeck";
 
   return (
     <div>
@@ -144,6 +171,8 @@ function DeckRow({
                 <div className={`${iconBoxSize} rounded-md flex items-center justify-center shrink-0 ${iconBg}`}>
                   {hasChildren
                     ? <FolderOpen className={`${iconSize} ${iconColor}`} />
+                    : isQbank
+                    ? <Stethoscope className={`${iconSize} ${iconColor}`} />
                     : depth === 0
                     ? <Layers className={`${iconSize} ${iconColor}`} />
                     : <FileText className={`${iconSize} ${iconColor}`} />}
@@ -153,7 +182,7 @@ function DeckRow({
                     <p className={`${nameClass} truncate`}>{deck.name}</p>
                     {hasChildren && (
                       <Badge variant="outline" className="text-xs shrink-0 py-0 px-1.5">
-                        {children.length} sub-deck{children.length !== 1 ? "s" : ""}
+                        {children.length} {isQbank ? "question bank" : "sub-deck"}{children.length !== 1 ? "s" : ""}
                       </Badge>
                     )}
                   </div>
@@ -168,9 +197,11 @@ function DeckRow({
                           key={child.id}
                           className="inline-flex items-center gap-1 text-[11px] bg-muted/60 text-muted-foreground border border-border/40 rounded px-1.5 py-0.5 font-medium"
                         >
-                          <FileText className="h-2.5 w-2.5 shrink-0" />
+                          {isQbank
+                            ? <Stethoscope className="h-2.5 w-2.5 shrink-0 text-violet-500" />
+                            : <FileText className="h-2.5 w-2.5 shrink-0" />}
                           <span className="truncate max-w-[80px]">{child.name}</span>
-                          <span className="shrink-0 text-primary font-semibold">{child.cardCount}</span>
+                          <span className={`shrink-0 font-semibold ${isQbank ? "text-violet-600" : "text-primary"}`}>{child.cardCount}</span>
                         </span>
                       ))}
                       {children.length > 4 && (
@@ -181,7 +212,7 @@ function DeckRow({
                 </div>
                 <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-auto">
                   <span className={cardCountClass}>
-                    {cardCount}<span className="hidden xs:inline sm:inline"> card{cardCount !== 1 ? "s" : ""}</span>
+                    {cardCount}<span className="hidden xs:inline sm:inline"> {isQbank ? "MCQ" : "card"}{cardCount !== 1 ? "s" : ""}</span>
                   </span>
                   {!selectMode && (
                     <div className="flex items-center gap-0.5">
@@ -225,15 +256,16 @@ function DeckRow({
               toggleSelect={toggleSelect}
               openDeckForm={openDeckForm}
               handleDelete={handleDelete}
+              isQbank={isQbank}
             />
           ))}
           {!selectMode && (
             <button
               className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground transition-colors rounded-md ${addBtnHover}`}
-              onClick={() => openDeckForm({ type: "new-subdeck", parentId: deck.id })}
+              onClick={() => openDeckForm({ type: subFormType, parentId: deck.id })}
             >
               <Plus className="h-3 w-3" />
-              Add sub-deck to <span className="font-medium ml-0.5">{deck.name}</span>
+              Add {subLabel} to <span className="font-medium ml-0.5">{deck.name}</span>
             </button>
           )}
         </div>
@@ -243,10 +275,10 @@ function DeckRow({
         <div className="ml-5 mt-0.5">
           <button
             className={`flex items-center gap-1.5 px-3 py-1 text-xs text-muted-foreground transition-colors rounded ${addBtnHover}`}
-            onClick={() => openDeckForm({ type: "new-subdeck", parentId: deck.id })}
+            onClick={() => openDeckForm({ type: subFormType, parentId: deck.id })}
           >
             <Plus className="h-3 w-3" />
-            Add sub-deck
+            Add {subLabel}
           </button>
         </div>
       )}
@@ -404,7 +436,7 @@ export default function Decks() {
 
   const totalCards = (decks as DeckWithParent[] | undefined)?.reduce((sum, d) => sum + d.cardCount, 0) ?? 0;
 
-  const { rootDecks, rootFlashcardDecks, rootQbankDecks, deckChildrenMap } = useMemo(() => {
+  const { rootDecks, rootFlashcardDecks, rootQbankDecks, deckChildrenMap, qbankChildrenCount, flashcardChildrenCount, qbankTotalMcqs, flashcardTotalCards } = useMemo(() => {
     const all = (decks as DeckWithParent[] | undefined) ?? [];
     const root = all.filter(d => !d.parentId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
     const flashcards = root.filter(d => (d.kind ?? "deck") !== "qbank");
@@ -415,7 +447,11 @@ export default function Decks() {
       if (!byParent.has(pid)) byParent.set(pid, []);
       byParent.get(pid)!.push(d);
     });
-    return { rootDecks: root, rootFlashcardDecks: flashcards, rootQbankDecks: qbanks, deckChildrenMap: byParent };
+    const qbankChildren = all.filter(d => d.parentId && d.kind === "qbank").length;
+    const flashcardChildren = all.filter(d => d.parentId && (d.kind ?? "deck") !== "qbank").length;
+    const qbankMcqs = all.filter(d => d.kind === "qbank").reduce((s, d) => s + d.cardCount, 0);
+    const fcCards = all.filter(d => (d.kind ?? "deck") !== "qbank").reduce((s, d) => s + d.cardCount, 0);
+    return { rootDecks: root, rootFlashcardDecks: flashcards, rootQbankDecks: qbanks, deckChildrenMap: byParent, qbankChildrenCount: qbankChildren, flashcardChildrenCount: flashcardChildren, qbankTotalMcqs: qbankMcqs, flashcardTotalCards: fcCards };
   }, [decks]);
 
   const filterBySearch = (list: DeckWithParent[]) => {
@@ -568,8 +604,6 @@ export default function Decks() {
   };
 
   const allDecksCount = (decks as DeckWithParent[])?.length ?? 0;
-  const topicsCount = rootDecks.length;
-  const subDecksCount = allDecksCount - topicsCount;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-32">
@@ -805,14 +839,21 @@ export default function Decks() {
                     <FileText className="h-4 w-4 text-blue-500" />
                     <div>
                       <div className="text-sm font-medium">Empty Sub-deck</div>
-                      <div className="text-xs text-muted-foreground">Inside a topic</div>
+                      <div className="text-xs text-muted-foreground">Flashcard deck inside a topic</div>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => openDeckForm({ type: "new-topic" })}>
                     <FolderOpen className="h-4 w-4 text-primary" />
                     <div>
-                      <div className="text-sm font-medium">New Main Topic</div>
+                      <div className="text-sm font-medium">New Flashcard Topic</div>
                       <div className="text-xs text-muted-foreground">With optional sub-decks</div>
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => openDeckForm({ type: "new-qbank-topic" })}>
+                    <FolderOpen className="h-4 w-4 text-violet-600" />
+                    <div>
+                      <div className="text-sm font-medium">New QBank Topic</div>
+                      <div className="text-xs text-muted-foreground">Organise question banks</div>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -831,25 +872,48 @@ export default function Decks() {
         </div>
       </div>
 
-      {allDecksCount > 0 && (
+      {allDecksCount > 0 && libraryTab === "decks" && (
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-3.5 shadow-sm">
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
               <FolderOpen className="h-3.5 w-3.5 text-primary" /> Topics
             </div>
-            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{topicsCount}</div>
+            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{rootFlashcardDecks.length}</div>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-3.5 shadow-sm">
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
               <FileText className="h-3.5 w-3.5 text-blue-500" /> Sub-decks
             </div>
-            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{subDecksCount}</div>
+            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{flashcardChildrenCount}</div>
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-3.5 shadow-sm">
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
-              <Layers className="h-3.5 w-3.5 text-violet-500" /> Total cards
+              <Layers className="h-3.5 w-3.5 text-primary/70" /> Total cards
             </div>
-            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{totalCards}</div>
+            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{flashcardTotalCards}</div>
+          </div>
+        </div>
+      )}
+
+      {allDecksCount > 0 && libraryTab === "qbanks" && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 backdrop-blur-sm p-3.5 shadow-sm">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              <FolderOpen className="h-3.5 w-3.5 text-violet-600" /> QBank Topics
+            </div>
+            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{rootQbankDecks.length}</div>
+          </div>
+          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 backdrop-blur-sm p-3.5 shadow-sm">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              <Stethoscope className="h-3.5 w-3.5 text-violet-500" /> Question Banks
+            </div>
+            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{qbankChildrenCount}</div>
+          </div>
+          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 backdrop-blur-sm p-3.5 shadow-sm">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              <Layers className="h-3.5 w-3.5 text-violet-500" /> Total MCQs
+            </div>
+            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{qbankTotalMcqs}</div>
           </div>
         </div>
       )}
@@ -935,29 +999,60 @@ export default function Decks() {
 
           <TabsContent value="qbanks" className="mt-4">
             {rootQbankDecks.length === 0 ? (
-              <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
+              <div className="text-center py-16 px-6 border-2 border-dashed border-violet-500/20 rounded-2xl bg-violet-500/5">
                 <div className="mx-auto h-12 w-12 rounded-xl bg-violet-500/10 flex items-center justify-center mb-4">
                   <Stethoscope className="h-5 w-5 text-violet-500" />
                 </div>
                 <p className="font-medium">No question banks yet</p>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">Generate a UWorld-style MCQ question bank from your study material.</p>
-                <Button className="gap-2" onClick={() => openGenerateSheet("qbank")}>
-                  <Stethoscope className="h-4 w-4" /> Generate Question Bank
-                </Button>
-              </div>
-            ) : filteredQbanks.length === 0 ? (
-              <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
-                <p className="font-medium">No question banks match "{search}"</p>
-                <Button variant="ghost" className="mt-3" onClick={() => setSearch("")}>Clear search</Button>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">Create a main topic to organise question banks, or generate MCQs directly.</p>
+                <div className="flex items-center justify-center gap-2 flex-wrap">
+                  <Button variant="outline" className="gap-2 border-violet-500/30 text-violet-600 hover:bg-violet-500/5" onClick={() => openDeckForm({ type: "new-qbank-topic" })}>
+                    <FolderOpen className="h-4 w-4" /> New Topic
+                  </Button>
+                  <Button className="gap-2 bg-violet-600 hover:bg-violet-700 text-white" onClick={() => openGenerateSheet("qbank")}>
+                    <Stethoscope className="h-4 w-4" /> Generate Question Bank
+                  </Button>
+                </div>
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredQbanks.map((deck, idx) => (
-                  <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
-                    <DeckRow deck={deck} depth={0} {...sharedRowProps} />
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">
+                    {rootQbankDecks.length} topic{rootQbankDecks.length !== 1 ? "s" : ""}
+                    {qbankChildrenCount > 0 ? ` · ${qbankChildrenCount} question bank${qbankChildrenCount !== 1 ? "s" : ""}` : ""}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline" size="sm"
+                      className="gap-1.5 h-8 text-violet-600 border-violet-500/30 hover:bg-violet-500/5 hover:border-violet-500/50"
+                      onClick={() => openDeckForm({ type: "new-qbank-topic" })}
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" /> New Topic
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-1.5 h-8 bg-violet-600 hover:bg-violet-700 text-white"
+                      onClick={() => openGenerateSheet("qbank")}
+                    >
+                      <Stethoscope className="h-3.5 w-3.5" /> Generate
+                    </Button>
                   </div>
-                ))}
-              </div>
+                </div>
+                {filteredQbanks.length === 0 ? (
+                  <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
+                    <p className="font-medium">No question banks match "{search}"</p>
+                    <Button variant="ghost" className="mt-3" onClick={() => setSearch("")}>Clear search</Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredQbanks.map((deck, idx) => (
+                      <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
+                        <DeckRow deck={deck} depth={0} {...sharedRowProps} isQbank={true} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
         </Tabs>

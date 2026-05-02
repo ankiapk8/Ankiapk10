@@ -98,7 +98,7 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
   const [lastResultDeckId, setLastResultDeckId] = useState<number | undefined>(undefined);
 
   const parentOptions = useMemo(
-    () => buildParentOptions((allDecks as DeckWithParent[]) ?? []),
+    () => buildParentOptions(((allDecks as DeckWithParent[]) ?? []).filter(d => d.kind === "qbank")),
     [allDecks]
   );
   const selectedParent = parentOptions.find(o => o.id.toString() === parentId);

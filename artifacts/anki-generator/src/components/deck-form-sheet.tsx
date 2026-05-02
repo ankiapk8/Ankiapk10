@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCreateDeck, useUpdateDeck, useListDecks, getListDecksQueryKey } from "@workspace/api-client-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, FolderOpen, Layers, FileText, Plus, X } from "lucide-react";
+import { Loader2, FolderOpen, Layers, FileText, Plus, X, Stethoscope } from "lucide-react";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
 
 type DeckWithParent = Deck & { parentId?: number | null };
@@ -17,6 +17,8 @@ type DeckWithParent = Deck & { parentId?: number | null };
 export type DeckFormMode =
   | { type: "new-topic" }
   | { type: "new-subdeck"; parentId?: number }
+  | { type: "new-qbank-topic" }
+  | { type: "new-qbank"; parentId?: number }
   | { type: "edit"; deck: DeckWithParent };
 
 interface DeckFormSheetProps {
@@ -26,10 +28,17 @@ interface DeckFormSheetProps {
   onDone?: () => void;
 }
 
-function buildParentOptions(allDecks: DeckWithParent[], excludeId?: number): { id: number; label: string; depth: number }[] {
-  const rootDecks = allDecks.filter(d => !d.parentId && d.id !== excludeId);
+function buildParentOptions(
+  allDecks: DeckWithParent[],
+  excludeId?: number,
+  kindFilter?: "qbank" | "deck"
+): { id: number; label: string; depth: number }[] {
+  const filtered = kindFilter
+    ? allDecks.filter(d => kindFilter === "qbank" ? d.kind === "qbank" : (d.kind ?? "deck") !== "qbank")
+    : allDecks;
+  const rootDecks = filtered.filter(d => !d.parentId && d.id !== excludeId);
   const byParent = new Map<number, DeckWithParent[]>();
-  allDecks.filter(d => d.parentId).forEach(d => {
+  filtered.filter(d => d.parentId).forEach(d => {
     const pid = d.parentId!;
     if (!byParent.has(pid)) byParent.set(pid, []);
     byParent.get(pid)!.push(d);
@@ -64,17 +73,30 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
   const [description, setDescription] = useState("");
   const [parentId, setParentId] = useState<string>("none");
   const [isSaving, setIsSaving] = useState(false);
-
   const [subSlots, setSubSlots] = useState<{ id: string; name: string }[]>([]);
 
+  const isQbankMode = mode.type === "new-qbank-topic" || mode.type === "new-qbank";
   const excludeId = mode.type === "edit" ? mode.deck.id : undefined;
-  const parentOptions = buildParentOptions((allDecks as DeckWithParent[]) ?? [], excludeId);
+
+  const parentOptions = useMemo(() => {
+    if (mode.type === "new-subdeck" || mode.type === "edit") {
+      return buildParentOptions((allDecks as DeckWithParent[]) ?? [], excludeId, "deck");
+    }
+    if (mode.type === "new-qbank") {
+      return buildParentOptions((allDecks as DeckWithParent[]) ?? [], excludeId, "qbank");
+    }
+    return buildParentOptions((allDecks as DeckWithParent[]) ?? [], excludeId);
+  }, [allDecks, excludeId, mode.type]);
 
   useEffect(() => {
     if (!open) return;
-    if (mode.type === "new-topic") {
+    if (mode.type === "new-topic" || mode.type === "new-qbank-topic") {
       setName(""); setDescription(""); setParentId("none"); setSubSlots([]);
     } else if (mode.type === "new-subdeck") {
+      setName(""); setDescription("");
+      setParentId(mode.parentId?.toString() ?? "none");
+      setSubSlots([]);
+    } else if (mode.type === "new-qbank") {
       setName(""); setDescription("");
       setParentId(mode.parentId?.toString() ?? "none");
       setSubSlots([]);
@@ -92,7 +114,6 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
     if (subSlots.length >= 8) return;
     setSubSlots(prev => [...prev, { id: `${Date.now()}-${Math.random()}`, name: "" }]);
   };
-
   const removeSubSlot = (id: string) => setSubSlots(prev => prev.filter(s => s.id !== id));
   const updateSubSlot = (id: string, name: string) =>
     setSubSlots(prev => prev.map(s => s.id === id ? { ...s, name } : s));
@@ -100,33 +121,42 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
   const handleSave = async () => {
     if (!name.trim()) return;
     setIsSaving(true);
-
     try {
       if (mode.type === "edit") {
         await updateDeck.mutateAsync({
           id: mode.deck.id,
           data: { name: name.trim(), description: description.trim() || null, parentId: resolvedParentId },
         });
-        toast({ title: "Deck updated." });
-      } else {
+        toast({ title: "Updated." });
+      } else if (mode.type === "new-topic" || mode.type === "new-qbank-topic") {
+        const kind = mode.type === "new-qbank-topic" ? "qbank" : "deck";
         const created = await createDeck.mutateAsync({
-          data: { name: name.trim(), description: description.trim() || null, parentId: resolvedParentId },
+          data: { name: name.trim(), description: description.trim() || null, parentId: null, kind } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
         }) as DeckWithParent;
 
-        if (mode.type === "new-topic" && subSlots.length > 0) {
+        if (subSlots.length > 0) {
           const validSlots = subSlots.filter(s => s.name.trim());
           for (const s of validSlots) {
-            await createDeck.mutateAsync({ data: { name: s.name.trim(), parentId: created.id } });
+            await createDeck.mutateAsync({
+              data: { name: s.name.trim(), parentId: created.id, kind } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
+            });
           }
+          const label = kind === "qbank" ? "question bank" : "sub-deck";
           toast({
-            title: "Topic created!",
+            title: kind === "qbank" ? "QBank topic created!" : "Topic created!",
             description: validSlots.length > 0
-              ? `"${name}" created with ${validSlots.length} sub-deck${validSlots.length !== 1 ? "s" : ""}.`
+              ? `"${name}" created with ${validSlots.length} ${label}${validSlots.length !== 1 ? "s" : ""}.`
               : `"${name}" topic created.`,
           });
         } else {
-          toast({ title: mode.type === "new-topic" ? "Topic created!" : "Deck created!" });
+          toast({ title: mode.type === "new-qbank-topic" ? "QBank topic created!" : "Topic created!" });
         }
+      } else {
+        const kind = mode.type === "new-qbank" ? "qbank" : "deck";
+        await createDeck.mutateAsync({
+          data: { name: name.trim(), description: description.trim() || null, parentId: resolvedParentId, kind } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
+        });
+        toast({ title: mode.type === "new-qbank" ? "Question bank created!" : "Deck created!" });
       }
 
       queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
@@ -139,50 +169,108 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
     }
   };
 
-  const title =
-    mode.type === "new-topic" ? "New Main Topic" :
-    mode.type === "new-subdeck" ? "New Sub-deck" :
-    "Edit Deck";
+  const config = {
+    "new-topic": {
+      title: "New Main Topic",
+      desc: "Create a topic folder to organise related flashcard decks.",
+      icon: FolderOpen,
+      accent: "primary" as const,
+      namePlaceholder: "e.g. Biology, Machine Learning…",
+      subLabel: "Sub-decks",
+      subPlaceholder: (i: number) => `Sub-deck ${i + 1} name…`,
+      subNote: (n: number) => `${n} sub-deck${n !== 1 ? "s" : ""} will be created.`,
+      badgeLabel: (n: number) => `${n} sub-deck${n !== 1 ? "s" : ""}`,
+      btnLabel: (subs: number) => subs > 0 ? `Create Topic + ${subs} Sub-deck${subs !== 1 ? "s" : ""}` : "Create Topic",
+    },
+    "new-qbank-topic": {
+      title: "New QBank Topic",
+      desc: "Create a main topic to organise related question banks under one folder.",
+      icon: FolderOpen,
+      accent: "violet" as const,
+      namePlaceholder: "e.g. Cardiology, Renal, Pharmacology…",
+      subLabel: "Question Banks",
+      subPlaceholder: (i: number) => `Question bank ${i + 1} name…`,
+      subNote: (n: number) => `${n} question bank${n !== 1 ? "s" : ""} will be created.`,
+      badgeLabel: (n: number) => `${n} question bank${n !== 1 ? "s" : ""}`,
+      btnLabel: (subs: number) => subs > 0 ? `Create Topic + ${subs} QBank${subs !== 1 ? "s" : ""}` : "Create QBank Topic",
+    },
+    "new-subdeck": {
+      title: "New Sub-deck",
+      desc: "Create a flashcard deck inside an existing topic.",
+      icon: FileText,
+      accent: "primary" as const,
+      namePlaceholder: "e.g. Chapter 1, Week 3 Notes…",
+      subLabel: "",
+      subPlaceholder: () => "",
+      subNote: () => "",
+      badgeLabel: () => "",
+      btnLabel: () => "Create Deck",
+    },
+    "new-qbank": {
+      title: "New Question Bank",
+      desc: "Create an empty question bank inside a QBank topic.",
+      icon: Stethoscope,
+      accent: "violet" as const,
+      namePlaceholder: "e.g. Heart Failure, AKI Questions…",
+      subLabel: "",
+      subPlaceholder: () => "",
+      subNote: () => "",
+      badgeLabel: () => "",
+      btnLabel: () => "Create Question Bank",
+    },
+    "edit": {
+      title: "Edit Deck",
+      desc: "Update this deck's name, description, or parent assignment.",
+      icon: Layers,
+      accent: "primary" as const,
+      namePlaceholder: "Deck name…",
+      subLabel: "",
+      subPlaceholder: () => "",
+      subNote: () => "",
+      badgeLabel: () => "",
+      btnLabel: () => "Save Changes",
+    },
+  }[mode.type];
 
-  const description_ =
-    mode.type === "new-topic" ? "Create a topic to organise related decks under one folder." :
-    mode.type === "new-subdeck" ? "Create a deck inside an existing parent deck." :
-    "Update this deck's name, description, or parent assignment.";
-
-  const Icon = mode.type === "new-topic" ? FolderOpen : mode.type === "new-subdeck" ? FileText : Layers;
-
+  const isTopicMode = mode.type === "new-topic" || mode.type === "new-qbank-topic";
+  const isNewWithParent = mode.type === "new-subdeck" || mode.type === "new-qbank";
+  const validSubCount = subSlots.filter(s => s.name.trim()).length;
+  const Icon = config.icon;
+  const isViolet = config.accent === "violet";
   const selectedParentOpt = parentOptions.find(o => o.id.toString() === parentId);
+
+  const parentLabel = mode.type === "new-qbank" ? "QBank Topic" : "Parent Deck";
+  const parentRequired = isNewWithParent;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader className="mb-6">
           <div className="flex items-center gap-3 mb-1">
-            <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Icon className="h-5 w-5 text-primary" />
+            <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${isViolet ? "bg-violet-500/10" : "bg-primary/10"}`}>
+              <Icon className={`h-5 w-5 ${isViolet ? "text-violet-600" : "text-primary"}`} />
             </div>
-            <SheetTitle className="font-serif text-2xl">{title}</SheetTitle>
+            <SheetTitle className="font-serif text-2xl">{config.title}</SheetTitle>
           </div>
-          <SheetDescription>{description_}</SheetDescription>
+          <SheetDescription>{config.desc}</SheetDescription>
         </SheetHeader>
 
         <div className="space-y-5">
-          {/* Name */}
           <div className="space-y-1.5">
             <Label htmlFor="deck-name">
-              {mode.type === "new-topic" ? "Topic Name" : "Deck Name"} <span className="text-destructive">*</span>
+              {isTopicMode ? "Topic Name" : mode.type === "new-qbank" ? "Question Bank Name" : "Deck Name"}{" "}
+              <span className="text-destructive">*</span>
             </Label>
             <Input
               id="deck-name"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder={mode.type === "new-topic" ? "e.g. Biology, Machine Learning…" : "e.g. Chapter 1, Week 3 Notes…"}
+              placeholder={config.namePlaceholder}
               autoFocus
               disabled={isSaving}
             />
           </div>
 
-          {/* Description */}
           <div className="space-y-1.5">
             <Label htmlFor="deck-desc">Description <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <Textarea
@@ -196,19 +284,24 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
             />
           </div>
 
-          {/* Parent deck selector — shown for subdeck or edit mode */}
-          {(mode.type === "new-subdeck" || mode.type === "edit") && (
+          {(isNewWithParent || mode.type === "edit") && (
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1.5">
-                <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                Parent Deck{" "}
-                {mode.type === "new-subdeck" && <span className="text-destructive">*</span>}
+                {isViolet
+                  ? <Stethoscope className="h-3.5 w-3.5 text-muted-foreground" />
+                  : <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />}
+                {parentLabel}{" "}
+                {parentRequired && <span className="text-destructive">*</span>}
                 {mode.type === "edit" && <span className="text-muted-foreground font-normal">(optional)</span>}
               </Label>
               <Select value={parentId} onValueChange={setParentId} disabled={isSaving}>
                 <SelectTrigger>
                   {parentId === "none" || !selectedParentOpt
-                    ? <span className="text-muted-foreground text-sm">{mode.type === "new-subdeck" ? "Select a parent deck…" : "No parent — standalone"}</span>
+                    ? <span className="text-muted-foreground text-sm">
+                        {isNewWithParent
+                          ? mode.type === "new-qbank" ? "Select a QBank topic…" : "Select a parent deck…"
+                          : "No parent — standalone"}
+                      </span>
                     : <span className="text-sm truncate">{selectedParentOpt.label}</span>
                   }
                 </SelectTrigger>
@@ -229,33 +322,36 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
                       </span>
                     </SelectItem>
                   ))}
-                  {parentOptions.length === 0 && mode.type === "new-subdeck" && (
+                  {parentOptions.length === 0 && isNewWithParent && (
                     <div className="px-2 py-3 text-sm text-muted-foreground text-center">
-                      No topics yet. Create a main topic first.
+                      {mode.type === "new-qbank"
+                        ? "No QBank topics yet. Create a QBank topic first."
+                        : "No topics yet. Create a main topic first."}
                     </div>
                   )}
                 </SelectContent>
               </Select>
               {selectedParentOpt && selectedParentOpt.depth >= 1 && (
                 <p className="text-xs text-muted-foreground">
-                  This will create a sub-sub-deck inside <span className="font-medium">{selectedParentOpt.label}</span>.
+                  This will be nested inside <span className="font-medium">{selectedParentOpt.label}</span>.
                 </p>
               )}
             </div>
           )}
 
-          {/* Sub-decks to create alongside topic — only for new-topic mode */}
-          {mode.type === "new-topic" && (
+          {isTopicMode && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="flex items-center gap-1.5">
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                  Sub-decks <span className="text-muted-foreground font-normal">(optional)</span>
+                  {isViolet
+                    ? <Stethoscope className="h-3.5 w-3.5 text-muted-foreground" />
+                    : <FileText className="h-3.5 w-3.5 text-muted-foreground" />}
+                  {config.subLabel} <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
                 {subSlots.length < 8 && (
                   <button
                     onClick={addSubSlot}
-                    className="text-xs text-primary hover:underline flex items-center gap-0.5"
+                    className={`text-xs hover:underline flex items-center gap-0.5 ${isViolet ? "text-violet-600" : "text-primary"}`}
                     disabled={isSaving}
                   >
                     <Plus className="h-3 w-3" /> Add
@@ -266,10 +362,11 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
               {subSlots.length === 0 ? (
                 <button
                   onClick={addSubSlot}
-                  className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg py-3 text-sm text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
+                  className={`w-full flex items-center justify-center gap-2 border-2 border-dashed rounded-lg py-3 text-sm text-muted-foreground transition-colors ${isViolet ? "hover:border-violet-500/40 hover:text-violet-600" : "hover:border-primary/40 hover:text-primary"}`}
                   disabled={isSaving}
                 >
-                  <Plus className="h-4 w-4" /> Add sub-decks inside this topic
+                  <Plus className="h-4 w-4" />
+                  Add {isViolet ? "question banks" : "sub-decks"} inside this topic
                 </button>
               ) : (
                 <div className="space-y-2">
@@ -279,7 +376,7 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
                       <Input
                         value={slot.name}
                         onChange={e => updateSubSlot(slot.id, e.target.value)}
-                        placeholder={`Sub-deck ${idx + 1} name…`}
+                        placeholder={config.subPlaceholder(idx)}
                         className="h-8 text-sm flex-1"
                         disabled={isSaving}
                       />
@@ -295,45 +392,45 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
                 </div>
               )}
 
-              {subSlots.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {subSlots.filter(s => s.name.trim()).length} named sub-deck{subSlots.filter(s => s.name.trim()).length !== 1 ? "s" : ""} will be created.
-                </p>
+              {validSubCount > 0 && (
+                <p className="text-xs text-muted-foreground">{config.subNote(validSubCount)}</p>
               )}
             </div>
           )}
 
-          {/* Preview */}
-          {mode.type === "new-topic" && name.trim() && (
-            <div className="rounded-lg border border-border/50 bg-muted/30 p-3 space-y-1.5">
+          {isTopicMode && name.trim() && (
+            <div className={`rounded-lg border p-3 space-y-1.5 ${isViolet ? "border-violet-500/30 bg-violet-500/5" : "border-border/50 bg-muted/30"}`}>
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Preview</p>
               <div className="flex items-center gap-2">
-                <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+                <FolderOpen className={`h-4 w-4 shrink-0 ${isViolet ? "text-violet-600" : "text-primary"}`} />
                 <span className="text-sm font-medium">{name.trim()}</span>
-                {subSlots.some(s => s.name.trim()) && (
-                  <Badge variant="outline" className="text-xs ml-auto">
-                    {subSlots.filter(s => s.name.trim()).length} sub-deck{subSlots.filter(s => s.name.trim()).length !== 1 ? "s" : ""}
-                  </Badge>
+                {validSubCount > 0 && (
+                  <Badge variant="outline" className="text-xs ml-auto">{config.badgeLabel(validSubCount)}</Badge>
                 )}
               </div>
               {subSlots.filter(s => s.name.trim()).map((s) => (
-                <div key={s.id} className="flex items-center gap-2 ml-4 border-l-2 border-primary/20 pl-3">
-                  <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                <div key={s.id} className={`flex items-center gap-2 ml-4 border-l-2 pl-3 ${isViolet ? "border-violet-500/20" : "border-primary/20"}`}>
+                  {isViolet
+                    ? <Stethoscope className="h-3.5 w-3.5 text-violet-500 shrink-0" />
+                    : <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />}
                   <span className="text-xs text-muted-foreground">{name.trim()}::{s.name.trim()}</span>
                 </div>
               ))}
             </div>
           )}
 
-          <Button className="w-full" onClick={handleSave} disabled={!name.trim() || isSaving || (mode.type === "new-subdeck" && parentId === "none" && parentOptions.length > 0)}>
+          <Button
+            className={`w-full ${isViolet ? "bg-violet-600 hover:bg-violet-700 text-white" : ""}`}
+            onClick={handleSave}
+            disabled={
+              !name.trim() ||
+              isSaving ||
+              (isNewWithParent && parentId === "none" && parentOptions.length > 0)
+            }
+          >
             {isSaving
               ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>
-              : mode.type === "edit" ? "Save Changes"
-              : mode.type === "new-topic"
-                ? subSlots.some(s => s.name.trim())
-                  ? `Create Topic + ${subSlots.filter(s => s.name.trim()).length} Sub-deck${subSlots.filter(s => s.name.trim()).length !== 1 ? "s" : ""}`
-                  : "Create Topic"
-              : "Create Deck"
+              : config.btnLabel(validSubCount)
             }
           </Button>
         </div>

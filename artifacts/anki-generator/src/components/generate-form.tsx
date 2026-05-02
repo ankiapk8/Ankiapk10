@@ -177,7 +177,7 @@ export function GenerateForm({
   const canGenerate = !isExtracting && !isGeneratingAll && (readyFiles.length > 0 || hasManual);
 
   const parentOptions = useMemo(
-    () => buildParentOptions((allDecks as DeckWithParent[]) ?? []),
+    () => buildParentOptions(((allDecks as DeckWithParent[]) ?? []).filter(d => (d.kind ?? "deck") !== "qbank")),
     [allDecks]
   );
 
