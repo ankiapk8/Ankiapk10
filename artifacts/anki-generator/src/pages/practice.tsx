@@ -11,6 +11,7 @@ import {
   RotateCcw, Stethoscope, BookOpen, Play, AlertCircle,
 } from "lucide-react";
 import type { Card } from "@workspace/api-client-react/src/generated/api.schemas";
+import { saveSession } from "@/lib/study-stats";
 
 type MCQCard = Card & { choices: string[]; correctIndex: number };
 
@@ -627,7 +628,17 @@ export default function PracticePage() {
   const handleDone = useCallback((answers: Answer[]) => {
     setFinalAnswers(answers);
     setDone(true);
-  }, []);
+    if (deck && answers.length > 0) {
+      saveSession({
+        deckId: deckId,
+        deckName: (deck as { name?: string }).name ?? "Question Bank",
+        total: answers.length,
+        known: answers.filter(a => a.correct).length,
+        unknown: answers.filter(a => !a.correct).length,
+        completedAt: new Date().toISOString(),
+      });
+    }
+  }, [deck, deckId]);
 
   const handleReset = useCallback(() => {
     setFinalAnswers([]);

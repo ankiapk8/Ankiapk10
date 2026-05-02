@@ -1,15 +1,20 @@
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { BookOpen, LayoutDashboard, Library, Sparkles } from "lucide-react";
+import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History } from "lucide-react";
 import { HeaderApkButton } from "@/components/header-apk-button";
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
+import { BottomNav } from "@/components/bottom-nav";
+import { useDarkMode } from "@/hooks/use-dark-mode";
+import { Button } from "@/components/ui/button";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const [dark, setDark] = useDarkMode();
 
   const navLinks = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
     { href: "/decks", label: "Library", icon: Library },
+    { href: "/history", label: "History", icon: History },
   ];
 
   const generateActive = location === "/generate";
@@ -90,14 +95,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </motion.span>
             </Link>
           </nav>
-          <div className="ml-auto pl-2">
+          <div className="ml-auto pl-2 flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => setDark(d => !d)}
+              aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             <HeaderApkButton />
           </div>
         </div>
       </header>
-      <main className="flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-8">
+      <main className="flex-1 flex flex-col w-full max-w-5xl mx-auto p-4 md:p-8 pb-24 lg:pb-8">
         {children}
       </main>
+      <BottomNav />
       <ApkWelcomeBanner />
     </div>
   );

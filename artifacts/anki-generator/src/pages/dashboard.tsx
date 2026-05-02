@@ -1,14 +1,14 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { useListDecks } from "@workspace/api-client-react";
+import { useListDecks, useListQbanks } from "@workspace/api-client-react";
 import { format, isThisWeek } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Layers, FileText, Sparkles, TrendingUp, ChevronRight, PlusCircle,
-  Clock, Flame, Brain, CheckCircle2, BookOpen,
+  Clock, Flame, Brain, CheckCircle2, BookOpen, Stethoscope,
 } from "lucide-react";
 import {
   getSessions,
@@ -17,9 +17,11 @@ import {
   getDeckStats,
   getTodayStats,
 } from "@/lib/study-stats";
+import type { Qbank } from "@workspace/api-client-react";
 
 export default function Dashboard() {
   const { data: decks, isLoading } = useListDecks();
+  const { data: qbanks } = useListQbanks();
 
   const sessions = useMemo(() => getSessions(), []);
   const streak = useMemo(() => getStudyStreak(sessions), [sessions]);
@@ -27,9 +29,11 @@ export default function Dashboard() {
   const deckStats = useMemo(() => getDeckStats(sessions), [sessions]);
   const todayStats = useMemo(() => getTodayStats(sessions), [sessions]);
 
-  const totalDecks = decks?.length ?? 0;
-  const totalCards = decks?.reduce((sum, d) => sum + d.cardCount, 0) ?? 0;
-  const thisWeekDecks = decks?.filter(d => isThisWeek(new Date(d.createdAt))).length ?? 0;
+  const totalDecks = (decks ?? []).filter((d: { kind?: string }) => (d.kind ?? "deck") !== "qbank").length;
+  const totalCards = (decks ?? []).filter((d: { kind?: string }) => (d.kind ?? "deck") !== "qbank").reduce((sum, d) => sum + d.cardCount, 0);
+  const thisWeekDecks = (decks ?? []).filter((d: { kind?: string; createdAt: string }) => (d.kind ?? "deck") !== "qbank" && isThisWeek(new Date(d.createdAt))).length;
+  const totalQbanks = (qbanks as Qbank[] | undefined)?.filter((q: Qbank) => !(q as Qbank & { parentId?: number | null }).parentId).length ?? 0;
+  const totalQuestions = (qbanks as Qbank[] | undefined)?.reduce((sum: number, q: Qbank) => sum + (q.questionCount ?? 0), 0) ?? 0;
 
   const totalSessionCards = sessions.reduce((sum, s) => sum + s.total, 0);
   const totalKnown = sessions.reduce((sum, s) => sum + s.known, 0);
@@ -69,9 +73,9 @@ export default function Dashboard() {
       {/* Top stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: "Total Decks", value: totalDecks, icon: Layers, color: "text-primary" },
+          { label: "Flashcard Decks", value: totalDecks, icon: Layers, color: "text-primary" },
           { label: "Total Cards", value: totalCards, icon: FileText, color: "text-blue-500" },
-          { label: "Decks This Week", value: thisWeekDecks, icon: TrendingUp, color: "text-green-500" },
+          { label: "Question Banks", value: totalQbanks, icon: Stethoscope, color: "text-violet-500" },
           { label: "Study Streak", value: streak > 0 ? `${streak}d` : "—", icon: Flame, color: "text-emerald-500" },
         ].map(({ label, value, icon: Icon, color }, idx) => (
           <motion.div

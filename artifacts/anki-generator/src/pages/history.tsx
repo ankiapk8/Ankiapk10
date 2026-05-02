@@ -175,7 +175,13 @@ export default function History() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-medium text-sm truncate">{g.deckName}</h3>
+                        {g.deckId ? (
+                          <Link href={`/decks/${g.deckId}`} onClick={e => e.stopPropagation()}>
+                            <h3 className="font-medium text-sm truncate hover:text-primary hover:underline underline-offset-2 transition-colors">{g.deckName}</h3>
+                          </Link>
+                        ) : (
+                          <h3 className="font-medium text-sm truncate">{g.deckName}</h3>
+                        )}
                         <StatusBadge status={g.status} />
                         <Badge variant="outline" className="gap-1 text-[10px] font-normal capitalize">
                           <DeckTypeIcon type={g.deckType} />
