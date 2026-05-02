@@ -17,6 +17,9 @@ import {
   BarChart2,
   Flame,
   Package,
+  FileImage,
+  MessageSquarePlus,
+  Star,
 } from "lucide-react";
 
 const LOGO_URL = `${import.meta.env.BASE_URL}favicon.svg`;
@@ -590,6 +593,139 @@ function PreviewExport({ isDark }: { isDark: boolean }) {
   );
 }
 
+function PreviewMindMapExport({ isDark }: { isDark: boolean }) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStep(1), 400),
+      setTimeout(() => setStep(2), 1200),
+      setTimeout(() => setStep(3), 2000),
+      setTimeout(() => setStep(0), 4500),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+  useEffect(() => {
+    if (step !== 0) return;
+    const t = setTimeout(() => setStep(1), 500);
+    return () => clearTimeout(t);
+  }, [step]);
+
+  const mapBg = isDark ? "bg-white/6 border-white/8" : "bg-white/80 border-black/8";
+  const text = isDark ? "text-white/65" : "text-black/60";
+  const btnBase = isDark ? "border-white/15 bg-white/8 text-white/60" : "border-black/12 bg-black/5 text-black/55";
+  const nodes = [
+    { x: 50, y: 50, r: 10, color: "#a78bfa" },
+    { x: 18, y: 22, r: 7,  color: "#818cf8" },
+    { x: 80, y: 22, r: 7,  color: "#a78bfa" },
+    { x: 18, y: 76, r: 7,  color: "#c4b5fd" },
+    { x: 80, y: 76, r: 7,  color: "#8b5cf6" },
+  ];
+
+  return (
+    <div className="w-full h-full flex flex-col gap-2 justify-center">
+      <div className={`rounded-lg border ${mapBg} overflow-hidden`} style={{ height: 82 }}>
+        <svg className="w-full h-full" viewBox="0 0 100 100">
+          {nodes.slice(1).map((n, i) => (
+            <motion.line key={i} x1="50" y1="50" x2={n.x} y2={n.y}
+              stroke={n.color} strokeWidth="0.8" strokeOpacity="0.5"
+              initial={{ opacity: 0 }} animate={{ opacity: step >= 1 ? 1 : 0 }}
+              transition={{ duration: 0.3, delay: i * 0.07 }} />
+          ))}
+          {nodes.map((n, i) => (
+            <motion.circle key={i} cx={n.x} cy={n.y} r={n.r}
+              fill={n.color} fillOpacity="0.75"
+              initial={{ scale: 0 }} animate={{ scale: step >= 1 ? 1 : 0 }}
+              transition={{ type: "spring", bounce: 0.5, delay: i * 0.06 }} />
+          ))}
+        </svg>
+      </div>
+      <motion.div className="flex gap-1.5"
+        initial={{ opacity: 0, y: 5 }} animate={{ opacity: step >= 2 ? 1 : 0, y: step >= 2 ? 0 : 5 }}
+        transition={{ duration: 0.3 }}>
+        {[{ fmt: "SVG", active: false }, { fmt: "PNG", active: step >= 3 }].map(({ fmt, active }) => (
+          <motion.div key={fmt}
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border text-[10px] font-semibold ${btnBase}`}
+            animate={active ? { borderColor: "#2dd4bf80", color: "#2dd4bf" } : {}}
+            transition={{ duration: 0.3 }}>
+            <FileImage className="h-3 w-3" />{fmt}
+          </motion.div>
+        ))}
+      </motion.div>
+      {step >= 3 && (
+        <motion.div className="text-center text-[9px] font-medium" style={{ color: "#2dd4bf" }}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+          ✓ mind_map.png ready — paste into your notes!
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
+function PreviewFeedback({ isDark }: { isDark: boolean }) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStep(1), 500),
+      setTimeout(() => setStep(2), 1400),
+      setTimeout(() => setStep(3), 2400),
+      setTimeout(() => setStep(0), 5000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+  useEffect(() => {
+    if (step !== 0) return;
+    const t = setTimeout(() => setStep(1), 600);
+    return () => clearTimeout(t);
+  }, [step]);
+
+  const surface = isDark ? "bg-white/6 border-white/8" : "bg-white/80 border-black/8";
+  const text = isDark ? "text-white/65" : "text-black/60";
+  const sub = isDark ? "text-white/40" : "text-black/35";
+  const types = [{ e: "🐛", l: "Bug" }, { e: "💡", l: "Idea" }, { e: "🙏", l: "Praise" }, { e: "💬", l: "Other" }];
+
+  return (
+    <div className="w-full h-full flex flex-col gap-1.5 justify-center">
+      <div className="grid grid-cols-4 gap-1">
+        {types.map((t, i) => (
+          <motion.div key={t.l}
+            className={`flex flex-col items-center gap-0.5 py-1.5 rounded-lg border text-[8px] font-medium ${sub} ${surface}`}
+            animate={step >= 1 && i === 1 ? { borderColor: "#e879f980", backgroundColor: "#e879f910", color: "#e879f9" } : {}}
+            transition={{ duration: 0.35 }}>
+            <span className="text-sm leading-none">{t.e}</span>{t.l}
+          </motion.div>
+        ))}
+      </div>
+      <div className="flex gap-0.5 justify-center">
+        {[1, 2, 3, 4, 5].map(n => (
+          <motion.div key={n}
+            initial={{ scale: 0.8 }}
+            animate={{ scale: step >= 2 && n <= 4 ? 1.15 : 1 }}
+            transition={{ type: "spring", bounce: 0.5, delay: n * 0.04 }}>
+            <Star style={{ width: 18, height: 18 }}
+              fill={step >= 2 && n <= 4 ? "#f59e0b" : "transparent"}
+              stroke={step >= 2 && n <= 4 ? "#f59e0b" : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.18)"} />
+          </motion.div>
+        ))}
+      </div>
+      <div className={`rounded-lg border ${surface} px-2 py-1.5`}>
+        <div className={`text-[8px] ${sub} mb-0.5`}>Your message</div>
+        <motion.div className={`text-[9px] ${text}`}
+          initial={{ opacity: 0 }} animate={{ opacity: step >= 2 ? 1 : 0 }} transition={{ duration: 0.4 }}>
+          {step >= 2 ? "Love the mind map export! 🎉" : ""}
+        </motion.div>
+      </div>
+      {step >= 3 && (
+        <motion.div className="flex items-center justify-center gap-1.5 text-[9px] font-semibold"
+          style={{ color: "#e879f9" }}
+          initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: "spring", bounce: 0.4 }}>
+          <CheckCircle2 className="h-3 w-3" /> Sent! We read every response.
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 // Feature previews mapped by index
 const FEATURE_PREVIEWS = [
   PreviewGeneration,
@@ -600,6 +736,8 @@ const FEATURE_PREVIEWS = [
   PreviewMindMap,
   PreviewDashboard,
   PreviewExport,
+  PreviewMindMapExport,
+  PreviewFeedback,
 ];
 
 const FEATURES = [
@@ -682,6 +820,26 @@ const FEATURES = [
     accent: "from-yellow-400 to-amber-400",
     bgDark: "from-yellow-500/10 via-amber-500/5 to-transparent",
     bgLight: "from-yellow-500/8 via-amber-500/4 to-transparent",
+  },
+  {
+    icon: FileImage,
+    color: "#2dd4bf",
+    glow: "hsl(180 72% 50% / 0.5)",
+    label: "Mind Map Export",
+    desc: "Download any mind map as a crisp 2× PNG or scalable SVG — paste straight into Notion, Obsidian, or your slides.",
+    accent: "from-teal-400 to-cyan-500",
+    bgDark: "from-teal-500/10 via-cyan-500/5 to-transparent",
+    bgLight: "from-teal-500/8 via-cyan-500/4 to-transparent",
+  },
+  {
+    icon: MessageSquarePlus,
+    color: "#e879f9",
+    glow: "hsl(292 94% 73% / 0.5)",
+    label: "Feedback & Support",
+    desc: "Send bug reports, feature ideas, or kind words right from the app. We read every response and ship improvements fast.",
+    accent: "from-fuchsia-400 to-pink-500",
+    bgDark: "from-fuchsia-500/10 via-pink-500/5 to-transparent",
+    bgLight: "from-fuchsia-500/8 via-pink-500/4 to-transparent",
   },
 ];
 
