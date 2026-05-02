@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, decksTable, cardsTable, generationsTable } from "@workspace/db";
+import { db, decksTable, cardsTable, generationsTable, qbanksTable, questionsTable } from "@workspace/db";
 import { GenerateCardsBody } from "@workspace/api-zod";
 import { createCanvas, loadImage } from "canvas";
 import { serializeCard } from "../lib/serialize-card";
@@ -1275,32 +1275,30 @@ router.post("/generate-qbank", async (req, res, next): Promise<void> => {
   }
 
   try {
-    const [primaryDeck] = await db
-      .insert(decksTable)
-      .values({ name: deckName, parentId: parentId ?? null, kind: "qbank" })
+    const [primaryQbank] = await db
+      .insert(qbanksTable)
+      .values({ name: deckName, parentId: parentId ?? null })
       .returning();
 
-    if (!primaryDeck) {
+    if (!primaryQbank) {
       res.status(500).json({ error: "Failed to save question bank." });
       return;
     }
 
-    const cardRows: (typeof cardsTable.$inferInsert)[] = filtered.map(c => ({
-      deckId: primaryDeck.id,
+    const questionRows: (typeof questionsTable.$inferInsert)[] = filtered.map(c => ({
+      qbankId: primaryQbank.id,
       front: c.front,
       back: c.back,
-      image: null,
-      cardType: "mcq" as const,
       choices: c.choices ? JSON.stringify(c.choices) : null,
       correctIndex: typeof c.correctIndex === "number" ? c.correctIndex : null,
       pageNumber: c.pageNumber ?? null,
     }));
 
-    const inserted = await db.insert(cardsTable).values(cardRows).returning();
+    const inserted = await db.insert(questionsTable).values(questionRows).returning();
 
     res.status(201).json({
-      deck: { ...primaryDeck, cardCount: inserted.length, createdAt: primaryDeck.createdAt.toISOString() },
-      cards: inserted.map(serializeCard),
+      qbank: { ...primaryQbank, questionCount: inserted.length, createdAt: primaryQbank.createdAt.toISOString() },
+      questions: inserted.map(q => ({ ...q, choices: q.choices ? JSON.parse(q.choices) : null, createdAt: q.createdAt.toISOString() })),
       generatedCount: inserted.length,
     });
   } catch (err) {
@@ -1398,34 +1396,32 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
   }
 
   try {
-    const [primaryDeck] = await db
-      .insert(decksTable)
-      .values({ name: deckName, parentId: parentId ?? null, kind: "qbank" })
+    const [primaryQbank] = await db
+      .insert(qbanksTable)
+      .values({ name: deckName, parentId: parentId ?? null })
       .returning();
 
-    if (!primaryDeck) {
+    if (!primaryQbank) {
       sseEmit(res, { type: "error", message: "Failed to save question bank." });
       res.end();
       return;
     }
 
-    const cardRows: (typeof cardsTable.$inferInsert)[] = filtered.map(c => ({
-      deckId: primaryDeck.id,
+    const questionRows: (typeof questionsTable.$inferInsert)[] = filtered.map(c => ({
+      qbankId: primaryQbank.id,
       front: c.front,
       back: c.back,
-      image: null,
-      cardType: "mcq" as const,
       choices: c.choices ? JSON.stringify(c.choices) : null,
       correctIndex: typeof c.correctIndex === "number" ? c.correctIndex : null,
       pageNumber: c.pageNumber ?? null,
     }));
 
-    const inserted = await db.insert(cardsTable).values(cardRows).returning();
+    const inserted = await db.insert(questionsTable).values(questionRows).returning();
 
     sseEmit(res, {
       type: "done",
       generatedCount: inserted.length,
-      deck: { ...primaryDeck, cardCount: inserted.length, createdAt: primaryDeck.createdAt.toISOString() },
+      qbank: { ...primaryQbank, questionCount: inserted.length, createdAt: primaryQbank.createdAt.toISOString() },
     });
     res.end();
   } catch (err) {

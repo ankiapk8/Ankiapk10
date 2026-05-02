@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useListDecks, getListDecksQueryKey } from "@workspace/api-client-react";
+import { useListQbanks, getListQbanksQueryKey } from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,9 +17,7 @@ import {
   Loader2, Stethoscope, FolderOpen, FileText, ListOrdered, Wand2,
   UploadCloud, X, CheckCircle2, AlertCircle, StopCircle,
 } from "lucide-react";
-import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
-
-type DeckWithParent = Deck & { parentId?: number | null };
+import type { Qbank } from "@workspace/api-client-react";
 
 const DEFAULT_TARGET_QUESTIONS = 20;
 
@@ -27,7 +25,7 @@ interface GenerateQbankFormProps {
   defaultParentId?: number | null;
   prefilledText?: string;
   prefilledDeckName?: string;
-  onDone?: (newDeckId?: number) => void;
+  onDone?: (newQbankId?: number) => void;
 }
 
 type FileStatus = "extracting" | "ready" | "error" | "generating" | "done";
@@ -46,23 +44,23 @@ type FileEntry = {
   generatingMessage?: string;
 };
 
-function buildParentOptions(allDecks: DeckWithParent[]): { id: number; label: string; depth: number }[] {
-  const rootDecks = allDecks.filter(d => !d.parentId);
-  const byParent = new Map<number, DeckWithParent[]>();
-  allDecks.filter(d => d.parentId).forEach(d => {
+function buildParentOptions(allQbanks: Qbank[]): { id: number; label: string; depth: number }[] {
+  const rootQbanks = allQbanks.filter(d => !d.parentId);
+  const byParent = new Map<number, Qbank[]>();
+  allQbanks.filter(d => d.parentId).forEach(d => {
     const pid = d.parentId!;
     if (!byParent.has(pid)) byParent.set(pid, []);
     byParent.get(pid)!.push(d);
   });
   const result: { id: number; label: string; depth: number }[] = [];
-  function walk(deck: DeckWithParent, label: string, depth: number) {
-    result.push({ id: deck.id, label, depth });
-    const children = byParent.get(deck.id) ?? [];
+  function walk(qbank: Qbank, label: string, depth: number) {
+    result.push({ id: qbank.id, label, depth });
+    const children = byParent.get(qbank.id) ?? [];
     for (const child of children.sort((a, b) => a.name.localeCompare(b.name))) {
       walk(child, `${label} › ${child.name}`, depth + 1);
     }
   }
-  for (const d of rootDecks.sort((a, b) => a.name.localeCompare(b.name))) {
+  for (const d of rootQbanks.sort((a, b) => a.name.localeCompare(b.name))) {
     walk(d, d.name, 0);
   }
   return result;
@@ -79,7 +77,7 @@ function parseProgressPercent(message: string): number | null {
 export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDeckName, onDone }: GenerateQbankFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: allDecks } = useListDecks();
+  const { data: allQbanks } = useListQbanks();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -98,8 +96,8 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
   const [lastResultDeckId, setLastResultDeckId] = useState<number | undefined>(undefined);
 
   const parentOptions = useMemo(
-    () => buildParentOptions(((allDecks as DeckWithParent[]) ?? []).filter(d => d.kind === "qbank")),
-    [allDecks]
+    () => buildParentOptions((allQbanks as Qbank[]) ?? []),
+    [allQbanks]
   );
   const selectedParent = parentOptions.find(o => o.id.toString() === parentId);
 
@@ -223,7 +221,7 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
             try {
               const event = JSON.parse(line.slice(5).trim()) as {
                 type: string; percent?: number; message?: string;
-                generatedCount?: number; deck?: { id: number };
+                generatedCount?: number; qbank?: { id: number };
               };
               if (event.type === "progress" && fileId) {
                 setFiles(prev => prev.map(f =>
@@ -232,8 +230,8 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
                     : f
                 ));
               } else if (event.type === "done") {
-                if (event.deck) {
-                  resolve({ generatedCount: event.generatedCount ?? 0, deckId: event.deck.id });
+                if (event.qbank) {
+                  resolve({ generatedCount: event.generatedCount ?? 0, deckId: event.qbank.id });
                 } else {
                   reject(new Error("Generation finished without a question bank"));
                 }
@@ -331,7 +329,7 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
 
     setIsGeneratingAll(false);
     setIsCancelling(false);
-    queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
+    queryClient.invalidateQueries({ queryKey: getListQbanksQueryKey() });
     setLastResultDeckId(lastDeckId);
 
     if (cancelled > 0 && ok === 0) {

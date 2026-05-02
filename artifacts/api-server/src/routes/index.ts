@@ -9,6 +9,7 @@ import explainRouter from "./explain";
 import transferRouter from "./transfer";
 import generationsRouter from "./generations";
 import downloadApkRouter from "./download-apk";
+import qbanksRouter from "./qbanks";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(explainRouter);
 router.use(transferRouter);
 router.use(generationsRouter);
 router.use(downloadApkRouter);
+router.use(qbanksRouter);
 
 export default router;

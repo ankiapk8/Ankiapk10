@@ -65,6 +65,28 @@ export async function ensureDatabaseSchema(): Promise<void> {
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "created_at" timestamp with time zone DEFAULT now() NOT NULL;
     ALTER TABLE "cards" ADD COLUMN IF NOT EXISTS "updated_at" timestamp with time zone DEFAULT now() NOT NULL;
 
+    CREATE TABLE IF NOT EXISTS "qbanks" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "name" text NOT NULL,
+      "description" text,
+      "parent_id" integer,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS "questions" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "qbank_id" integer NOT NULL,
+      "front" text NOT NULL,
+      "back" text NOT NULL,
+      "choices" text,
+      "correct_index" integer,
+      "tags" text,
+      "page_number" integer,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
+
     DO $$
     BEGIN
       IF NOT EXISTS (
@@ -82,6 +104,24 @@ export async function ensureDatabaseSchema(): Promise<void> {
         ALTER TABLE "cards"
           ADD CONSTRAINT "cards_deck_id_decks_id_fk"
           FOREIGN KEY ("deck_id") REFERENCES "public"."decks"("id")
+          ON DELETE cascade ON UPDATE no action;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'qbanks_parent_id_qbanks_id_fk'
+      ) THEN
+        ALTER TABLE "qbanks"
+          ADD CONSTRAINT "qbanks_parent_id_qbanks_id_fk"
+          FOREIGN KEY ("parent_id") REFERENCES "public"."qbanks"("id")
+          ON DELETE set null ON UPDATE no action;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'questions_qbank_id_qbanks_id_fk'
+      ) THEN
+        ALTER TABLE "questions"
+          ADD CONSTRAINT "questions_qbank_id_qbanks_id_fk"
+          FOREIGN KEY ("qbank_id") REFERENCES "public"."qbanks"("id")
           ON DELETE cascade ON UPDATE no action;
       END IF;
     END $$;

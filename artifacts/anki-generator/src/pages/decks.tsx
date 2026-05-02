@@ -1,5 +1,8 @@
 import { Link, useSearch } from "wouter";
-import { useListDecks, useDeleteDeck, getListDecksQueryKey } from "@workspace/api-client-react";
+import {
+  useListDecks, useDeleteDeck, getListDecksQueryKey,
+  useListQbanks, useDeleteQbank, getListQbanksQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -34,12 +37,192 @@ import { Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/utils";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Qbank } from "@workspace/api-client-react";
 
 type DeckWithParent = Deck & { parentId?: number | null };
 
 function getAllDescendants(deckId: number, childrenMap: Map<number, DeckWithParent[]>): DeckWithParent[] {
   const direct = childrenMap.get(deckId) ?? [];
   return [...direct, ...direct.flatMap(d => getAllDescendants(d.id, childrenMap))];
+}
+
+function getAllQbankDescendants(qbankId: number, childrenMap: Map<number, Qbank[]>): Qbank[] {
+  const direct = childrenMap.get(qbankId) ?? [];
+  return [...direct, ...direct.flatMap(q => getAllQbankDescendants(q.id, childrenMap))];
+}
+
+type QbankRowProps = {
+  qbank: Qbank;
+  depth: number;
+  collapsedIds: Set<number>;
+  toggleCollapse: (id: number, e: React.MouseEvent) => void;
+  qbankChildrenMap: Map<number, Qbank[]>;
+  openDeckForm: (mode: DeckFormMode) => void;
+  handleDeleteQbank: (id: number, e: React.MouseEvent) => void;
+};
+
+function QbankRow({
+  qbank, depth, collapsedIds, toggleCollapse,
+  qbankChildrenMap, openDeckForm, handleDeleteQbank,
+}: QbankRowProps) {
+  const children = (qbankChildrenMap.get(qbank.id) ?? []).sort(
+    (a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
+  );
+  const hasChildren = children.length > 0;
+  const isCollapsed = collapsedIds.has(qbank.id);
+  const allDescendants = getAllQbankDescendants(qbank.id, qbankChildrenMap);
+  const totalQuestions = qbank.questionCount + allDescendants.reduce((s, q) => s + q.questionCount, 0);
+
+  const clampedDepth = Math.min(depth, 2);
+
+  const cardClass = [
+    "cursor-pointer transition-all border",
+    clampedDepth === 0
+      ? "border-border/50 shadow-sm hover:border-violet-500/40 hover:shadow-md"
+      : clampedDepth === 1
+      ? "border-border/30 bg-muted/20 hover:border-violet-500/30 hover:shadow-sm"
+      : "border-border/20 bg-muted/30 hover:border-violet-500/20",
+  ].join(" ");
+
+  const iconBg = clampedDepth === 0
+    ? hasChildren ? "bg-violet-600/15" : "bg-violet-600/10"
+    : "bg-violet-500/10";
+  const iconColor = clampedDepth === 0 ? "text-violet-600" : "text-violet-500";
+  const iconBoxSize = clampedDepth === 0 ? "h-9 w-9" : clampedDepth === 1 ? "h-7 w-7" : "h-6 w-6";
+  const iconSize = clampedDepth === 0 ? "h-4 w-4" : clampedDepth === 1 ? "h-3.5 w-3.5" : "h-3 w-3";
+  const cardPadding = clampedDepth === 0 ? "p-4" : clampedDepth === 1 ? "py-2.5 px-3" : "py-2 px-3";
+  const nameClass = clampedDepth === 0 ? "font-semibold" : clampedDepth === 1 ? "text-sm font-medium" : "text-xs font-medium";
+  const chevronClass = clampedDepth === 0 ? "h-4 w-4" : "h-3.5 w-3.5";
+  const btnSize = clampedDepth === 0 ? "h-8 w-8" : "h-7 w-7";
+  const btnIconSize = clampedDepth === 0 ? "h-3.5 w-3.5" : "h-3 w-3";
+  const questionCount = hasChildren ? totalQuestions : qbank.questionCount;
+  const countClass = clampedDepth === 0
+    ? "text-sm font-medium text-violet-600 bg-violet-500/10 px-2.5 py-1 rounded-md"
+    : "text-xs font-medium text-violet-600 bg-violet-500/10 px-2 py-0.5 rounded";
+  const indentClass = depth === 0
+    ? ""
+    : depth === 1
+    ? "ml-3 sm:ml-6 mt-1.5 space-y-1 border-l-2 pl-2 sm:pl-4 border-violet-500/20"
+    : "ml-2 sm:ml-5 mt-1 space-y-1 border-l-2 pl-2 sm:pl-3 border-violet-300/30";
+
+  return (
+    <div>
+      <div className="relative group">
+        <Link href={`/qbanks/${qbank.id}`}>
+          <Card className={cardClass}>
+            <CardContent className={cardPadding}>
+              <div className="flex items-center gap-2.5">
+                {hasChildren && (
+                  <button
+                    className="text-muted-foreground hover:text-foreground shrink-0"
+                    onClick={e => toggleCollapse(qbank.id, e)}
+                  >
+                    {isCollapsed
+                      ? <ChevronRight className={chevronClass} />
+                      : <ChevronDown className={chevronClass} />}
+                  </button>
+                )}
+                <div className={`${iconBoxSize} rounded-md flex items-center justify-center shrink-0 ${iconBg}`}>
+                  {hasChildren
+                    ? <FolderOpen className={`${iconSize} ${iconColor}`} />
+                    : <Stethoscope className={`${iconSize} ${iconColor}`} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className={`${nameClass} truncate`}>{qbank.name}</p>
+                    {hasChildren && (
+                      <Badge variant="outline" className="text-xs shrink-0 py-0 px-1.5">
+                        {children.length} question bank{children.length !== 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {format(new Date(qbank.createdAt), "MMM d, yyyy")}
+                    {depth === 0 && qbank.description ? ` · ${qbank.description}` : ""}
+                  </p>
+                  {hasChildren && isCollapsed && (
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                      {children.slice(0, 4).map(child => (
+                        <span
+                          key={child.id}
+                          className="inline-flex items-center gap-1 text-[11px] bg-muted/60 text-muted-foreground border border-border/40 rounded px-1.5 py-0.5 font-medium"
+                        >
+                          <Stethoscope className="h-2.5 w-2.5 shrink-0 text-violet-500" />
+                          <span className="truncate max-w-[80px]">{child.name}</span>
+                          <span className="shrink-0 font-semibold text-violet-600">{child.questionCount}</span>
+                        </span>
+                      ))}
+                      {children.length > 4 && (
+                        <span className="text-[11px] text-muted-foreground">+{children.length - 4} more</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-auto">
+                  <span className={countClass}>
+                    {questionCount}<span className="hidden xs:inline sm:inline"> MCQ{questionCount !== 1 ? "s" : ""}</span>
+                  </span>
+                  <div className="flex items-center gap-0.5">
+                    {qbank.questionCount > 0 && (
+                      <Link href={`/practice-qbank/${qbank.id}`} onClick={e => e.stopPropagation()}>
+                        <Button
+                          variant="ghost" size="icon"
+                          className={`${btnSize} text-violet-500 hover:text-violet-700 hover:bg-violet-500/10`}
+                          title="Practice"
+                        >
+                          <Play className={btnIconSize} />
+                        </Button>
+                      </Link>
+                    )}
+                    <Button
+                      variant="ghost" size="icon"
+                      className={`${btnSize} text-muted-foreground hover:text-foreground`}
+                      title="Edit"
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); openDeckForm({ type: "edit-qbank", qbank }); }}
+                    >
+                      <Pencil className={btnIconSize} />
+                    </Button>
+                    <Button
+                      variant="ghost" size="icon"
+                      className={`${btnSize} text-muted-foreground hover:text-destructive hover:bg-destructive/10`}
+                      title="Delete"
+                      onClick={e => handleDeleteQbank(qbank.id, e)}
+                    >
+                      <Trash2 className={btnIconSize} />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      {hasChildren && !isCollapsed && (
+        <div className={indentClass}>
+          {children.map(child => (
+            <QbankRow
+              key={child.id}
+              qbank={child}
+              depth={depth + 1}
+              collapsedIds={collapsedIds}
+              toggleCollapse={toggleCollapse}
+              qbankChildrenMap={qbankChildrenMap}
+              openDeckForm={openDeckForm}
+              handleDeleteQbank={handleDeleteQbank}
+            />
+          ))}
+          <button
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground transition-colors rounded-md hover:text-violet-600 hover:bg-violet-500/5"
+            onClick={() => openDeckForm({ type: "new-qbank", parentId: qbank.id })}
+          >
+            <Plus className="h-3 w-3" />
+            Add question bank to <span className="font-medium ml-0.5">{qbank.name}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 type DeckRowProps = {
@@ -302,7 +485,9 @@ function DeckRow({
 
 export default function Decks() {
   const { data: decks, isLoading } = useListDecks();
+  const { data: qbanks, isLoading: isLoadingQbanks } = useListQbanks();
   const deleteDeck = useDeleteDeck();
+  const deleteQbankMutation = useDeleteQbank();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -450,23 +635,34 @@ export default function Decks() {
 
   const totalCards = (decks as DeckWithParent[] | undefined)?.reduce((sum, d) => sum + d.cardCount, 0) ?? 0;
 
-  const { rootDecks, rootFlashcardDecks, rootQbankDecks, deckChildrenMap, qbankChildrenCount, flashcardChildrenCount, qbankTotalMcqs, flashcardTotalCards } = useMemo(() => {
+  const { rootDecks, rootFlashcardDecks, deckChildrenMap, flashcardChildrenCount, flashcardTotalCards } = useMemo(() => {
     const all = (decks as DeckWithParent[] | undefined) ?? [];
     const root = all.filter(d => !d.parentId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
     const flashcards = root.filter(d => (d.kind ?? "deck") !== "qbank");
-    const qbanks = root.filter(d => d.kind === "qbank");
     const byParent = new Map<number, DeckWithParent[]>();
-    all.filter(d => d.parentId).forEach(d => {
+    all.filter(d => d.parentId && (d.kind ?? "deck") !== "qbank").forEach(d => {
       const pid = d.parentId!;
       if (!byParent.has(pid)) byParent.set(pid, []);
       byParent.get(pid)!.push(d);
     });
-    const qbankChildren = all.filter(d => d.parentId && d.kind === "qbank").length;
     const flashcardChildren = all.filter(d => d.parentId && (d.kind ?? "deck") !== "qbank").length;
-    const qbankMcqs = all.filter(d => d.kind === "qbank").reduce((s, d) => s + d.cardCount, 0);
     const fcCards = all.filter(d => (d.kind ?? "deck") !== "qbank").reduce((s, d) => s + d.cardCount, 0);
-    return { rootDecks: root, rootFlashcardDecks: flashcards, rootQbankDecks: qbanks, deckChildrenMap: byParent, qbankChildrenCount: qbankChildren, flashcardChildrenCount: flashcardChildren, qbankTotalMcqs: qbankMcqs, flashcardTotalCards: fcCards };
+    return { rootDecks: root, rootFlashcardDecks: flashcards, deckChildrenMap: byParent, flashcardChildrenCount: flashcardChildren, flashcardTotalCards: fcCards };
   }, [decks]);
+
+  const { rootQbankDecks, qbankChildrenMap, qbankChildrenCount, qbankTotalMcqs } = useMemo(() => {
+    const all = (qbanks as Qbank[] | undefined) ?? [];
+    const root = all.filter(q => !q.parentId).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+    const byParent = new Map<number, Qbank[]>();
+    all.filter(q => q.parentId).forEach(q => {
+      const pid = q.parentId!;
+      if (!byParent.has(pid)) byParent.set(pid, []);
+      byParent.get(pid)!.push(q);
+    });
+    const qbankChildren = all.filter(q => q.parentId).length;
+    const qbankMcqs = all.reduce((s, q) => s + q.questionCount, 0);
+    return { rootQbankDecks: root, qbankChildrenMap: byParent, qbankChildrenCount: qbankChildren, qbankTotalMcqs: qbankMcqs };
+  }, [qbanks]);
 
   const filterBySearch = (list: DeckWithParent[]) => {
     if (!search.trim()) return list;
@@ -478,8 +674,18 @@ export default function Decks() {
     return list.filter(d => matchesSearch(d));
   };
 
+  const filterQbanksBySearch = (list: Qbank[]) => {
+    if (!search.trim()) return list;
+    const q = search.toLowerCase();
+    function matchesSearch(qb: Qbank): boolean {
+      if (qb.name.toLowerCase().includes(q) || qb.description?.toLowerCase().includes(q)) return true;
+      return (qbankChildrenMap.get(qb.id) ?? []).some(child => matchesSearch(child));
+    }
+    return list.filter(qb => matchesSearch(qb));
+  };
+
   const filteredFlashcards = useMemo(() => filterBySearch(rootFlashcardDecks), [rootFlashcardDecks, deckChildrenMap, search]);
-  const filteredQbanks = useMemo(() => filterBySearch(rootQbankDecks), [rootQbankDecks, deckChildrenMap, search]);
+  const filteredQbanks = useMemo(() => filterQbanksBySearch(rootQbankDecks), [rootQbankDecks, qbankChildrenMap, search]);
 
   const [libraryTab, setLibraryTab] = useState<"decks" | "qbanks">("decks");
   const [generateMode, setGenerateMode] = useState<"deck" | "qbank">("deck");
@@ -495,6 +701,28 @@ export default function Decks() {
   );
 
   const openDeckForm = (mode: DeckFormMode) => { setDeckFormMode(mode); setDeckFormOpen(true); };
+
+  const handleDeleteQbank = (id: number, e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    const all = (qbanks as Qbank[] | undefined) ?? [];
+    function collectDescendants(pid: number): Qbank[] {
+      const direct = all.filter(q => q.parentId === pid);
+      return [...direct, ...direct.flatMap(q => collectDescendants(q.id))];
+    }
+    const descendants = collectDescendants(id);
+    const target = all.find(q => q.id === id);
+    const totalMcqs = (target?.questionCount ?? 0) + descendants.reduce((s, q) => s + q.questionCount, 0);
+    const msg = descendants.length > 0
+      ? `Delete "${target?.name}" and ALL ${descendants.length} question bank${descendants.length !== 1 ? "s" : ""} inside it?\n\nThis will permanently remove ${totalMcqs} MCQ${totalMcqs !== 1 ? "s" : ""}. This cannot be undone.`
+      : `Delete "${target?.name}"? This will permanently remove ${totalMcqs} MCQ${totalMcqs !== 1 ? "s" : ""}. This cannot be undone.`;
+    if (!confirm(msg)) return;
+    deleteQbankMutation.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListQbanksQueryKey() });
+        toast({ title: "Question bank deleted." });
+      },
+    });
+  };
 
   const handleDelete = (id: number, e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
