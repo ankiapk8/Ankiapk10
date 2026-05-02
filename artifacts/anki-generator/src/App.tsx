@@ -15,6 +15,7 @@ import Dashboard from "@/pages/dashboard";
 import Generate from "@/pages/generate";
 import Decks from "@/pages/decks";
 import DeckDetail from "@/pages/deck-detail";
+import Practice from "@/pages/practice";
 import History from "@/pages/history";
 import NotFound from "@/pages/not-found";
 
