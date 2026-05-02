@@ -64,6 +64,49 @@ function pdfDocOptions(buffer: Buffer) {
 // Walks the PDF.js operator list for each page to determine whether it contains
 // significant visual content (large raster images or substantial vector paths).
 // Returns a boolean per page — true when at least one qualifying region is found.
+// Grid dimensions for vector-density clustering (mirrors client-side constants).
+const VGRID_COLS = 20;
+const VGRID_ROWS = 20;
+
+// BFS connected-component labelling over the density grid.  Returns true if
+// any cluster meets the minimum size gate (8% width × 6% height of the page).
+function gridHasSignificantClusters(grid: Uint8Array): boolean {
+  const visited = new Uint8Array(VGRID_ROWS * VGRID_COLS);
+  const cellW = 1 / VGRID_COLS;
+  const cellH = 1 / VGRID_ROWS;
+  let clusterCount = 0;
+
+  for (let r0 = 0; r0 < VGRID_ROWS; r0++) {
+    for (let c0 = 0; c0 < VGRID_COLS; c0++) {
+      if (!grid[r0 * VGRID_COLS + c0] || visited[r0 * VGRID_COLS + c0]) continue;
+      const queue: number[] = [r0 * VGRID_COLS + c0];
+      visited[r0 * VGRID_COLS + c0] = 1;
+      let minR = r0, maxR = r0, minC = c0, maxC = c0;
+      let qi = 0;
+      while (qi < queue.length) {
+        const idx = queue[qi++];
+        const cr = Math.floor(idx / VGRID_COLS);
+        const cc = idx % VGRID_COLS;
+        for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as [number, number][]) {
+          const nr = cr + dr, nc = cc + dc;
+          if (nr < 0 || nr >= VGRID_ROWS || nc < 0 || nc >= VGRID_COLS) continue;
+          const ni = nr * VGRID_COLS + nc;
+          if (!grid[ni] || visited[ni]) continue;
+          visited[ni] = 1;
+          queue.push(ni);
+          if (nr < minR) minR = nr; if (nr > maxR) maxR = nr;
+          if (nc < minC) minC = nc; if (nc > maxC) maxC = nc;
+        }
+      }
+      const clusterW = (maxC - minC + 1) * cellW;
+      const clusterH = (maxR - minR + 1) * cellH;
+      if (clusterW >= 0.08 && clusterH >= 0.06) clusterCount++;
+      if (clusterCount >= 2) return true;
+    }
+  }
+  return false;
+}
+
 async function detectPagesWithVisuals(buffer: Buffer): Promise<boolean[]> {
   const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const pdf = await pdfjsLib.getDocument(pdfDocOptions(buffer)).promise;
@@ -95,12 +138,13 @@ async function detectPagesWithVisuals(buffer: Buffer): Promise<boolean[]> {
       const viewport = page.getViewport({ scale: 1 });
       const pageW = viewport.width, pageH = viewport.height;
       const ops = await page.getOperatorList();
-      let foundVisual = false;
+      let foundRaster = false;
+      const vGrid = new Uint8Array(VGRID_ROWS * VGRID_COLS);
       const stack: number[][] = [];
       let ctm: number[] = [1, 0, 0, 1, 0, 0];
       let pathPts: [number, number][] = [];
 
-      outer: for (let i = 0; i < ops.fnArray.length; i++) {
+      for (let i = 0; i < ops.fnArray.length; i++) {
         const fn = ops.fnArray[i];
         const args = ops.argsArray[i];
         if (fn === OPS.save) { stack.push(ctm.slice()); }
@@ -117,11 +161,11 @@ async function detectPagesWithVisuals(buffer: Buffer): Promise<boolean[]> {
           const [rx, ry, rw, rh] = args as number[];
           pathPts.push(tx(ctm, rx, ry), tx(ctm, rx + rw, ry), tx(ctm, rx, ry + rh), tx(ctm, rx + rw, ry + rh));
         } else if (paintOpCodes.has(fn)) {
-          if (pathPts.length >= 3) {
-            const xs = pathPts.map(p => p[0]), ys = pathPts.map(p => p[1]);
-            const w = (Math.max(...xs) - Math.min(...xs)) / pageW;
-            const h = (Math.max(...ys) - Math.min(...ys)) / pageH;
-            if (w >= 0.08 && h >= 0.06) { foundVisual = true; break outer; }
+          // Mark density grid with all path points from this paint op.
+          for (const [px, py] of pathPts) {
+            const col = Math.min(VGRID_COLS - 1, Math.max(0, Math.floor((px / pageW) * VGRID_COLS)));
+            const row = Math.min(VGRID_ROWS - 1, Math.max(0, Math.floor(((pageH - py) / pageH) * VGRID_ROWS)));
+            vGrid[row * VGRID_COLS + col] = 1;
           }
           pathPts = [];
         } else if (imageOpCodes.has(fn)) {
@@ -129,11 +173,13 @@ async function detectPagesWithVisuals(buffer: Buffer): Promise<boolean[]> {
           const xs = corners.map(p => p[0]), ys = corners.map(p => p[1]);
           const w = (Math.max(...xs) - Math.min(...xs)) / pageW;
           const h = (Math.max(...ys) - Math.min(...ys)) / pageH;
-          if (w >= 0.08 && h >= 0.06) { foundVisual = true; break outer; }
+          // Large raster image (>15% area) → visual page.
+          if (w >= 0.04 && h >= 0.04 && w * h > 0.15) { foundRaster = true; }
         }
       }
       page.cleanup();
-      result.push(foundVisual);
+      // A page is visual if it has a large raster image OR 2+ meaningful vector clusters.
+      result.push(foundRaster || gridHasSignificantClusters(vGrid));
     }
   } finally {
     await pdf.destroy();

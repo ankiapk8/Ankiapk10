@@ -129,7 +129,14 @@ async function extractPageImages(buffer: ArrayBuffer, onProgress?: ProgressCallb
         } catch {
           // ignore — fall back to text-only width
         }
-        const hasVisuals = pageRegions.length > 0;
+        // Upgrade to high-res render when a significant visual is detected:
+        //   • any raster region covering > 15% of the page area, OR
+        //   • 2+ vector clusters (chart, table, diagram, flowchart…)
+        const rasterArea = pageRegions
+          .filter(r => r.source === "raster")
+          .reduce((max, r) => Math.max(max, r.w * r.h), 0);
+        const vectorCount = pageRegions.filter(r => r.source === "vector").length;
+        const hasVisuals = rasterArea > 0.15 || vectorCount >= 2;
         const targetWidth = hasVisuals ? IMAGE_WIDTH_VISUAL : IMAGE_WIDTH_TEXT;
         const dataUrl = await renderPageToJpeg(pdf, pageNumber, targetWidth);
         images.push(dataUrl);
@@ -146,10 +153,63 @@ async function extractPageImages(buffer: ArrayBuffer, onProgress?: ProgressCallb
   return { images, regions, pageHasVisuals };
 }
 
-// Walks PDF.js operator list to find embedded raster images and returns their
-// bounding boxes in normalized (0..1) coordinates with origin at top-left.
-// This is deterministic — no AI involved — so we know these regions are real
-// images on the page (not prose, not blank space, not a whole-page screenshot).
+// Density grid dimensions used for vector region clustering.
+const VGRID_COLS = 20;
+const VGRID_ROWS = 20;
+
+// Convert a density grid (each cell = 0 or 1) into normalized ImageRegions by
+// running a BFS connected-component pass.  This lets many small path primitives
+// (bars of a bar chart, cells of a table, arrows of a flowchart) accumulate
+// into a single labelled cluster before size thresholds are applied.
+function vectorRegionsFromGrid(grid: Uint8Array): ImageRegion[] {
+  const visited = new Uint8Array(VGRID_ROWS * VGRID_COLS);
+  const regions: ImageRegion[] = [];
+  const cellW = 1 / VGRID_COLS;
+  const cellH = 1 / VGRID_ROWS;
+
+  for (let r0 = 0; r0 < VGRID_ROWS; r0++) {
+    for (let c0 = 0; c0 < VGRID_COLS; c0++) {
+      if (!grid[r0 * VGRID_COLS + c0] || visited[r0 * VGRID_COLS + c0]) continue;
+      const queue: number[] = [r0 * VGRID_COLS + c0];
+      visited[r0 * VGRID_COLS + c0] = 1;
+      let minR = r0, maxR = r0, minC = c0, maxC = c0;
+      let qi = 0;
+      while (qi < queue.length) {
+        const idx = queue[qi++];
+        const cr = Math.floor(idx / VGRID_COLS);
+        const cc = idx % VGRID_COLS;
+        for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]] as [number, number][]) {
+          const nr = cr + dr, nc = cc + dc;
+          if (nr < 0 || nr >= VGRID_ROWS || nc < 0 || nc >= VGRID_COLS) continue;
+          const ni = nr * VGRID_COLS + nc;
+          if (!grid[ni] || visited[ni]) continue;
+          visited[ni] = 1;
+          queue.push(ni);
+          if (nr < minR) minR = nr;
+          if (nr > maxR) maxR = nr;
+          if (nc < minC) minC = nc;
+          if (nc > maxC) maxC = nc;
+        }
+      }
+      regions.push({
+        x: minC * cellW,
+        y: minR * cellH,
+        w: (maxC - minC + 1) * cellW,
+        h: (maxR - minR + 1) * cellH,
+        source: "vector" as const,
+      });
+    }
+  }
+  return regions;
+}
+
+// Walks PDF.js operator list to find embedded raster images AND vector-drawn
+// visual content (charts, tables, diagrams) and returns their bounding boxes
+// in normalized (0..1) coordinates with origin at top-left.
+// Raster regions: per-XObject bbox via CTM transform.
+// Vector regions: density-grid clustering so many small primitives (bars of
+// a bar chart, cells of a table, strokes of a flowchart) merge into a single
+// connected region before size thresholds are applied.
 async function detectPageImageRegions(
   pdf: Awaited<ReturnType<typeof loadPdf>>,
   pageNumber: number,
@@ -170,20 +230,11 @@ async function detectPageImageRegions(
       OPS.paintJpegXObject,
     ].filter((v) => typeof v === "number"));
 
-    // Vector paint ops — used to detect charts, tables, and diagrams that are
-    // drawn as PDF path operations rather than embedded raster images.
-    // Include stroke-only ops so flowcharts, decision trees, and line-art
-    // tables (which are often stroke-only, not filled) are also detected.
-    const fillOpCodes = new Set<number>([
+    // Vector paint ops — include fill AND stroke so flowcharts, decision trees,
+    // and line-art tables (often stroke-only) are also detected.
+    const paintOpCodes = new Set<number>([
       OPS.fill, OPS.eoFill, OPS.fillStroke, OPS.eoFillStroke, OPS.stroke,
     ].filter((v): v is number => typeof v === "number"));
-
-    const stack: number[][] = [];
-    let ctm: number[] = [1, 0, 0, 1, 0, 0];
-    const out: ImageRegion[] = [];
-
-    // Accumulate path control points between path-construction ops and each paint op.
-    let pathPoints: [number, number][] = [];
 
     const multiply = (a: number[], b: number[]): number[] => [
       a[0] * b[0] + a[2] * b[1],
@@ -201,13 +252,25 @@ async function detectPageImageRegions(
     const pageW = viewport.width;
     const pageH = viewport.height;
 
-    const toNormRegion = (minX: number, maxX: number, minY: number, maxY: number, source: "raster" | "vector"): ImageRegion => ({
-      x: Math.max(0, Math.min(1, minX / pageW)),
-      y: Math.max(0, Math.min(1, 1 - maxY / pageH)),
-      w: Math.max(0, Math.min(1, (maxX - minX) / pageW)),
-      h: Math.max(0, Math.min(1, (maxY - minY) / pageH)),
-      source,
-    });
+    // Raster regions are stored individually (one per image XObject) and merged later.
+    const rasterOut: ImageRegion[] = [];
+    // Vector density grid — cells are marked as path operations are painted.
+    const vGrid = new Uint8Array(VGRID_ROWS * VGRID_COLS);
+
+    const markGrid = (pts: [number, number][]) => {
+      for (const [px, py] of pts) {
+        // Convert PDF user-space y (y-up) to normalized y-down for the grid.
+        const normX = px / pageW;
+        const normY = 1 - py / pageH;
+        const col = Math.min(VGRID_COLS - 1, Math.max(0, Math.floor(normX * VGRID_COLS)));
+        const row = Math.min(VGRID_ROWS - 1, Math.max(0, Math.floor(normY * VGRID_ROWS)));
+        vGrid[row * VGRID_COLS + col] = 1;
+      }
+    };
+
+    const stack: number[][] = [];
+    let ctm: number[] = [1, 0, 0, 1, 0, 0];
+    let pathPoints: [number, number][] = [];
 
     for (let i = 0; i < ops.fnArray.length; i++) {
       const fn = ops.fnArray[i];
@@ -216,7 +279,6 @@ async function detectPageImageRegions(
         stack.push(ctm.slice());
       } else if (fn === OPS.restore) {
         ctm = stack.pop() ?? ctm;
-        // End any open path on restore (PDF spec: current path is cleared on restore)
         pathPoints = [];
       } else if (fn === OPS.transform && Array.isArray(args) && args.length >= 6) {
         ctm = multiply(ctm, args as number[]);
@@ -225,7 +287,6 @@ async function detectPageImageRegions(
       } else if (fn === OPS.lineTo && Array.isArray(args) && args.length >= 2) {
         pathPoints.push(tx(ctm, args[0] as number, args[1] as number));
       } else if (fn === OPS.curveTo && Array.isArray(args) && args.length >= 6) {
-        // Approximate curve with endpoint only (sufficient for bbox estimation)
         pathPoints.push(tx(ctm, args[4] as number, args[5] as number));
       } else if (fn === OPS.rectangle && Array.isArray(args) && args.length >= 4) {
         const [rx, ry, rw, rh] = args as number[];
@@ -235,52 +296,45 @@ async function detectPageImageRegions(
           tx(ctm, rx, ry + rh),
           tx(ctm, rx + rw, ry + rh),
         );
-      } else if (fillOpCodes.has(fn)) {
-        // Paint the accumulated path. If it's large enough, treat it as a
-        // vector visual region (chart bar, table cell group, diagram shape…).
-        if (pathPoints.length >= 3) {
-          const xs = pathPoints.map((p) => p[0]);
-          const ys = pathPoints.map((p) => p[1]);
-          const minX = Math.min(...xs), maxX = Math.max(...xs);
-          const minY = Math.min(...ys), maxY = Math.max(...ys);
-          const region = toNormRegion(minX, maxX, minY, maxY, "vector");
-          // Use stricter size thresholds for vector to avoid false-positives
-          // from decorative fills (rule lines, shaded backgrounds, etc.).
-          if (region.w >= 0.06 && region.h >= 0.06 && region.w * region.h >= 0.015) {
-            out.push(region);
-          }
-        }
+      } else if (paintOpCodes.has(fn)) {
+        // On any paint op, mark the density grid with all accumulated path points.
+        // This aggregates small primitives (individual bars, cells, arrows) across
+        // the whole page so connected-component labelling can cluster them correctly.
+        if (pathPoints.length >= 2) markGrid(pathPoints);
         pathPoints = [];
       } else if (imageOpCodes.has(fn)) {
-        // PDF image XObjects are drawn into the unit square (0,0)-(1,1) under
-        // the current CTM. Compute the bounding rect of the four transformed
-        // corners.
+        // PDF image XObjects are drawn into the unit square (0,0)-(1,1) under CTM.
         const corners: [number, number][] = [
-          tx(ctm, 0, 0),
-          tx(ctm, 1, 0),
-          tx(ctm, 0, 1),
-          tx(ctm, 1, 1),
+          tx(ctm, 0, 0), tx(ctm, 1, 0), tx(ctm, 0, 1), tx(ctm, 1, 1),
         ];
         const xs = corners.map((p) => p[0]);
         const ys = corners.map((p) => p[1]);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        const region = toNormRegion(minX, maxX, minY, maxY, "raster");
-        // Skip background patterns / icons / 1px decorations.
-        if (region.w >= 0.04 && region.h >= 0.04 && region.w * region.h >= 0.008) {
-          out.push(region);
-        }
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+        const r: ImageRegion = {
+          x: Math.max(0, Math.min(1, minX / pageW)),
+          y: Math.max(0, Math.min(1, 1 - maxY / pageH)),
+          w: Math.max(0, Math.min(1, (maxX - minX) / pageW)),
+          h: Math.max(0, Math.min(1, (maxY - minY) / pageH)),
+          source: "raster",
+        };
+        // Keep only non-trivial raster images (skip 1px decorations / icons).
+        if (r.w >= 0.04 && r.h >= 0.04) rasterOut.push(r);
       }
     }
 
-    // Merge overlapping or very-close regions (image often emitted in panels
-    // or with separate mask + content). Greedy union by 1.05x bounding box.
-    // Apply a final size gate after merging — individual sub-regions can be
-    // small, but the merged result must meet the minimum dimensions to be
-    // treated as a meaningful visual (not a decorative rule or icon).
-    return mergeRegions(out).filter(r => r.w >= 0.08 && r.h >= 0.06);
+    // Derive vector regions from density grid via connected-component labelling.
+    const vectorRegions = vectorRegionsFromGrid(vGrid);
+
+    // Combine: merge raster XObjects, then append vector clusters.
+    // Apply a unified minimum size gate after all merging — meaningful visuals
+    // should occupy at least 8% width × 6% height of the page.
+    const combined = [
+      ...mergeRegions(rasterOut),
+      ...vectorRegions,
+    ].filter(r => r.w >= 0.08 && r.h >= 0.06);
+
+    return combined;
   } finally {
     page.cleanup();
   }
