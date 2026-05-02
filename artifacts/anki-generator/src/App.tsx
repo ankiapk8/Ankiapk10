@@ -5,7 +5,6 @@ import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persist
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Layout } from "@/components/layout";
-import { SplashScreen } from "@/components/splash-screen";
 import { PageTransition } from "@/components/page-transition";
 import { ClickRipple } from "@/components/click-ripple";
 import { OfflineBanner } from "@/components/offline-indicator";
@@ -79,9 +78,7 @@ function AppContent() {
       <OfflineBanner />
       <UpdateBanner />
       <WhatsNewBanner />
-      <SplashScreen>
-        <AppRouter />
-      </SplashScreen>
+      <AppRouter />
       <ClickRipple />
       <Toaster />
     </>
