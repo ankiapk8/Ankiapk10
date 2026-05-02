@@ -50,6 +50,142 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a;
 }
 
+const LETTER_COLORS: Record<string, string> = {
+  A: "bg-sky-500",
+  B: "bg-orange-500",
+  C: "bg-purple-500",
+  D: "bg-pink-500",
+  E: "bg-teal-500",
+  F: "bg-amber-600",
+};
+
+function parseBriefText(text: string) {
+  const correctMatch = text.match(/✅\s*Correct answer:\s*([A-F])\.?\s+(.+?)(?:\n)([\s\S]*?)(?=\n?❌|$)/i);
+  const hasWrongSection = /❌/.test(text);
+  const wrongSection = hasWrongSection ? text.split(/❌[^\n]*\n?/)[1] ?? "" : "";
+
+  const correctLetter = correctMatch?.[1]?.toUpperCase() ?? "";
+  const correctText = correctMatch?.[2]?.trim() ?? "";
+  const correctReason = correctMatch?.[3]?.trim() ?? "";
+
+  const wrongItems = wrongSection
+    .split("\n")
+    .map(l => l.trim())
+    .filter(l => /^[A-F][.)]/i.test(l))
+    .map(l => {
+      const full = l.match(/^([A-F])[.)]\s+(.+?)\s+—\s+(.+)/i);
+      if (full) return { letter: full[1].toUpperCase(), text: full[2].trim(), reason: full[3].trim() };
+      const partial = l.match(/^([A-F])[.)]\s+(.+)/i);
+      if (partial) return { letter: partial[1].toUpperCase(), text: partial[2].trim(), reason: "" };
+      return null;
+    })
+    .filter((x): x is { letter: string; text: string; reason: string } => x !== null);
+
+  return { correctLetter, correctText, correctReason, wrongItems };
+}
+
+function BriefBreakdownView({ text, isStreaming }: { text: string; isStreaming: boolean }) {
+  const { correctLetter, correctText, correctReason, wrongItems } = parseBriefText(text);
+  const hasCorrect = correctLetter || correctText;
+  const hasWrong = wrongItems.length > 0;
+
+  if (!hasCorrect && isStreaming) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-8 text-muted-foreground">
+        <div className="h-8 w-8 rounded-full border-2 border-violet-200 border-t-violet-500 animate-spin" />
+        <p className="text-sm">Building answer breakdown…</p>
+      </div>
+    );
+  }
+
+  if (!hasCorrect && !isStreaming && text.length > 0) {
+    return <p className="text-sm text-muted-foreground whitespace-pre-wrap">{text}</p>;
+  }
+
+  return (
+    <div className="space-y-5 pb-2">
+      {/* ── Correct answer card ─────────────────────────────── */}
+      {hasCorrect && (
+        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-800/60 bg-gradient-to-br from-emerald-50 via-emerald-50/60 to-white dark:from-emerald-950/40 dark:via-emerald-950/20 dark:to-transparent overflow-hidden shadow-sm">
+          {/* Header strip */}
+          <div className="px-4 pt-3.5 pb-2 flex items-center gap-2.5">
+            <div className="h-6 w-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0 shadow-sm">
+              <Check className="h-3.5 w-3.5 text-white stroke-[3]" />
+            </div>
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">
+              Correct Answer
+            </span>
+            {correctLetter && (
+              <span className={`ml-auto h-7 w-7 rounded-lg ${LETTER_COLORS[correctLetter] ?? "bg-emerald-500"} flex items-center justify-center text-white text-xs font-bold shadow-sm`}>
+                {correctLetter}
+              </span>
+            )}
+          </div>
+          {/* Body */}
+          <div className="px-4 pb-4 space-y-2">
+            {correctText && (
+              <p className="text-[15px] font-semibold text-foreground leading-snug">{correctText}</p>
+            )}
+            {correctReason ? (
+              <p className="text-sm text-emerald-800/80 dark:text-emerald-300/80 leading-relaxed border-t border-emerald-200/60 dark:border-emerald-800/40 pt-2 mt-2">
+                {correctReason}
+              </p>
+            ) : isStreaming ? (
+              <span className="inline-block w-1.5 h-3.5 bg-emerald-500/60 rounded-sm animate-pulse align-middle mt-1" />
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* ── Wrong answers ────────────────────────────────────── */}
+      {hasWrong && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="h-px flex-1 bg-border/50" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground px-2">
+              Why the others are wrong
+            </span>
+            <div className="h-px flex-1 bg-border/50" />
+          </div>
+
+          {wrongItems.map((item, i) => (
+            <div
+              key={i}
+              className="group rounded-xl border border-rose-100 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/15 p-3.5 flex gap-3 transition-colors hover:bg-rose-50 dark:hover:bg-rose-950/25"
+            >
+              <div className="flex flex-col items-center gap-1.5 shrink-0 pt-0.5">
+                <span className={`h-5 w-5 rounded-md ${LETTER_COLORS[item.letter] ?? "bg-muted"} flex items-center justify-center text-white text-[10px] font-bold`}>
+                  {item.letter}
+                </span>
+                <div className="h-4 w-4 rounded-full bg-rose-200 dark:bg-rose-800/60 flex items-center justify-center">
+                  <X className="h-2.5 w-2.5 text-rose-600 dark:text-rose-400 stroke-[2.5]" />
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                {item.text && (
+                  <p className="text-sm font-semibold text-foreground leading-snug mb-1">{item.text}</p>
+                )}
+                {item.reason ? (
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.reason}</p>
+                ) : isStreaming && i === wrongItems.length - 1 ? (
+                  <span className="inline-block w-1 h-3 bg-muted-foreground/40 rounded-sm animate-pulse align-middle" />
+                ) : null}
+              </div>
+            </div>
+          ))}
+
+          {isStreaming && (
+            <div className="h-10 rounded-xl border border-dashed border-rose-100 dark:border-rose-900/30 bg-rose-50/20 dark:bg-rose-950/10 flex items-center justify-center gap-2">
+              <div className="h-3 w-3 rounded-full border border-rose-300 border-t-rose-500 animate-spin" />
+              <span className="text-[11px] text-muted-foreground">Loading more…</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
   cards: Card[];
   deckId: number;
@@ -593,22 +729,39 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
           <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl bg-background shadow-2xl outline-none" style={{ maxHeight: "88vh" }}>
             <div className="mx-auto mt-3 mb-1 h-1 w-10 rounded-full bg-muted-foreground/20 shrink-0" />
 
-            <div className="px-4 py-3 border-b border-border/50 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-2">
-                {explainMode === "full" && <Brain className="h-4 w-4 text-primary" />}
-                {explainMode === "revision" && <ClipboardList className="h-4 w-4 text-primary" />}
-                {explainMode === "osce" && <Stethoscope className="h-4 w-4 text-primary" />}
-                <span className="font-semibold text-sm text-foreground">
-                  {explainMode ? EXPLAIN_LABELS[explainMode] : "AI Explanation"}
-                </span>
+            {/* Drawer header */}
+            <div className={`px-4 py-3 border-b flex items-center justify-between shrink-0 ${
+              explainMode === "brief"
+                ? "border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-r from-violet-500/5 to-transparent"
+                : "border-border/50"
+            }`}>
+              <div className="flex items-center gap-2.5">
+                <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
+                  explainMode === "brief"
+                    ? "bg-violet-500/15"
+                    : "bg-primary/10"
+                }`}>
+                  {explainMode === "full"     && <Brain       className="h-3.5 w-3.5 text-primary" />}
+                  {explainMode === "revision" && <ClipboardList className="h-3.5 w-3.5 text-primary" />}
+                  {explainMode === "osce"     && <Stethoscope className="h-3.5 w-3.5 text-primary" />}
+                  {explainMode === "brief"    && <ListChecks  className="h-3.5 w-3.5 text-violet-500" />}
+                </div>
+                <div>
+                  <p className={`font-semibold text-sm leading-none ${explainMode === "brief" ? "text-violet-700 dark:text-violet-300" : "text-foreground"}`}>
+                    {explainMode ? EXPLAIN_LABELS[explainMode] : "AI Explanation"}
+                  </p>
+                  {explainMode === "brief" && !isExplaining && (
+                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-none">MCQ · AI-generated rationale</p>
+                  )}
+                </div>
                 {isExplaining && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-1">
                     <Loader2 className="h-3 w-3 animate-spin" /> Generating…
                   </div>
                 )}
               </div>
               <div className="flex items-center gap-1">
-                {!isExplaining && (["full", "revision", "osce"] as ExplainMode[]).map(m => (
+                {!isExplaining && explainMode !== "brief" && (["full", "revision", "osce"] as ExplainMode[]).map(m => (
                   <button
                     key={m}
                     onClick={() => handleExplain(m)}
@@ -634,10 +787,16 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
               {isExplaining && (!explanation || explanation.length === 0) ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
                   <div className="relative">
-                    <div className="h-10 w-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+                    <div className={`h-10 w-10 rounded-full border-2 animate-spin ${
+                      explainMode === "brief"
+                        ? "border-violet-200 border-t-violet-500"
+                        : "border-primary/20 border-t-primary"
+                    }`} />
                   </div>
                   <p className="text-sm">Generating {explainMode ? EXPLAIN_LABELS[explainMode] : "explanation"}…</p>
                 </div>
+              ) : explainMode === "brief" ? (
+                <BriefBreakdownView text={explanation ?? ""} isStreaming={isExplaining} />
               ) : (
                 <div className="prose prose-sm dark:prose-invert max-w-none
                   prose-headings:font-semibold prose-headings:text-foreground
