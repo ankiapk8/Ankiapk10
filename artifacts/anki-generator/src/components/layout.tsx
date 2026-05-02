@@ -1,7 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History } from "lucide-react";
-import { HeaderApkButton } from "@/components/header-apk-button";
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
 import { BottomNav } from "@/components/bottom-nav";
 import { PomodoroTimer } from "@/components/pomodoro-timer";
@@ -107,7 +106,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <HeaderApkButton />
           </div>
         </div>
       </header>

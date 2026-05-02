@@ -18,6 +18,7 @@ import {
   getTodayStats,
 } from "@/lib/study-stats";
 import type { Qbank } from "@workspace/api-client-react";
+import { AppDownloads } from "@/components/app-downloads";
 
 export default function Dashboard() {
   const { data: decks, isLoading } = useListDecks();
@@ -372,6 +373,9 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Download section — shown only on this page */}
+      <AppDownloads />
     </div>
   );
 }
