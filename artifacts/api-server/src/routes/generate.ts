@@ -3,8 +3,11 @@ import { db, decksTable, cardsTable, generationsTable, qbanksTable, questionsTab
 import { GenerateCardsBody } from "@workspace/api-zod";
 import { createCanvas, loadImage } from "canvas";
 import { serializeCard } from "../lib/serialize-card";
+import { createRateLimiter } from "../lib/rate-limiter";
 
 const router: IRouter = Router();
+
+const generateRateLimiter = createRateLimiter(10, 60_000);
 
 const MAX_PAGE_IMAGES = Number.MAX_SAFE_INTEGER;
 const VISUAL_BATCH_SIZE = 6;
@@ -826,6 +829,11 @@ function resolveDeckType(input: unknown, hasImages: boolean): DeckType {
 }
 
 router.post("/generate/stream", async (req, res, next): Promise<void> => {
+  const ip = req.ip ?? "unknown";
+  if (!generateRateLimiter(ip)) {
+    res.status(429).json({ error: "Too many requests. Please wait a moment before generating again." });
+    return;
+  }
   const parsed = GenerateCardsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

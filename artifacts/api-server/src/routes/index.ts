@@ -5,11 +5,13 @@ import cardsRouter from "./cards";
 import generateRouter from "./generate";
 import exportApkgRouter from "./export-apkg";
 import extractPdfRouter from "./extract-pdf";
+import extractOfficeRouter from "./extract-office";
 import explainRouter from "./explain";
 import transferRouter from "./transfer";
 import generationsRouter from "./generations";
 import downloadApkRouter from "./download-apk";
 import qbanksRouter from "./qbanks";
+import mindMapRouter from "./mind-map";
 
 const router: IRouter = Router();
 
@@ -19,10 +21,12 @@ router.use(cardsRouter);
 router.use(generateRouter);
 router.use(exportApkgRouter);
 router.use(extractPdfRouter);
+router.use(extractOfficeRouter);
 router.use(explainRouter);
 router.use(transferRouter);
 router.use(generationsRouter);
 router.use(downloadApkRouter);
 router.use(qbanksRouter);
+router.use(mindMapRouter);
 
 export default router;

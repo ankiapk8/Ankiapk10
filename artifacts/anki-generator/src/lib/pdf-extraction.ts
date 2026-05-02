@@ -430,3 +430,57 @@ export function isPdfFile(file: File): boolean {
 export function isTextFile(file: File): boolean {
   return file.type === "text/plain" || file.name.toLowerCase().endsWith(".txt");
 }
+
+export function isImageFile(file: File): boolean {
+  return (
+    file.type.startsWith("image/") ||
+    /\.(jpe?g|png|webp|gif|bmp|tiff?)$/i.test(file.name)
+  );
+}
+
+export function isPptxFile(file: File): boolean {
+  return (
+    file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+    file.name.toLowerCase().endsWith(".pptx")
+  );
+}
+
+export function isDocxFile(file: File): boolean {
+  return (
+    file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    file.name.toLowerCase().endsWith(".docx")
+  );
+}
+
+export async function extractImage(file: File): Promise<PdfExtractionResult> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  return {
+    text: `Image file: ${file.name}`,
+    pageImages: [dataUrl],
+    pageTexts: [`Image file: ${file.name}`],
+    pageImageRegions: [[]],
+  };
+}
+
+export async function extractOffice(
+  file: File,
+  onProgress?: ProgressCallback,
+): Promise<PdfExtractionResult> {
+  onProgress?.("Sending to server for extraction…");
+  const formData = new FormData();
+  formData.append("file", file);
+  const resp = await fetch(apiUrl("api/extract-office"), { method: "POST", body: formData });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? "Office extraction failed.");
+  }
+  const data = (await resp.json()) as { text?: string; pageTexts?: string[] };
+  const text = data.text ?? "";
+  const pageTexts = data.pageTexts ?? (text ? [text] : []);
+  return { text, pageImages: [], pageTexts, pageImageRegions: [] };
+}

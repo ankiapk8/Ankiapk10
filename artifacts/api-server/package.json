@@ -20,13 +20,15 @@
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "fast-xml-parser": "^5.7.2",
     "jszip": "^3.10.1",
     "multer": "^2.1.1",
     "openid-client": "^6.8.4",
     "pdfjs-dist": "^5.6.205",
     "pino": "^9",
     "pino-http": "^10",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

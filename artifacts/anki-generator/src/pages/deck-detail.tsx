@@ -9,6 +9,7 @@ import {
   getListDeckCardsQueryKey,
   getGetDeckQueryKey
 } from "@workspace/api-client-react";
+import { MindMapPanel } from "@/components/mind-map-panel";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +23,15 @@ import {
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
-  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle
+  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Popover,
   PopoverContent,
@@ -500,6 +508,29 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
           <Button variant="ghost" size="sm" onClick={handleRestart} className="gap-1.5 h-8 text-xs text-muted-foreground">
             <RotateCcw className="h-3.5 w-3.5" /> Restart
           </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                <HelpCircle className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-3" align="end">
+              <p className="text-xs font-semibold mb-2 text-foreground">Keyboard shortcuts</p>
+              <div className="space-y-1.5">
+                {[
+                  ["Space / →", "Flip / Next"],
+                  ["←", "Previous"],
+                  ["1", "Mark \"Got it\""],
+                  ["2", "Mark \"Still learning\""],
+                ].map(([key, action]) => (
+                  <div key={key} className="flex items-center justify-between">
+                    <kbd className="text-[10px] bg-muted border border-border rounded px-1.5 py-0.5 font-mono">{key}</kbd>
+                    <span className="text-xs text-muted-foreground">{action}</span>
+                  </div>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -850,6 +881,37 @@ export default function DeckDetail() {
   const [resumePrompt, setResumePrompt] = useState<StudySavePoint | null>(null);
   const [cardFilter, setCardFilter] = useState<"all" | "text" | "visual">("all");
   const [cardSearch, setCardSearch] = useState("");
+  const [addCardOpen, setAddCardOpen] = useState(false);
+  const [addFront, setAddFront] = useState("");
+  const [addBack, setAddBack] = useState("");
+  const [addingCard, setAddingCard] = useState(false);
+  const [showMindMap, setShowMindMap] = useState(false);
+
+  const handleAddCard = async () => {
+    if (!addFront.trim() || !addBack.trim() || !deck) return;
+    setAddingCard(true);
+    try {
+      const resp = await fetch(apiUrl("api/cards"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deckId, front: addFront.trim(), back: addBack.trim() }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Failed to create card.");
+      }
+      queryClient.invalidateQueries({ queryKey: getListDeckCardsQueryKey(deckId) });
+      queryClient.invalidateQueries({ queryKey: getGetDeckQueryKey(deckId) });
+      toast({ title: "Card added" });
+      setAddFront("");
+      setAddBack("");
+      setAddCardOpen(false);
+    } catch (err) {
+      toast({ title: "Failed to add card", description: err instanceof Error ? err.message : "Something went wrong.", variant: "destructive" });
+    } finally {
+      setAddingCard(false);
+    }
+  };
 
   const handleStudyClick = useCallback(() => {
     const sp = getSavePoint(deckId);
@@ -1050,6 +1112,51 @@ export default function DeckDetail() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      {showMindMap && (
+        <MindMapPanel
+          deckName={deck.name}
+          cards={cardList}
+          onClose={() => setShowMindMap(false)}
+        />
+      )}
+
+      <Dialog open={addCardOpen} onOpenChange={open => { setAddCardOpen(open); if (!open) { setAddFront(""); setAddBack(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4 text-primary" /> Add Card
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Front</label>
+              <Textarea
+                value={addFront}
+                onChange={e => setAddFront(e.target.value)}
+                placeholder="Question or term…"
+                className="min-h-[80px]"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Back</label>
+              <Textarea
+                value={addBack}
+                onChange={e => setAddBack(e.target.value)}
+                placeholder="Answer or definition…"
+                className="min-h-[80px]"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAddCardOpen(false)} disabled={addingCard}>Cancel</Button>
+            <Button onClick={handleAddCard} disabled={!addFront.trim() || !addBack.trim() || addingCard} className="gap-2">
+              {addingCard ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              {addingCard ? "Adding…" : "Add Card"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <Link href="/decks" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-2 transition-colors">
@@ -1077,6 +1184,11 @@ export default function DeckDetail() {
                 <Play className="h-4 w-4" /> Practice Mode
               </Button>
             </Link>
+          )}
+          {filteredCards.length > 0 && (
+            <Button variant="outline" onClick={() => setShowMindMap(true)} className="gap-2">
+              <Network className="h-4 w-4" /> Mind Map
+            </Button>
           )}
           {filteredCards.length > 0 && (
             <Button 
@@ -1154,6 +1266,9 @@ export default function DeckDetail() {
                   <span className="text-sm font-normal text-muted-foreground ml-2">across all sub-topics</span>
                 )}
               </h2>
+              <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs" onClick={() => setAddCardOpen(true)}>
+                <Plus className="h-3 w-3" /> Add card
+              </Button>
             </div>
             {showTabs && (
               <Tabs value={cardFilter} onValueChange={(v) => { setCardFilter(v as "all" | "text" | "visual"); setCardSearch(""); }}>

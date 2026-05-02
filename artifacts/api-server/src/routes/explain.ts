@@ -1,6 +1,9 @@
 import { Router, type IRouter } from "express";
+import { createRateLimiter } from "../lib/rate-limiter";
 
 const router: IRouter = Router();
+
+const explainRateLimiter = createRateLimiter(20, 60_000);
 
 type ExplainMode = "full" | "revision" | "osce" | "brief";
 
@@ -146,6 +149,11 @@ STYLE:
 }
 
 router.post("/explain", async (req, res): Promise<void> => {
+  const ip = req.ip ?? "unknown";
+  if (!explainRateLimiter(ip)) {
+    res.status(429).json({ error: "Too many requests. Please wait a moment before trying again." });
+    return;
+  }
   const { front, back, mode = "full", choices, correctIndex } = req.body as {
     front?: string; back?: string; mode?: ExplainMode;
     choices?: string[]; correctIndex?: number;

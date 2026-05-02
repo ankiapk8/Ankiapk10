@@ -16,7 +16,7 @@ import {
   UploadCloud, X, CheckCircle2, AlertCircle, Loader2, FileText, Sparkles,
   FolderOpen, ImageIcon, Type, Layers, StopCircle,
 } from "lucide-react";
-import { extractPdf, isPdfFile, isTextFile, type ImageRegion } from "@/lib/pdf-extraction";
+import { extractPdf, isPdfFile, isTextFile, isImageFile, isPptxFile, isDocxFile, extractImage, extractOffice, type ImageRegion } from "@/lib/pdf-extraction";
 import { apiUrl } from "@/lib/utils";
 import { GenerationSuccessOverlay } from "@/components/generation-success-overlay";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -203,8 +203,11 @@ export function GenerateForm({
   const processFile = useCallback(async (file: File) => {
     const isTxt = isTextFile(file);
     const isPdf = isPdfFile(file);
-    if (!isTxt && !isPdf) {
-      toast({ title: "Unsupported file", description: `${file.name} is not .txt or .pdf`, variant: "destructive" });
+    const isImg = isImageFile(file);
+    const isPptx = isPptxFile(file);
+    const isDocx = isDocxFile(file);
+    if (!isTxt && !isPdf && !isImg && !isPptx && !isDocx) {
+      toast({ title: "Unsupported file", description: `${file.name} is not a supported format (.pdf, .txt, .pptx, .docx, image)`, variant: "destructive" });
       return;
     }
     const id = `${file.name}-${Date.now()}-${Math.random()}`;
@@ -214,6 +217,14 @@ export function GenerateForm({
       if (isTxt) {
         const text = await file.text();
         updateFile(id, { status: "ready", text, pageImages: [], pageTexts: [], pageImageRegions: [], progress: "" });
+      } else if (isImg) {
+        throttledProgressUpdate(id, "Reading image…");
+        const { text, pageImages, pageTexts, pageImageRegions } = await extractImage(file);
+        updateFile(id, { status: "ready", text, pageImages, pageTexts, pageImageRegions, progress: "", deckType: "visual" });
+      } else if (isPptx || isDocx) {
+        throttledProgressUpdate(id, "Sending to server…");
+        const { text, pageImages, pageTexts, pageImageRegions } = await extractOffice(file, (progress) => throttledProgressUpdate(id, progress));
+        updateFile(id, { status: "ready", text, pageImages, pageTexts, pageImageRegions, progress: "", deckType: "text" });
       } else {
         const buffer = await file.arrayBuffer();
         const { text, pageImages, pageTexts, pageImageRegions } = await extractPdf(buffer, (progress) => throttledProgressUpdate(id, progress));
@@ -563,7 +574,7 @@ export function GenerateForm({
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
-        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInput} accept=".txt,.pdf" multiple disabled={isGeneratingAll} />
+        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileInput} accept=".txt,.pdf,.pptx,.docx,.jpg,.jpeg,.png,.webp,.gif" multiple disabled={isGeneratingAll} />
         <motion.div
           animate={isDragging ? { y: [-2, 2, -2] } : {}}
           transition={{ duration: 1.2, repeat: isDragging ? Infinity : 0 }}
@@ -579,7 +590,7 @@ export function GenerateForm({
           {isDragging ? "Release to upload" : "Drop files or click to browse"}
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          PDF and TXT · Upload multiple at once
+          PDF, TXT, PPTX, DOCX, Images · Upload multiple at once
         </p>
       </motion.div>
 
