@@ -30,6 +30,16 @@ if (!promiseConstructor.withResolvers) {
   };
 }
 
+// Apply saved dark/light theme immediately before React renders to prevent flash
+try {
+  const stored = localStorage.getItem("ankigen-theme");
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const dark = stored ? stored === "dark" : prefersDark;
+  document.documentElement.classList.toggle("dark", dark);
+} catch {
+  /* ignore */
+}
+
 // Detect installed APK / standalone mode for any platform-specific styling,
 // but allow normal pinch-to-zoom in all environments.
 function detectApk() {
