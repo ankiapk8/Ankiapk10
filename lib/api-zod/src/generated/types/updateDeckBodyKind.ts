@@ -6,7 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type UpdateDeckBodyKind = (typeof UpdateDeckBodyKind)[keyof typeof UpdateDeckBodyKind];
+export type UpdateDeckBodyKind =
+  (typeof UpdateDeckBodyKind)[keyof typeof UpdateDeckBodyKind];
 
 export const UpdateDeckBodyKind = {
   deck: "deck",

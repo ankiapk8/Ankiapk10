@@ -5,76 +5,6 @@
  * API specification for Anki Card Generator
  * OpenAPI spec version: 0.1.0
  */
-export interface AuthUser {
-  id: string;
-  /** @nullable */
-  email?: string | null;
-  /** @nullable */
-  firstName?: string | null;
-  /** @nullable */
-  lastName?: string | null;
-  /** @nullable */
-  profileImageUrl?: string | null;
-}
-
-export interface GetCurrentAuthUserResponse {
-  user: AuthUser | null;
-}
-
-export type TopicStatus = (typeof TopicStatus)[keyof typeof TopicStatus];
-
-export const TopicStatus = {
-  Not_Started: "Not Started",
-  In_Progress: "In Progress",
-  Done: "Done",
-  Revised: "Revised",
-} as const;
-
-export type TopicDifficultyLevel = (typeof TopicDifficultyLevel)[keyof typeof TopicDifficultyLevel];
-
-export const TopicDifficultyLevel = {
-  Easy: "Easy",
-  Medium: "Medium",
-  Hard: "Hard",
-} as const;
-
-export type TopicPriority = (typeof TopicPriority)[keyof typeof TopicPriority];
-
-export const TopicPriority = {
-  Low: "Low",
-  Medium: "Medium",
-  High: "High",
-} as const;
-
-export interface Topic {
-  id: string;
-  name: string;
-  subject?: string;
-  filesAndMedia?: string;
-  videoLink?: string;
-  universityLecturer?: string;
-  amboss?: string;
-  notes?: string;
-  status: TopicStatus;
-  difficultyLevel: TopicDifficultyLevel;
-  priority: TopicPriority;
-  from?: string;
-}
-
-export type GetAllTopicsResponseTopics = { [key: string]: Topic[] };
-
-export interface GetAllTopicsResponse {
-  topics: GetAllTopicsResponseTopics;
-}
-
-export interface UpsertTopicsBody {
-  topics: Topic[];
-}
-
-export interface UpsertTopicsResponse {
-  topics: Topic[];
-}
-
 export interface HealthStatus {
   status: string;
 }
@@ -120,7 +50,8 @@ export interface Deck {
   createdAt: string;
 }
 
-export type CreateDeckBodyKind = (typeof CreateDeckBodyKind)[keyof typeof CreateDeckBodyKind];
+export type CreateDeckBodyKind =
+  (typeof CreateDeckBodyKind)[keyof typeof CreateDeckBodyKind];
 
 export const CreateDeckBodyKind = {
   deck: "deck",
@@ -172,7 +103,8 @@ export interface Card {
   createdAt: string;
 }
 
-export type UpdateDeckBodyKind = (typeof UpdateDeckBodyKind)[keyof typeof UpdateDeckBodyKind];
+export type UpdateDeckBodyKind =
+  (typeof UpdateDeckBodyKind)[keyof typeof UpdateDeckBodyKind];
 
 export const UpdateDeckBodyKind = {
   deck: "deck",

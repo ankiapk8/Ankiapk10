@@ -26,14 +26,10 @@ import type {
   GenerateCardsResponse,
   GenerateQbankBody,
   Generation,
-  GetAllTopicsResponse,
-  GetCurrentAuthUserResponse,
   HealthStatus,
   ListGenerationsParams,
   UpdateCardBody,
   UpdateDeckBody,
-  UpsertTopicsBody,
-  UpsertTopicsResponse,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -46,210 +42,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * @summary Get current authenticated user
- */
-export const getGetCurrentAuthUserUrl = () => {
-  return `/api/auth/user`;
-};
-
-export const getCurrentAuthUser = async (
-  options?: RequestInit
-): Promise<GetCurrentAuthUserResponse> => {
-  return customFetch<GetCurrentAuthUserResponse>(getGetCurrentAuthUserUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getGetCurrentAuthUserQueryKey = () => {
-  return [`/api/auth/user`] as const;
-};
-
-export const getGetCurrentAuthUserQueryOptions = <
-  TData = Awaited<ReturnType<typeof getCurrentAuthUser>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof getCurrentAuthUser>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getGetCurrentAuthUserQueryKey();
-
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentAuthUser>>> = ({ signal }) =>
-    getCurrentAuthUser({ signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getCurrentAuthUser>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetCurrentAuthUserQueryResult = NonNullable<
-  Awaited<ReturnType<typeof getCurrentAuthUser>>
->;
-export type GetCurrentAuthUserQueryError = ErrorType<unknown>;
-
-/**
- * @summary Get current authenticated user
- */
-
-export function useGetCurrentAuthUser<
-  TData = Awaited<ReturnType<typeof getCurrentAuthUser>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof getCurrentAuthUser>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetCurrentAuthUserQueryOptions(options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Get all topics for the authenticated user
- */
-export const getGetAllTopicsUrl = () => {
-  return `/api/study-topics`;
-};
-
-export const getAllTopics = async (options?: RequestInit): Promise<GetAllTopicsResponse> => {
-  return customFetch<GetAllTopicsResponse>(getGetAllTopicsUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getGetAllTopicsQueryKey = () => {
-  return [`/api/study-topics`] as const;
-};
-
-export const getGetAllTopicsQueryOptions = <
-  TData = Awaited<ReturnType<typeof getAllTopics>>,
-  TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof getAllTopics>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getGetAllTopicsQueryKey();
-
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAllTopics>>> = ({ signal }) =>
-    getAllTopics({ signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getAllTopics>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type GetAllTopicsQueryResult = NonNullable<Awaited<ReturnType<typeof getAllTopics>>>;
-export type GetAllTopicsQueryError = ErrorType<void>;
-
-/**
- * @summary Get all topics for the authenticated user
- */
-
-export function useGetAllTopics<
-  TData = Awaited<ReturnType<typeof getAllTopics>>,
-  TError = ErrorType<void>,
->(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof getAllTopics>>, TError, TData>;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetAllTopicsQueryOptions(options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
- * @summary Upsert topics for a specific storage key
- */
-export const getUpsertTopicsUrl = (storageKey: string) => {
-  return `/api/study-topics/${storageKey}`;
-};
-
-export const upsertTopics = async (
-  storageKey: string,
-  upsertTopicsBody: UpsertTopicsBody,
-  options?: RequestInit
-): Promise<UpsertTopicsResponse> => {
-  return customFetch<UpsertTopicsResponse>(getUpsertTopicsUrl(storageKey), {
-    ...options,
-    method: "PUT",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(upsertTopicsBody),
-  });
-};
-
-export const getUpsertTopicsMutationOptions = <
-  TError = ErrorType<void>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof upsertTopics>>,
-    TError,
-    { storageKey: string; data: BodyType<UpsertTopicsBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof upsertTopics>>,
-  TError,
-  { storageKey: string; data: BodyType<UpsertTopicsBody> },
-  TContext
-> => {
-  const mutationKey = ["upsertTopics"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof upsertTopics>>,
-    { storageKey: string; data: BodyType<UpsertTopicsBody> }
-  > = (props) => {
-    const { storageKey, data } = props ?? {};
-
-    return upsertTopics(storageKey, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type UpsertTopicsMutationResult = NonNullable<Awaited<ReturnType<typeof upsertTopics>>>;
-export type UpsertTopicsMutationBody = BodyType<UpsertTopicsBody>;
-export type UpsertTopicsMutationError = ErrorType<void>;
-
-/**
- * @summary Upsert topics for a specific storage key
- */
-export const useUpsertTopics = <TError = ErrorType<void>, TContext = unknown>(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof upsertTopics>>,
-    TError,
-    { storageKey: string; data: BodyType<UpsertTopicsBody> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof upsertTopics>>,
-  TError,
-  { storageKey: string; data: BodyType<UpsertTopicsBody> },
-  TContext
-> => {
-  return useMutation(getUpsertTopicsMutationOptions(options));
-};
-
-/**
  * Returns server health status
  * @summary Health check
  */
@@ -257,7 +49,9 @@ export const getHealthCheckUrl = () => {
   return `/api/healthz`;
 };
 
-export const healthCheck = async (options?: RequestInit): Promise<HealthStatus> => {
+export const healthCheck = async (
+  options?: RequestInit,
+): Promise<HealthStatus> => {
   return customFetch<HealthStatus>(getHealthCheckUrl(), {
     ...options,
     method: "GET",
@@ -272,15 +66,20 @@ export const getHealthCheckQueryOptions = <
   TData = Awaited<ReturnType<typeof healthCheck>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>;
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof healthCheck>>,
+    TError,
+    TData
+  >;
   request?: SecondParameter<typeof customFetch>;
 }) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getHealthCheckQueryKey();
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof healthCheck>>> = ({ signal }) =>
-    healthCheck({ signal, ...requestOptions });
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof healthCheck>>> = ({
+    signal,
+  }) => healthCheck({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof healthCheck>>,
@@ -289,7 +88,9 @@ export const getHealthCheckQueryOptions = <
   > & { queryKey: QueryKey };
 };
 
-export type HealthCheckQueryResult = NonNullable<Awaited<ReturnType<typeof healthCheck>>>;
+export type HealthCheckQueryResult = NonNullable<
+  Awaited<ReturnType<typeof healthCheck>>
+>;
 export type HealthCheckQueryError = ErrorType<unknown>;
 
 /**
@@ -300,12 +101,18 @@ export function useHealthCheck<
   TData = Awaited<ReturnType<typeof healthCheck>>,
   TError = ErrorType<unknown>,
 >(options?: {
-  query?: UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>;
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof healthCheck>>,
+    TError,
+    TData
+  >;
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
 
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
@@ -339,8 +146,9 @@ export const getListDecksQueryOptions = <
 
   const queryKey = queryOptions?.queryKey ?? getListDecksQueryKey();
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDecks>>> = ({ signal }) =>
-    listDecks({ signal, ...requestOptions });
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDecks>>> = ({
+    signal,
+  }) => listDecks({ signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listDecks>>,
@@ -349,7 +157,9 @@ export const getListDecksQueryOptions = <
   > & { queryKey: QueryKey };
 };
 
-export type ListDecksQueryResult = NonNullable<Awaited<ReturnType<typeof listDecks>>>;
+export type ListDecksQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDecks>>
+>;
 export type ListDecksQueryError = ErrorType<unknown>;
 
 /**
@@ -365,7 +175,9 @@ export function useListDecks<
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListDecksQueryOptions(options);
 
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
@@ -379,7 +191,7 @@ export const getCreateDeckUrl = () => {
 
 export const createDeck = async (
   createDeckBody: CreateDeckBody,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<Deck> => {
   return customFetch<Deck>(getCreateDeckUrl(), {
     ...options,
@@ -408,7 +220,9 @@ export const getCreateDeckMutationOptions = <
 > => {
   const mutationKey = ["createDeck"];
   const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
     : { mutation: { mutationKey }, request: undefined };
@@ -425,14 +239,19 @@ export const getCreateDeckMutationOptions = <
   return { mutationFn, ...mutationOptions };
 };
 
-export type CreateDeckMutationResult = NonNullable<Awaited<ReturnType<typeof createDeck>>>;
+export type CreateDeckMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createDeck>>
+>;
 export type CreateDeckMutationBody = BodyType<CreateDeckBody>;
 export type CreateDeckMutationError = ErrorType<void>;
 
 /**
  * @summary Create a new deck
  */
-export const useCreateDeck = <TError = ErrorType<void>, TContext = unknown>(options?: {
+export const useCreateDeck = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof createDeck>>,
     TError,
@@ -456,7 +275,10 @@ export const getGetDeckUrl = (id: number) => {
   return `/api/decks/${id}`;
 };
 
-export const getDeck = async (id: number, options?: RequestInit): Promise<Deck> => {
+export const getDeck = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Deck> => {
   return customFetch<Deck>(getGetDeckUrl(id), {
     ...options,
     method: "GET",
@@ -475,39 +297,50 @@ export const getGetDeckQueryOptions = <
   options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getDeck>>, TError, TData>;
     request?: SecondParameter<typeof customFetch>;
-  }
+  },
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getGetDeckQueryKey(id);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getDeck>>> = ({ signal }) =>
-    getDeck(id, { signal, ...requestOptions });
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getDeck>>> = ({
+    signal,
+  }) => getDeck(id, { signal, ...requestOptions });
 
-  return { queryKey, queryFn, enabled: !!id, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof getDeck>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof getDeck>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
 };
 
-export type GetDeckQueryResult = NonNullable<Awaited<ReturnType<typeof getDeck>>>;
+export type GetDeckQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getDeck>>
+>;
 export type GetDeckQueryError = ErrorType<void>;
 
 /**
  * @summary Get a deck by ID
  */
 
-export function useGetDeck<TData = Awaited<ReturnType<typeof getDeck>>, TError = ErrorType<void>>(
+export function useGetDeck<
+  TData = Awaited<ReturnType<typeof getDeck>>,
+  TError = ErrorType<void>,
+>(
   id: number,
   options?: {
     query?: UseQueryOptions<Awaited<ReturnType<typeof getDeck>>, TError, TData>;
     request?: SecondParameter<typeof customFetch>;
-  }
+  },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetDeckQueryOptions(id, options);
 
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
@@ -522,7 +355,7 @@ export const getUpdateDeckUrl = (id: number) => {
 export const updateDeck = async (
   id: number,
   updateDeckBody: UpdateDeckBody,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<Deck> => {
   return customFetch<Deck>(getUpdateDeckUrl(id), {
     ...options,
@@ -551,7 +384,9 @@ export const getUpdateDeckMutationOptions = <
 > => {
   const mutationKey = ["updateDeck"];
   const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
     : { mutation: { mutationKey }, request: undefined };
@@ -568,14 +403,19 @@ export const getUpdateDeckMutationOptions = <
   return { mutationFn, ...mutationOptions };
 };
 
-export type UpdateDeckMutationResult = NonNullable<Awaited<ReturnType<typeof updateDeck>>>;
+export type UpdateDeckMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateDeck>>
+>;
 export type UpdateDeckMutationBody = BodyType<UpdateDeckBody>;
 export type UpdateDeckMutationError = ErrorType<void>;
 
 /**
  * @summary Update a deck
  */
-export const useUpdateDeck = <TError = ErrorType<void>, TContext = unknown>(options?: {
+export const useUpdateDeck = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateDeck>>,
     TError,
@@ -599,7 +439,10 @@ export const getDeleteDeckUrl = (id: number) => {
   return `/api/decks/${id}`;
 };
 
-export const deleteDeck = async (id: number, options?: RequestInit): Promise<void> => {
+export const deleteDeck = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
   return customFetch<void>(getDeleteDeckUrl(id), {
     ...options,
     method: "DELETE",
@@ -625,14 +468,17 @@ export const getDeleteDeckMutationOptions = <
 > => {
   const mutationKey = ["deleteDeck"];
   const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
     : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDeck>>, { id: number }> = (
-    props
-  ) => {
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteDeck>>,
+    { id: number }
+  > = (props) => {
     const { id } = props ?? {};
 
     return deleteDeck(id, requestOptions);
@@ -641,14 +487,19 @@ export const getDeleteDeckMutationOptions = <
   return { mutationFn, ...mutationOptions };
 };
 
-export type DeleteDeckMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDeck>>>;
+export type DeleteDeckMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteDeck>>
+>;
 
 export type DeleteDeckMutationError = ErrorType<void>;
 
 /**
  * @summary Delete a deck
  */
-export const useDeleteDeck = <TError = ErrorType<void>, TContext = unknown>(options?: {
+export const useDeleteDeck = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteDeck>>,
     TError,
@@ -656,7 +507,12 @@ export const useDeleteDeck = <TError = ErrorType<void>, TContext = unknown>(opti
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<Awaited<ReturnType<typeof deleteDeck>>, TError, { id: number }, TContext> => {
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteDeck>>,
+  TError,
+  { id: number },
+  TContext
+> => {
   return useMutation(getDeleteDeckMutationOptions(options));
 };
 
@@ -667,7 +523,10 @@ export const getListDeckCardsUrl = (id: number) => {
   return `/api/decks/${id}/cards`;
 };
 
-export const listDeckCards = async (id: number, options?: RequestInit): Promise<Card[]> => {
+export const listDeckCards = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Card[]> => {
   return customFetch<Card[]>(getListDeckCardsUrl(id), {
     ...options,
     method: "GET",
@@ -684,25 +543,37 @@ export const getListDeckCardsQueryOptions = <
 >(
   id: number,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof listDeckCards>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDeckCards>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
-  }
+  },
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getListDeckCardsQueryKey(id);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDeckCards>>> = ({ signal }) =>
-    listDeckCards(id, { signal, ...requestOptions });
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listDeckCards>>> = ({
+    signal,
+  }) => listDeckCards(id, { signal, ...requestOptions });
 
-  return { queryKey, queryFn, enabled: !!id, ...queryOptions } as UseQueryOptions<
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
     Awaited<ReturnType<typeof listDeckCards>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type ListDeckCardsQueryResult = NonNullable<Awaited<ReturnType<typeof listDeckCards>>>;
+export type ListDeckCardsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listDeckCards>>
+>;
 export type ListDeckCardsQueryError = ErrorType<unknown>;
 
 /**
@@ -715,13 +586,19 @@ export function useListDeckCards<
 >(
   id: number,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof listDeckCards>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listDeckCards>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
-  }
+  },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListDeckCardsQueryOptions(id, options);
 
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
@@ -736,7 +613,7 @@ export const getUpdateCardUrl = (id: number) => {
 export const updateCard = async (
   id: number,
   updateCardBody: UpdateCardBody,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<Card> => {
   return customFetch<Card>(getUpdateCardUrl(id), {
     ...options,
@@ -765,7 +642,9 @@ export const getUpdateCardMutationOptions = <
 > => {
   const mutationKey = ["updateCard"];
   const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
     : { mutation: { mutationKey }, request: undefined };
@@ -782,14 +661,19 @@ export const getUpdateCardMutationOptions = <
   return { mutationFn, ...mutationOptions };
 };
 
-export type UpdateCardMutationResult = NonNullable<Awaited<ReturnType<typeof updateCard>>>;
+export type UpdateCardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCard>>
+>;
 export type UpdateCardMutationBody = BodyType<UpdateCardBody>;
 export type UpdateCardMutationError = ErrorType<void>;
 
 /**
  * @summary Update a card
  */
-export const useUpdateCard = <TError = ErrorType<void>, TContext = unknown>(options?: {
+export const useUpdateCard = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof updateCard>>,
     TError,
@@ -813,7 +697,10 @@ export const getDeleteCardUrl = (id: number) => {
   return `/api/cards/${id}`;
 };
 
-export const deleteCard = async (id: number, options?: RequestInit): Promise<void> => {
+export const deleteCard = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
   return customFetch<void>(getDeleteCardUrl(id), {
     ...options,
     method: "DELETE",
@@ -839,14 +726,17 @@ export const getDeleteCardMutationOptions = <
 > => {
   const mutationKey = ["deleteCard"];
   const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
     : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCard>>, { id: number }> = (
-    props
-  ) => {
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCard>>,
+    { id: number }
+  > = (props) => {
     const { id } = props ?? {};
 
     return deleteCard(id, requestOptions);
@@ -855,14 +745,19 @@ export const getDeleteCardMutationOptions = <
   return { mutationFn, ...mutationOptions };
 };
 
-export type DeleteCardMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCard>>>;
+export type DeleteCardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCard>>
+>;
 
 export type DeleteCardMutationError = ErrorType<void>;
 
 /**
  * @summary Delete a card
  */
-export const useDeleteCard = <TError = ErrorType<void>, TContext = unknown>(options?: {
+export const useDeleteCard = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof deleteCard>>,
     TError,
@@ -870,7 +765,12 @@ export const useDeleteCard = <TError = ErrorType<void>, TContext = unknown>(opti
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<Awaited<ReturnType<typeof deleteCard>>, TError, { id: number }, TContext> => {
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCard>>,
+  TError,
+  { id: number },
+  TContext
+> => {
   return useMutation(getDeleteCardMutationOptions(options));
 };
 
@@ -883,7 +783,7 @@ export const getGenerateCardsUrl = () => {
 
 export const generateCards = async (
   generateCardsBody: GenerateCardsBody,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<GenerateCardsResponse> => {
   return customFetch<GenerateCardsResponse>(getGenerateCardsUrl(), {
     ...options,
@@ -912,7 +812,9 @@ export const getGenerateCardsMutationOptions = <
 > => {
   const mutationKey = ["generateCards"];
   const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
     : { mutation: { mutationKey }, request: undefined };
@@ -929,14 +831,19 @@ export const getGenerateCardsMutationOptions = <
   return { mutationFn, ...mutationOptions };
 };
 
-export type GenerateCardsMutationResult = NonNullable<Awaited<ReturnType<typeof generateCards>>>;
+export type GenerateCardsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateCards>>
+>;
 export type GenerateCardsMutationBody = BodyType<GenerateCardsBody>;
 export type GenerateCardsMutationError = ErrorType<void>;
 
 /**
  * @summary Generate Anki cards from text content
  */
-export const useGenerateCards = <TError = ErrorType<void>, TContext = unknown>(options?: {
+export const useGenerateCards = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof generateCards>>,
     TError,
@@ -962,7 +869,7 @@ export const getGenerateQbankUrl = () => {
 
 export const generateQbank = async (
   generateQbankBody: GenerateQbankBody,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<GenerateCardsResponse> => {
   return customFetch<GenerateCardsResponse>(getGenerateQbankUrl(), {
     ...options,
@@ -991,7 +898,9 @@ export const getGenerateQbankMutationOptions = <
 > => {
   const mutationKey = ["generateQbank"];
   const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
     : { mutation: { mutationKey }, request: undefined };
@@ -1008,14 +917,19 @@ export const getGenerateQbankMutationOptions = <
   return { mutationFn, ...mutationOptions };
 };
 
-export type GenerateQbankMutationResult = NonNullable<Awaited<ReturnType<typeof generateQbank>>>;
+export type GenerateQbankMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateQbank>>
+>;
 export type GenerateQbankMutationBody = BodyType<GenerateQbankBody>;
 export type GenerateQbankMutationError = ErrorType<void>;
 
 /**
  * @summary Generate a Question Bank (MCQ-only deck) from text content
  */
-export const useGenerateQbank = <TError = ErrorType<void>, TContext = unknown>(options?: {
+export const useGenerateQbank = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof generateQbank>>,
     TError,
@@ -1053,7 +967,7 @@ export const getListGenerationsUrl = (params?: ListGenerationsParams) => {
 
 export const listGenerations = async (
   params?: ListGenerationsParams,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<Generation[]> => {
   return customFetch<Generation[]>(getListGenerationsUrl(params), {
     ...options,
@@ -1071,16 +985,21 @@ export const getListGenerationsQueryOptions = <
 >(
   params?: ListGenerationsParams,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof listGenerations>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGenerations>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
-  }
+  },
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getListGenerationsQueryKey(params);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof listGenerations>>> = ({ signal }) =>
-    listGenerations(params, { signal, ...requestOptions });
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listGenerations>>> = ({
+    signal,
+  }) => listGenerations(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof listGenerations>>,
@@ -1089,7 +1008,9 @@ export const getListGenerationsQueryOptions = <
   > & { queryKey: QueryKey };
 };
 
-export type ListGenerationsQueryResult = NonNullable<Awaited<ReturnType<typeof listGenerations>>>;
+export type ListGenerationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listGenerations>>
+>;
 export type ListGenerationsQueryError = ErrorType<unknown>;
 
 /**
@@ -1102,13 +1023,19 @@ export function useListGenerations<
 >(
   params?: ListGenerationsParams,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof listGenerations>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listGenerations>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
-  }
+  },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListGenerationsQueryOptions(params, options);
 
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
@@ -1120,7 +1047,9 @@ export const getClearGenerationsUrl = () => {
   return `/api/generations`;
 };
 
-export const clearGenerations = async (options?: RequestInit): Promise<ClearGenerations200> => {
+export const clearGenerations = async (
+  options?: RequestInit,
+): Promise<ClearGenerations200> => {
   return customFetch<ClearGenerations200>(getClearGenerationsUrl(), {
     ...options,
     method: "DELETE",
@@ -1138,15 +1067,25 @@ export const getClearGenerationsMutationOptions = <
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<Awaited<ReturnType<typeof clearGenerations>>, TError, void, TContext> => {
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof clearGenerations>>,
+  TError,
+  void,
+  TContext
+> => {
   const mutationKey = ["clearGenerations"];
   const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
       ? options
       : { ...options, mutation: { ...options.mutation, mutationKey } }
     : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearGenerations>>, void> = () => {
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof clearGenerations>>,
+    void
+  > = () => {
     return clearGenerations(requestOptions);
   };
 
@@ -1162,7 +1101,10 @@ export type ClearGenerationsMutationError = ErrorType<unknown>;
 /**
  * @summary Clear all generation history
  */
-export const useClearGenerations = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+export const useClearGenerations = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof clearGenerations>>,
     TError,
@@ -1170,7 +1112,12 @@ export const useClearGenerations = <TError = ErrorType<unknown>, TContext = unkn
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<Awaited<ReturnType<typeof clearGenerations>>, TError, void, TContext> => {
+}): UseMutationResult<
+  Awaited<ReturnType<typeof clearGenerations>>,
+  TError,
+  void,
+  TContext
+> => {
   return useMutation(getClearGenerationsMutationOptions(options));
 };
 
@@ -1183,7 +1130,7 @@ export const getExportDeckUrl = (id: number) => {
 
 export const exportDeck = async (
   id: number,
-  options?: RequestInit
+  options?: RequestInit,
 ): Promise<ExportDeckResponse> => {
   return customFetch<ExportDeckResponse>(getExportDeckUrl(id), {
     ...options,
@@ -1201,25 +1148,37 @@ export const getExportDeckQueryOptions = <
 >(
   id: number,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof exportDeck>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportDeck>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
-  }
+  },
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
   const queryKey = queryOptions?.queryKey ?? getExportDeckQueryKey(id);
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof exportDeck>>> = ({ signal }) =>
-    exportDeck(id, { signal, ...requestOptions });
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof exportDeck>>> = ({
+    signal,
+  }) => exportDeck(id, { signal, ...requestOptions });
 
-  return { queryKey, queryFn, enabled: !!id, ...queryOptions } as UseQueryOptions<
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
     Awaited<ReturnType<typeof exportDeck>>,
     TError,
     TData
   > & { queryKey: QueryKey };
 };
 
-export type ExportDeckQueryResult = NonNullable<Awaited<ReturnType<typeof exportDeck>>>;
+export type ExportDeckQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportDeck>>
+>;
 export type ExportDeckQueryError = ErrorType<void>;
 
 /**
@@ -1232,13 +1191,19 @@ export function useExportDeck<
 >(
   id: number,
   options?: {
-    query?: UseQueryOptions<Awaited<ReturnType<typeof exportDeck>>, TError, TData>;
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportDeck>>,
+      TError,
+      TData
+    >;
     request?: SecondParameter<typeof customFetch>;
-  }
+  },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getExportDeckQueryOptions(id, options);
 
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
 
   return { ...query, queryKey: queryOptions.queryKey };
 }

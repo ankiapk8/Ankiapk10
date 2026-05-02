@@ -8,92 +8,6 @@
 import * as zod from "zod";
 
 /**
- * @summary Get current authenticated user
- */
-export const GetCurrentAuthUserResponse = zod.object({
-  user: zod.union([
-    zod.object({
-      id: zod.string(),
-      email: zod.string().nullish(),
-      firstName: zod.string().nullish(),
-      lastName: zod.string().nullish(),
-      profileImageUrl: zod.string().nullish(),
-    }),
-    zod.null(),
-  ]),
-});
-
-/**
- * @summary Get all topics for the authenticated user
- */
-export const GetAllTopicsResponse = zod.object({
-  topics: zod.record(
-    zod.string(),
-    zod.array(
-      zod.object({
-        id: zod.string(),
-        name: zod.string(),
-        subject: zod.string().optional(),
-        filesAndMedia: zod.string().optional(),
-        videoLink: zod.string().optional(),
-        universityLecturer: zod.string().optional(),
-        amboss: zod.string().optional(),
-        notes: zod.string().optional(),
-        status: zod.enum(["Not Started", "In Progress", "Done", "Revised"]),
-        difficultyLevel: zod.enum(["Easy", "Medium", "Hard"]),
-        priority: zod.enum(["Low", "Medium", "High"]),
-        from: zod.string().optional(),
-      })
-    )
-  ),
-});
-
-/**
- * @summary Upsert topics for a specific storage key
- */
-export const UpsertTopicsParams = zod.object({
-  storageKey: zod.coerce.string(),
-});
-
-export const UpsertTopicsBody = zod.object({
-  topics: zod.array(
-    zod.object({
-      id: zod.string(),
-      name: zod.string(),
-      subject: zod.string().optional(),
-      filesAndMedia: zod.string().optional(),
-      videoLink: zod.string().optional(),
-      universityLecturer: zod.string().optional(),
-      amboss: zod.string().optional(),
-      notes: zod.string().optional(),
-      status: zod.enum(["Not Started", "In Progress", "Done", "Revised"]),
-      difficultyLevel: zod.enum(["Easy", "Medium", "Hard"]),
-      priority: zod.enum(["Low", "Medium", "High"]),
-      from: zod.string().optional(),
-    })
-  ),
-});
-
-export const UpsertTopicsResponse = zod.object({
-  topics: zod.array(
-    zod.object({
-      id: zod.string(),
-      name: zod.string(),
-      subject: zod.string().optional(),
-      filesAndMedia: zod.string().optional(),
-      videoLink: zod.string().optional(),
-      universityLecturer: zod.string().optional(),
-      amboss: zod.string().optional(),
-      notes: zod.string().optional(),
-      status: zod.enum(["Not Started", "In Progress", "Done", "Revised"]),
-      difficultyLevel: zod.enum(["Easy", "Medium", "Hard"]),
-      priority: zod.enum(["Low", "Medium", "High"]),
-      from: zod.string().optional(),
-    })
-  ),
-});
-
-/**
  * Returns server health status
  * @summary Health check
  */
@@ -112,7 +26,9 @@ export const ListDecksResponseItem = zod.object({
   kind: zod
     .enum(["deck", "qbank"])
     .optional()
-    .describe("deck = flashcard deck (default), qbank = MCQ-only question bank"),
+    .describe(
+      "deck = flashcard deck (default), qbank = MCQ-only question bank",
+    ),
   cardCount: zod.number(),
   createdAt: zod.string(),
 });
@@ -143,7 +59,9 @@ export const GetDeckResponse = zod.object({
   kind: zod
     .enum(["deck", "qbank"])
     .optional()
-    .describe("deck = flashcard deck (default), qbank = MCQ-only question bank"),
+    .describe(
+      "deck = flashcard deck (default), qbank = MCQ-only question bank",
+    ),
   cardCount: zod.number(),
   createdAt: zod.string(),
 });
@@ -170,7 +88,9 @@ export const UpdateDeckResponse = zod.object({
   kind: zod
     .enum(["deck", "qbank"])
     .optional()
-    .describe("deck = flashcard deck (default), qbank = MCQ-only question bank"),
+    .describe(
+      "deck = flashcard deck (default), qbank = MCQ-only question bank",
+    ),
   cardCount: zod.number(),
   createdAt: zod.string(),
 });
@@ -203,19 +123,19 @@ export const ListDeckCardsResponseItem = zod.object({
     .array(zod.string())
     .nullish()
     .describe(
-      "Multiple-choice options (in order: A, B, C, D, …). Present only when cardType is 'mcq'."
+      "Multiple-choice options (in order: A, B, C, D, …). Present only when cardType is 'mcq'.",
     ),
   correctIndex: zod
     .number()
     .nullish()
     .describe(
-      "0-based index into choices for the correct option. Present only when cardType is 'mcq'."
+      "0-based index into choices for the correct option. Present only when cardType is 'mcq'.",
     ),
   pageNumber: zod
     .number()
     .nullish()
     .describe(
-      "1-based source PDF page number this card was generated from, or null when no page is associated."
+      "1-based source PDF page number this card was generated from, or null when no page is associated.",
     ),
   createdAt: zod.string(),
 });
@@ -248,19 +168,19 @@ export const UpdateCardResponse = zod.object({
     .array(zod.string())
     .nullish()
     .describe(
-      "Multiple-choice options (in order: A, B, C, D, …). Present only when cardType is 'mcq'."
+      "Multiple-choice options (in order: A, B, C, D, …). Present only when cardType is 'mcq'.",
     ),
   correctIndex: zod
     .number()
     .nullish()
     .describe(
-      "0-based index into choices for the correct option. Present only when cardType is 'mcq'."
+      "0-based index into choices for the correct option. Present only when cardType is 'mcq'.",
     ),
   pageNumber: zod
     .number()
     .nullish()
     .describe(
-      "1-based source PDF page number this card was generated from, or null when no page is associated."
+      "1-based source PDF page number this card was generated from, or null when no page is associated.",
     ),
   createdAt: zod.string(),
 });
@@ -281,22 +201,28 @@ export const GenerateCardsBody = zod.object({
   cardCount: zod
     .number()
     .optional()
-    .describe('Target text card count (used when deckType is \"text\" or \"both\")'),
+    .describe(
+      'Target text card count (used when deckType is \"text\" or \"both\")',
+    ),
   visualCardCount: zod
     .number()
     .optional()
-    .describe('Target visual card count (used when deckType is \"visual\" or \"both\")'),
+    .describe(
+      'Target visual card count (used when deckType is \"visual\" or \"both\")',
+    ),
   deckType: zod
     .enum(["text", "visual", "both"])
     .optional()
-    .describe("Whether to create a text-only deck, a visual deck, or both as separate decks"),
+    .describe(
+      "Whether to create a text-only deck, a visual deck, or both as separate decks",
+    ),
   parentId: zod.number().nullish(),
   pageImages: zod.array(zod.string()).optional(),
   pageTexts: zod
     .array(zod.string())
     .optional()
     .describe(
-      "Per-page extracted text (index 0 = page 1). When provided, the server tracks which PDF page each text card came from and stores it as pageNumber so the merged deck can be sorted by source page."
+      "Per-page extracted text (index 0 = page 1). When provided, the server tracks which PDF page each text card came from and stores it as pageNumber so the merged deck can be sorted by source page.",
     ),
   pageImageRegions: zod
     .array(
@@ -306,18 +232,18 @@ export const GenerateCardsBody = zod.object({
           y: zod.number(),
           w: zod.number(),
           h: zod.number(),
-        })
-      )
+        }),
+      ),
     )
     .optional()
     .describe(
-      "Per-page list of detected embedded image regions (raster images present in the PDF). Each entry is the list of regions on that page, where each region is {x,y,w,h} normalized 0..1 with origin top-left. Used to snap visual-card crops to real images and reject AI bboxes that point at prose."
+      "Per-page list of detected embedded image regions (raster images present in the PDF). Each entry is the list of regions on that page, where each region is {x,y,w,h} normalized 0..1 with origin top-left. Used to snap visual-card crops to real images and reject AI bboxes that point at prose.",
     ),
   customPrompt: zod
     .string()
     .optional()
     .describe(
-      'Optional user instructions appended to the system prompt to steer card generation (e.g. \"focus on dosages\", \"phrase as MCQs\", \"for a Year 1 medical student\")'
+      'Optional user instructions appended to the system prompt to steer card generation (e.g. \"focus on dosages\", \"phrase as MCQs\", \"for a Year 1 medical student\")',
     ),
 });
 
@@ -327,13 +253,16 @@ export const GenerateCardsBody = zod.object({
 export const GenerateQbankBody = zod.object({
   text: zod.string(),
   deckName: zod.string(),
-  questionCount: zod.number().optional().describe("Target number of MCQ questions to generate"),
+  questionCount: zod
+    .number()
+    .optional()
+    .describe("Target number of MCQ questions to generate"),
   parentId: zod.number().nullish(),
   customPrompt: zod
     .string()
     .optional()
     .describe(
-      'Optional user instructions appended to the system prompt to steer question generation (e.g. \"USMLE Step 1 style\", \"high-yield clinical vignettes only\")'
+      'Optional user instructions appended to the system prompt to steer question generation (e.g. \"USMLE Step 1 style\", \"high-yield clinical vignettes only\")',
     ),
 });
 
@@ -343,7 +272,11 @@ export const GenerateQbankBody = zod.object({
 export const listGenerationsQueryLimitMax = 500;
 
 export const ListGenerationsQueryParams = zod.object({
-  limit: zod.coerce.number().min(1).max(listGenerationsQueryLimitMax).optional(),
+  limit: zod.coerce
+    .number()
+    .min(1)
+    .max(listGenerationsQueryLimitMax)
+    .optional(),
 });
 
 export const ListGenerationsResponseItem = zod.object({
