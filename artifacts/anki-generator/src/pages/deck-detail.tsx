@@ -51,6 +51,7 @@ import { Drawer } from "vaul";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CropCompare, parseBbox } from "@/components/crop-compare";
+import { SourcePageModal, type VisualCardRef } from "@/components/source-page-modal";
 
 type DeckWithSubDecks = Deck & { subDecks?: Deck[] };
 
@@ -227,6 +228,22 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
   const [flipping, setFlipping] = useState(false);
   const [mcqSelected, setMcqSelected] = useState<number | null>(null);
   const savedRef = useRef(false);
+
+  const [sourceModalCardId, setSourceModalCardId] = useState<number | null>(null);
+  const sourceVisualCards: VisualCardRef[] = cards
+    .filter(c => !!(c as Card & { sourceImage?: string | null }).sourceImage)
+    .map(c => {
+      const cx = c as Card & { sourceImage?: string | null; bbox?: string | null; pageNumber?: number | null; figureType?: string | null };
+      return {
+        id: cx.id,
+        sourceImage: cx.sourceImage!,
+        bbox: parseBbox(cx.bbox),
+        pageNumber: cx.pageNumber,
+        figureType: cx.figureType,
+        front: cx.front,
+      };
+    });
+  const sourceModalActiveIndex = sourceVisualCards.findIndex(v => v.id === sourceModalCardId);
 
   const current = deck[index];
   const total = deck.length;
@@ -407,6 +424,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (sourceModalCardId !== null) return;
       if (e.key === "Escape") { setLightboxSrc(null); return; }
       if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (!revealed) setRevealed(true); else markKnown(); }
       if (e.key === "ArrowRight") { e.preventDefault(); goNext(); }
@@ -416,7 +434,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [revealed, goNext, goPrev, markKnown, markUnknown]);
+  }, [revealed, goNext, goPrev, markKnown, markUnknown, sourceModalCardId]);
 
   if (done) {
     return (
@@ -490,6 +508,13 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
         />
       </div>
     )}
+    <SourcePageModal
+      open={sourceModalCardId !== null && sourceModalActiveIndex !== -1}
+      onClose={() => setSourceModalCardId(null)}
+      cards={sourceVisualCards}
+      activeIndex={Math.max(0, sourceModalActiveIndex)}
+      onNavigate={(i) => setSourceModalCardId(sourceVisualCards[i]?.id ?? null)}
+    />
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" onClick={handleSaveAndExit} className="gap-1.5 text-muted-foreground">
@@ -710,6 +735,26 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
         </Button>
       </div>
 
+      {(() => {
+        const c = current as Card & { sourceImage?: string | null };
+        if (!c?.sourceImage) return null;
+        return (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => setSourceModalCardId(current.id)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/5 text-violet-600 dark:text-violet-400 text-xs font-medium hover:bg-violet-500/15 hover:border-violet-500/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              View Source Page
+              {(current as Card & { pageNumber?: number | null }).pageNumber != null && (
+                <span className="opacity-70">· p.{(current as Card & { pageNumber?: number | null }).pageNumber}</span>
+              )}
+            </button>
+          </div>
+        );
+      })()}
+
       {revealed && (
         <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
@@ -886,6 +931,7 @@ export default function DeckDetail() {
   const [addBack, setAddBack] = useState("");
   const [addingCard, setAddingCard] = useState(false);
   const [showMindMap, setShowMindMap] = useState(false);
+  const [deckSourceModalCardId, setDeckSourceModalCardId] = useState<number | null>(null);
 
   const handleAddCard = async () => {
     if (!addFront.trim() || !addBack.trim() || !deck) return;
@@ -1002,6 +1048,21 @@ export default function DeckDetail() {
   const visualCount = cardList.filter(c => (c as Card & { image?: string | null }).image).length;
   const textCount = cardList.length - visualCount;
   const hasMixedCards = visualCount > 0 && textCount > 0;
+
+  const deckVisualCards: VisualCardRef[] = cardList
+    .filter(c => !!(c as Card & { sourceImage?: string | null }).sourceImage)
+    .map(c => {
+      const cx = c as Card & { sourceImage?: string | null; bbox?: string | null; pageNumber?: number | null; figureType?: string | null };
+      return {
+        id: cx.id,
+        sourceImage: cx.sourceImage!,
+        bbox: parseBbox(cx.bbox),
+        pageNumber: cx.pageNumber,
+        figureType: cx.figureType,
+        front: cx.front,
+      };
+    });
+  const deckSourceModalActiveIndex = deckVisualCards.findIndex(v => v.id === deckSourceModalCardId);
   const isQbank = (deck as Deck & { kind?: string } | undefined)?.kind === "qbank";
   const showTabs = !isQbank && cardList.length > 0;
   const tabFilteredCards = !showTabs
@@ -1112,6 +1173,14 @@ export default function DeckDetail() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+      <SourcePageModal
+        open={deckSourceModalCardId !== null && deckSourceModalActiveIndex !== -1}
+        onClose={() => setDeckSourceModalCardId(null)}
+        cards={deckVisualCards}
+        activeIndex={Math.max(0, deckSourceModalActiveIndex)}
+        onNavigate={(i) => setDeckSourceModalCardId(deckVisualCards[i]?.id ?? null)}
+      />
+
       {showMindMap && (
         <MindMapPanel
           deckName={deck.name}
@@ -1326,6 +1395,7 @@ export default function DeckDetail() {
                 card={card}
                 subDeckName={hasSubDecks ? subDecks.find(s => s.id === card.deckId)?.name : undefined}
                 index={idx}
+                onViewSource={(id) => setDeckSourceModalCardId(id)}
                 onUpdate={(id, data) => updateCard.mutate(
                   { id, data },
                   {
@@ -1359,12 +1429,14 @@ function EditableCard({
   card, 
   index,
   subDeckName,
+  onViewSource,
   onUpdate, 
   onDelete 
 }: { 
   card: Card;
   index: number;
   subDeckName?: string;
+  onViewSource?: (id: number) => void;
   onUpdate: (id: number, data: { front: string; back: string }) => void; 
   onDelete: (id: number) => void;
 }) {
@@ -1433,7 +1505,7 @@ function EditableCard({
       )}
       <CardContent className="p-0 flex flex-col sm:flex-row relative">
         <div className="flex-1 p-4 sm:p-5 border-b sm:border-b-0 sm:border-r border-border/40">
-          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5 flex-wrap">
             Front
             {(card as Card & { image?: string | null }).image && (
               <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
@@ -1445,6 +1517,29 @@ function EditableCard({
                 <ClipboardList className="h-2.5 w-2.5" /> MCQ
               </span>
             )}
+            {(() => {
+              const cx = card as Card & { image?: string | null; sourceImage?: string | null; pageNumber?: number | null };
+              if (cx.sourceImage && onViewSource) {
+                return (
+                  <button
+                    type="button"
+                    onClick={() => onViewSource(card.id)}
+                    className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-500/10 hover:bg-violet-500/20 px-1.5 py-0.5 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+                  >
+                    <BookOpen className="h-2.5 w-2.5" />
+                    View Source{cx.pageNumber != null ? ` · p.${cx.pageNumber}` : ""}
+                  </button>
+                );
+              }
+              if (!cx.image && cx.pageNumber != null) {
+                return (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full">
+                    Page {cx.pageNumber}
+                  </span>
+                );
+              }
+              return null;
+            })()}
           </div>
           {(() => {
             const c = card as Card & { image?: string | null; sourceImage?: string | null; bbox?: string | null };
