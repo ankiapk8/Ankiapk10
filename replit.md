@@ -90,12 +90,20 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
 
-## Render Deployment (Docker)
+## Docker & Local Development
 
-- `Dockerfile` (multi-stage) installs system deps for `canvas` (cairo/pango/jpeg/gif/rsvg/pixman), enables pnpm, builds the Anki frontend with `BASE_PATH=/`, builds the API server bundle, and produces a runner image that copies `artifacts/anki-generator/dist/public` to `/app/public` and runs the API server on `PORT=8080`.
-- `render.yaml` is a Render Blueprint: one Docker web service + one managed Postgres 16 database. `DATABASE_URL` is auto-injected from the database; `AI_INTEGRATIONS_OPENAI_BASE_URL` is hard-coded to `https://openrouter.ai/api/v1` and `OPENROUTER_API_KEY` must be set to a real OpenRouter key (https://openrouter.ai/keys) on first deploy.
-- `RENDER_DEPLOY.md` documents the setup steps, env vars, and local Docker test command.
-- `.dockerignore` keeps node_modules, dist, .cache, .local, build-apk, attached_assets/screenshots, and android/ios out of the build context. (Note: the project's `.gitignore` was intentionally emptied so every file uploads to GitHub.)
+- `Dockerfile` (multi-stage): installs system deps for `canvas` (cairo/pango/jpeg/gif/rsvg/pixman), enables pnpm, builds the frontend with `BASE_PATH=/`, bundles the API server with esbuild, and produces a minimal runner image. Fixed: removed broken `COPY lib/integrations/package.json` (that directory has no package.json).
+- `docker-compose.yml`: spins up `postgres:16-alpine` + the app container together. `DATABASE_URL` is wired between them automatically. Reads `OPENROUTER_API_KEY` and other overrides from `.env`.
+- `.env.example`: template for required environment variables. Copy to `.env` and fill in `OPENROUTER_API_KEY` before running `docker compose up`.
+- `.vscode/extensions.json` + `.vscode/settings.json` + `.vscode/launch.json`: VS Code workspace configuration — Prettier format-on-save, ESLint, Tailwind IntelliSense, TypeScript workspace SDK, Docker extension.
+- `.prettierrc` / `.prettierignore`: Prettier config (2-space indent, double quotes, trailing commas).
+- `README.md`: full setup instructions for Docker, VS Code dev mode, project structure, and env var reference.
+
+## Render Deployment
+
+- `render.yaml` is a Render Blueprint: one Docker web service + one managed Postgres 16 database. `DATABASE_URL` is auto-injected; `AI_INTEGRATIONS_OPENAI_BASE_URL` is set to `https://openrouter.ai/api/v1`; `OPENROUTER_API_KEY` must be provided on first deploy.
+- `RENDER_DEPLOY.md`: step-by-step deploy guide, env var table, local test commands, and notes on auto-deploys.
+- Health check: `GET /api/healthz` (checks DB + AI provider). Render polls this every 30 s.
 
 ## .apkg Export (iOS-Compatible)
 

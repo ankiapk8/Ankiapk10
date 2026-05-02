@@ -19,3 +19,5 @@
 **/Thumbs.db
 attached_assets/screenshots
 **/*.log
+.env
+docker-compose.yml

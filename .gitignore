@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# Environment — never commit real secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+pnpm-debug.log*
+
+# OS / editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+
+# Replit internals
+.replit
+.replitignore
+.cache/
+.local/
+.config/
+.upm/
+
+# Vite / Vitest
+coverage/
+
+# APK build artifacts
+build-apk/*.apk
+build-apk/android/
+
+# Expo
+.expo/
+.expo-shared/
+
+# Docker
+docker-compose.override.yml
