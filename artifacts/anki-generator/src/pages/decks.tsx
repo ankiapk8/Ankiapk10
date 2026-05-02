@@ -1105,6 +1105,13 @@ export default function Decks() {
                       <div className="text-xs text-muted-foreground">Organise question banks</div>
                     </div>
                   </DropdownMenuItem>
+                  <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => openDeckForm({ type: "new-qbank" })}>
+                    <Stethoscope className="h-4 w-4 text-violet-600" />
+                    <div>
+                      <div className="text-sm font-medium">New Question Bank</div>
+                      <div className="text-xs text-muted-foreground">Empty MCQ bank inside a topic</div>
+                    </div>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
@@ -1282,6 +1289,9 @@ export default function Decks() {
                   <Button variant="outline" className="gap-2 border-violet-500/30 text-violet-600 hover:bg-violet-500/5" onClick={() => openDeckForm({ type: "new-qbank-topic" })}>
                     <FolderOpen className="h-4 w-4" /> New Topic
                   </Button>
+                  <Button variant="outline" className="gap-2 border-violet-500/30 text-violet-600 hover:bg-violet-500/5" onClick={() => openDeckForm({ type: "new-qbank" })}>
+                    <Stethoscope className="h-4 w-4" /> New Question Bank
+                  </Button>
                   <Button className="gap-2 bg-violet-600 hover:bg-violet-700 text-white" onClick={() => openGenerateSheet("qbank")}>
                     <Stethoscope className="h-4 w-4" /> Generate Question Bank
                   </Button>
@@ -1301,6 +1311,13 @@ export default function Decks() {
                       onClick={() => openDeckForm({ type: "new-qbank-topic" })}
                     >
                       <FolderOpen className="h-3.5 w-3.5" /> New Topic
+                    </Button>
+                    <Button
+                      variant="outline" size="sm"
+                      className="gap-1.5 h-8 text-violet-600 border-violet-500/30 hover:bg-violet-500/5 hover:border-violet-500/50"
+                      onClick={() => openDeckForm({ type: "new-qbank" })}
+                    >
+                      <Stethoscope className="h-3.5 w-3.5" /> New Question Bank
                     </Button>
                     <Button
                       size="sm"
