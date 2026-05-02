@@ -134,16 +134,17 @@ export function WhatsNewBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
     try {
       const seen = localStorage.getItem(STORAGE_KEY);
       if (seen !== APP_VERSION) {
-        // Slight delay so it doesn't race with the splash screen
         const t = setTimeout(() => setVisible(true), 600);
-        return () => clearTimeout(t);
+        cleanup = () => clearTimeout(t);
       }
     } catch {
       /* localStorage blocked */
     }
+    return cleanup;
   }, []);
 
   // Keyboard dismiss

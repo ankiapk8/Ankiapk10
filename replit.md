@@ -32,6 +32,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Upload files (PDF, TXT) or paste text to generate Anki flashcards via AI
 - Browse and manage decks, edit cards inline, export `.apkg` for Anki import
 - **Study mode** on deck detail page: flip cards, reveal answer, mark "Got It"/"Still Learning", shuffle, progress bar, completion screen with missed-card review
+- **Final Year Study Planner** at `/planner` — self-contained tab (MemoryRouter, `sp-` localStorage prefix). Features: 14 medical subjects (Sub Medicine / Surgery / Psychiatry / Pediatrics / Gynecology), per-subject CRUD with search/filter/bulk actions, multi-month study calendar with day detail, 8-week activity heatmap, streak counter, CSV + ZIP export (Notion-ready), JSON backup/restore, user settings. New packages: `jszip`, `html2canvas`. Key files: `src/lib/study-planner/topics.ts`, `src/hooks/use-study-topics.ts`, `src/context/study-topics-context.tsx`, `src/components/study-planner/topic-manager.tsx`, `src/components/study-planner/calendar-view.tsx`, `src/pages/study-planner-tab.tsx`, `src/pages/study-planner/`.
 - PDF extraction in `src/lib/pdf-extraction.ts`: files >20MB skip client and go straight to server; smaller files try embedded text first, then server, then client OCR
 - Server upload uses `FormData` multipart (avoids Replit proxy limits on raw binary bodies)
 - Safari/iPad compatibility uses a `Promise.withResolvers` polyfill in `src/main.tsx` before loading the app and the legacy PDF.js build

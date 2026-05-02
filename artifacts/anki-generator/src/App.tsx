@@ -23,6 +23,7 @@ import QbankDetail from "@/pages/qbank-detail";
 import PracticeQbank from "@/pages/practice-qbank";
 import AdminFeedback from "@/pages/admin-feedback";
 import NotFound from "@/pages/not-found";
+import { StudyPlannerTab } from "@/pages/study-planner-tab";
 
 const ONE_WEEK = 1000 * 60 * 60 * 24 * 7;
 
@@ -63,6 +64,7 @@ function AppRouter() {
             <Route path="/history" component={History} />
             <Route path="/qbanks/:id" component={QbankDetail} />
             <Route path="/practice-qbank/:id" component={PracticeQbank} />
+            <Route path="/planner" component={StudyPlannerTab} />
             <Route component={NotFound} />
           </Switch>
         </PageTransition>
