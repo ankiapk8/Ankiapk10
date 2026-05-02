@@ -7,6 +7,7 @@ import {
   FileText, CheckCircle2, XCircle, BarChart2,
   Flame, Package,
   FileImage, MessageSquarePlus, Star,
+  Stethoscope, Layers,
 } from "lucide-react";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 
@@ -149,36 +150,55 @@ function PreviewStudyMode({ isDark }: { isDark: boolean }) {
     return () => clearTimeout(t);
   }, [flipped, got]);
 
-  const cardFg = isDark ? "bg-white/8 border-white/12" : "bg-white/90 border-black/10";
+  const cardBg = isDark ? "bg-white/8 border-white/10" : "bg-white border-black/10";
+  const headerBg = isDark ? "bg-white/4 border-white/8" : "bg-black/3 border-black/6";
   const front = isDark ? "text-white/80" : "text-black/75";
   const back = isDark ? "text-white/60" : "text-black/55";
+  const sub = isDark ? "text-white/30" : "text-black/25";
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-      <div className="relative w-full" style={{ perspective: 600 }}>
-        <motion.div className={`rounded-xl border ${cardFg} p-3 text-center relative overflow-hidden`}
-          animate={{ rotateY: flipped ? 180 : 0 }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+    <div className="w-full h-full flex flex-col gap-1.5">
+      <div className={`rounded-lg border ${headerBg} px-2 py-1 flex items-center justify-between`}>
+        <span className={`text-[8.5px] font-medium ${sub}`}>3 / 18 cards</span>
+        <div className="flex gap-1">
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-emerald-500/15 text-emerald-500 border border-emerald-500/20">
+            <CheckCircle2 style={{ width: 9, height: 9 }} /> 2
+          </span>
+          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20">
+            <XCircle style={{ width: 9, height: 9 }} /> 0
+          </span>
+        </div>
+      </div>
+      <div className={`h-1 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-black/8"}`}>
+        <motion.div className="h-full rounded-full" style={{ background: "linear-gradient(90deg,#38bdf8,#0ea5e9)" }}
+          initial={{ width: "14%" }} animate={{ width: flipped ? "20%" : "14%" }} transition={{ duration: 0.4 }} />
+      </div>
+      <div className="flex-1 relative" style={{ perspective: 700 }}>
+        <motion.div className={`absolute inset-0 rounded-xl border ${cardBg} overflow-hidden`}
+          animate={{ rotateY: flipped ? 180 : 0 }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           style={{ transformStyle: "preserve-3d" }}>
-          <div style={{ backfaceVisibility: "hidden" }}>
-            <div className={`text-[10px] font-bold mb-1 ${front}`}>What is the powerhouse of the cell?</div>
-            <div className={`text-[9px] ${isDark ? "text-white/30" : "text-black/25"}`}>Tap to reveal answer</div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-3"
+            style={{ backfaceVisibility: "hidden" }}>
+            <div className={`text-[10px] font-bold leading-snug text-center ${front}`}>What is the powerhouse of the cell?</div>
+            <div className={`text-[8px] ${sub}`}>tap to flip</div>
           </div>
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-3"
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-3"
             style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}>
-            <div className="text-[11px] font-bold" style={{ color: "#38bdf8" }}>Mitochondria</div>
-            <div className={`text-[9px] mt-1 ${back}`}>Produces ATP via cellular respiration</div>
+            <div className="text-[12px] font-bold" style={{ color: "#38bdf8" }}>Mitochondria</div>
+            <div className={`text-[8.5px] leading-snug text-center ${back}`}>Produces ATP via cellular respiration</div>
           </div>
         </motion.div>
       </div>
       {flipped && (
-        <motion.div className="flex gap-2 w-full" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <motion.div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold border"
-            style={{ background: got === "got" ? "#22c55e22" : "transparent", borderColor: got === "got" ? "#22c55e" : isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", color: got === "got" ? "#22c55e" : isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.4)" }}>
-            <CheckCircle2 className="h-3 w-3" /> Got it
+        <motion.div className="flex gap-1.5" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <motion.div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[9px] font-bold border"
+            style={{ background: got === "got" ? "#22c55e18" : "transparent", borderColor: got === "got" ? "#22c55e" : isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)", color: got === "got" ? "#22c55e" : isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.4)" }}>
+            <CheckCircle2 className="h-2.5 w-2.5" /> Got it
           </motion.div>
-          <motion.div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] font-semibold border"
-            style={{ borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)" }}>
-            <XCircle className="h-3 w-3" /> Still learning
+          <motion.div className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[9px] font-bold border"
+            style={{ borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)", color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)" }}>
+            <XCircle className="h-2.5 w-2.5" /> Still learning
           </motion.div>
         </motion.div>
       )}
@@ -191,10 +211,12 @@ function PreviewMCQ({ isDark }: { isDark: boolean }) {
   const [revealed, setRevealed] = useState(false);
   const CORRECT = 1;
   const options = ["Nucleus", "Mitochondria", "Ribosome", "Golgi body"];
+  const LETTERS = ["A", "B", "C", "D"];
+  const LETTER_COLORS = ["#0ea5e9", "#f97316", "#a855f7", "#ec4899"];
   useEffect(() => {
     const t1 = setTimeout(() => setSelected(2), 800);
-    const t2 = setTimeout(() => setRevealed(true), 1600);
-    const t3 = setTimeout(() => { setSelected(null); setRevealed(false); }, 4000);
+    const t2 = setTimeout(() => setRevealed(true), 1700);
+    const t3 = setTimeout(() => { setSelected(null); setRevealed(false); }, 4200);
     return () => [t1, t2, t3].forEach(clearTimeout);
   }, []);
   useEffect(() => {
@@ -203,27 +225,55 @@ function PreviewMCQ({ isDark }: { isDark: boolean }) {
     return () => clearTimeout(t);
   }, [selected, revealed]);
 
-  const text = isDark ? "text-white/70" : "text-black/65";
+  const qCard = isDark ? "bg-white/6 border-white/10" : "bg-white border-black/10";
   const qText = isDark ? "text-white/80" : "text-black/75";
+  const sub = isDark ? "text-white/30" : "text-black/25";
 
   return (
-    <div className="w-full h-full flex flex-col justify-center gap-1.5">
-      <div className={`text-[10px] font-semibold ${qText} leading-snug`}>Which organelle produces energy for the cell?</div>
-      <div className="grid grid-cols-2 gap-1">
+    <div className="w-full h-full flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1">
+          <span className="text-[8.5px] font-bold" style={{ color: "#8b5cf6" }}>Q3</span>
+          <span className={`text-[8px] ${sub}`}>of 8</span>
+        </div>
+        <div className="flex gap-0.5">
+          {[0,1,2,3,4,5,6,7].map(i => (
+            <div key={i} style={{ width: i <= 2 ? 12 : 8, height: 6, borderRadius: 3,
+              background: i < 2 ? "#22c55e" : i === 2 ? "#8b5cf6" : isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />
+          ))}
+        </div>
+      </div>
+      <div className={`h-0.5 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-black/8"}`}>
+        <div className="h-full rounded-r-full" style={{ background: "linear-gradient(90deg,#8b5cf6,#a78bfa)", width: "31%" }} />
+      </div>
+      <div className={`rounded-xl border ${qCard} p-2 shadow-sm`}>
+        <div className={`text-[9px] font-medium leading-snug ${qText}`}>Which organelle produces energy for the cell?</div>
+      </div>
+      <div className="flex flex-col gap-1 flex-1">
         {options.map((opt, i) => {
           const isSelected = selected === i;
           const isCorrect = i === CORRECT;
           const showCorrect = revealed && isCorrect;
           const showWrong = revealed && isSelected && !isCorrect;
+          const preSelected = !revealed && isSelected;
+          let borderColor = isDark ? "rgba(255,255,255,0.09)" : "rgba(0,0,0,0.08)";
+          let bgColor = "transparent";
+          let letterBg = LETTER_COLORS[i];
+          let textColor = isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.6)";
+          if (preSelected) { borderColor = "rgba(139,92,246,0.6)"; bgColor = "rgba(139,92,246,0.08)"; letterBg = "#7c3aed"; }
+          if (showCorrect) { borderColor = "rgba(34,197,94,0.7)"; bgColor = "rgba(34,197,94,0.08)"; letterBg = "#22c55e"; textColor = isDark ? "#86efac" : "#166534"; }
+          if (showWrong) { borderColor = "rgba(239,68,68,0.7)"; bgColor = "rgba(239,68,68,0.08)"; letterBg = "#ef4444"; textColor = isDark ? "#fca5a5" : "#991b1b"; }
           return (
-            <motion.div key={i} className="flex items-center gap-1 px-2 py-1 rounded-md border text-[9px] font-medium"
-              animate={{ borderColor: showCorrect ? "#22c55e" : showWrong ? "#ef4444" : isSelected ? "#fb923c" : isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)", background: showCorrect ? "#22c55e18" : showWrong ? "#ef444418" : isSelected ? "#fb923c18" : "transparent" }}
-              transition={{ duration: 0.3 }}>
-              <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center shrink-0 text-[8px]"
-                style={{ background: showCorrect ? "#22c55e" : showWrong ? "#ef4444" : isSelected ? "#fb923c" : isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)", color: (showCorrect || showWrong || isSelected) ? "#fff" : isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)" }}>
-                {String.fromCharCode(65 + i)}
-              </span>
-              <span className={text}>{opt}</span>
+            <motion.div key={i}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[8.5px] font-medium"
+              style={{ borderColor, background: bgColor, color: textColor }}
+              initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 + 0.05, type: "spring", stiffness: 320, damping: 26 }}>
+              <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[7.5px] font-bold text-white"
+                style={{ background: letterBg }}>{LETTERS[i]}</span>
+              {opt}
+              {showCorrect && <CheckCircle2 style={{ width: 10, height: 10, marginLeft: "auto", flexShrink: 0, color: "#22c55e" }} />}
+              {showWrong && <XCircle style={{ width: 10, height: 10, marginLeft: "auto", flexShrink: 0, color: "#ef4444" }} />}
             </motion.div>
           );
         })}
@@ -233,43 +283,69 @@ function PreviewMCQ({ isDark }: { isDark: boolean }) {
 }
 
 function PreviewQBank({ isDark }: { isDark: boolean }) {
-  const [showExp, setShowExp] = useState(false);
+  const [step, setStep] = useState(0);
   useEffect(() => {
-    const t1 = setTimeout(() => setShowExp(true), 900);
-    const t2 = setTimeout(() => setShowExp(false), 4000);
-    return () => [t1, t2].forEach(clearTimeout);
+    const t1 = setTimeout(() => setStep(1), 800);
+    const t2 = setTimeout(() => setStep(2), 1700);
+    const t3 = setTimeout(() => setStep(0), 5000);
+    return () => [t1, t2, t3].forEach(clearTimeout);
   }, []);
   useEffect(() => {
-    if (showExp) return;
-    const t = setTimeout(() => setShowExp(true), 1000);
+    if (step !== 0) return;
+    const t = setTimeout(() => setStep(1), 900);
     return () => clearTimeout(t);
-  }, [showExp]);
+  }, [step]);
 
-  const surface = isDark ? "bg-white/6 border-white/8" : "bg-white/70 border-black/8";
+  const surface = isDark ? "bg-white/5 border-white/10" : "bg-white border-black/8";
   const text = isDark ? "text-white/65" : "text-black/60";
-  const sub = isDark ? "text-white/40" : "text-black/35";
-  const expBg = isDark ? "bg-pink-500/10 border-pink-500/20" : "bg-pink-50 border-pink-200/60";
+  const sub = isDark ? "text-white/30" : "text-black/25";
+  const choices = ["Vitamin B12 def.", "Iron-def. anemia", "Folate deficiency"];
+  const CORRECT = 1;
+  const LETTERS = ["A", "B", "C"];
+  const LETTER_COLORS = ["#0ea5e9", "#f97316", "#a855f7"];
 
   return (
-    <div className="w-full h-full flex flex-col gap-1.5 justify-center">
-      <div className={`rounded-lg border ${surface} p-2`}>
-        <div className={`text-[9px] font-semibold ${sub} uppercase tracking-wide mb-1`}>Question 7 / 40</div>
-        <div className={`text-[10px] font-medium leading-snug ${text}`}>A 24-year-old presents with fatigue and pallor. MCV is 72 fL. Most likely diagnosis?</div>
-        <div className="mt-1.5 flex flex-col gap-0.5">
-          {["Vitamin B12 deficiency", "Iron-deficiency anemia", "Folate deficiency"].map((opt, i) => (
-            <div key={i} className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded text-[9px] border ${i === 1 ? "border-pink-400/50 bg-pink-400/10" : isDark ? "border-white/6" : "border-black/6"}`}>
-              <span className={`w-3 h-3 rounded-full text-[7px] flex items-center justify-center ${i === 1 ? "bg-pink-500 text-white" : isDark ? "bg-white/10 text-white/40" : "bg-black/8 text-black/30"}`}>{String.fromCharCode(65 + i)}</span>
-              <span className={i === 1 ? "text-pink-400 font-medium" : sub}>{opt}</span>
+    <div className="w-full h-full flex flex-col gap-1.5">
+      <div className={`rounded-lg border ${surface} px-2 py-1 flex items-center gap-1.5`}>
+        <Stethoscope className="h-3.5 w-3.5 shrink-0" style={{ color: "#a78bfa" }} />
+        <span className="text-[9px] font-semibold truncate flex-1" style={{ color: "#a78bfa" }}>Hematology QBank</span>
+        <span className={`text-[8px] ${sub} shrink-0`}>7 / 40</span>
+      </div>
+      <div className={`h-0.5 rounded-full overflow-hidden ${isDark ? "bg-white/10" : "bg-black/8"}`}>
+        <div className="h-full" style={{ background: "linear-gradient(90deg,#8b5cf6,#a78bfa)", width: "17%" }} />
+      </div>
+      <div className={`rounded-xl border ${surface} p-2`}>
+        <div className={`text-[8.5px] font-medium leading-snug ${text}`}>24-yo with fatigue, pallor. MCV 72 fL. Most likely diagnosis?</div>
+      </div>
+      <div className="flex flex-col gap-1">
+        {choices.map((opt, i) => {
+          const preSelected = step === 1 && i === CORRECT;
+          const showCorrect = step >= 2 && i === CORRECT;
+          let borderColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+          let bgColor = "transparent";
+          let letterBg = LETTER_COLORS[i];
+          let textColor = isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.55)";
+          if (preSelected) { borderColor = "rgba(139,92,246,0.55)"; bgColor = "rgba(139,92,246,0.08)"; letterBg = "#7c3aed"; }
+          if (showCorrect) { borderColor = "rgba(34,197,94,0.65)"; bgColor = "rgba(34,197,94,0.08)"; letterBg = "#22c55e"; textColor = isDark ? "#86efac" : "#166534"; }
+          return (
+            <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[8.5px] font-medium"
+              style={{ borderColor, background: bgColor, color: textColor }}>
+              <span className="w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[7.5px] font-bold text-white"
+                style={{ background: letterBg }}>{LETTERS[i]}</span>
+              {opt}
+              {showCorrect && <CheckCircle2 style={{ width: 10, height: 10, marginLeft: "auto", flexShrink: 0, color: "#22c55e" }} />}
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
       <AnimatePresence>
-        {showExp && (
-          <motion.div className={`rounded-lg border ${expBg} p-2`}
-            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.4 }}>
-            <div className="text-[8px] font-semibold mb-0.5" style={{ color: "#f472b6" }}>AI Explanation</div>
-            <div className={`text-[9px] leading-snug ${text}`}>Microcytic anemia (low MCV) with iron deficiency is most common in young women due to menstrual loss.</div>
+        {step >= 2 && (
+          <motion.div className="rounded-lg border p-1.5"
+            style={{ background: isDark ? "rgba(167,139,250,0.06)" : "rgba(167,139,250,0.05)", borderColor: "rgba(167,139,250,0.22)" }}
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.35 }}>
+            <div className="text-[8px] font-bold mb-0.5" style={{ color: "#a78bfa" }}>AI Explanation</div>
+            <div className={`text-[8px] leading-snug ${text}`}>Microcytic anemia (MCV &lt; 80) — iron deficiency most common in menstruating women.</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -322,12 +398,16 @@ function PreviewMindMap({ isDark }: { isDark: boolean }) {
 }
 
 function PreviewDashboard({ isDark }: { isDark: boolean }) {
-  const bars = [60, 80, 45, 90, 55, 75, 85];
-  const days = ["M", "T", "W", "T", "F", "S", "S"];
+  const bars = [
+    { known: 55, learning: 20 }, { known: 70, learning: 25 }, { known: 35, learning: 12 },
+    { known: 80, learning: 18 }, { known: 50, learning: 28 }, { known: 75, learning: 12 }, { known: 60, learning: 25 },
+  ];
+  const maxBar = Math.max(...bars.map(b => b.known + b.learning));
+  const days = ["M","T","W","T","F","S","S"];
   const [animate, setAnimate] = useState(false);
   useEffect(() => {
     const t1 = setTimeout(() => setAnimate(true), 300);
-    const t2 = setTimeout(() => setAnimate(false), 4000);
+    const t2 = setTimeout(() => setAnimate(false), 4500);
     return () => [t1, t2].forEach(clearTimeout);
   }, []);
   useEffect(() => {
@@ -336,32 +416,58 @@ function PreviewDashboard({ isDark }: { isDark: boolean }) {
     return () => clearTimeout(t);
   }, [animate]);
 
-  const surface = isDark ? "bg-white/6 border-white/8" : "bg-white/80 border-black/8";
+  const surface = isDark ? "bg-white/5 border-white/8" : "bg-white/80 border-black/8";
   const text = isDark ? "text-white/60" : "text-black/50";
   const sub = isDark ? "text-white/30" : "text-black/25";
 
   return (
     <div className="w-full h-full flex flex-col gap-1.5 justify-center">
-      <div className="grid grid-cols-3 gap-1">
-        {[{ icon: Flame, val: "7", label: "day streak", color: "#fb923c" }, { icon: CheckCircle2, val: "142", label: "cards done", color: "#4ade80" }, { icon: BarChart2, val: "89%", label: "accuracy", color: "#38bdf8" }]
-          .map(({ icon: Icon, val, label, color }) => (
-            <div key={label} className={`rounded-lg border ${surface} p-1.5 flex flex-col items-center gap-0.5`}>
-              <Icon className="h-3 w-3" style={{ color }} />
-              <div className="text-[11px] font-bold" style={{ color }}>{val}</div>
-              <div className={`text-[7px] ${sub}`}>{label}</div>
-            </div>
-          ))}
+      <div className="grid grid-cols-4 gap-1">
+        {[
+          { Icon: Layers, val: "4", label: "Decks", color: "#34d399" },
+          { Icon: FileText, val: "82", label: "Cards", color: "#38bdf8" },
+          { Icon: Flame, val: "7d", label: "Streak", color: "#fb923c" },
+          { Icon: BarChart2, val: "87%", label: "Known", color: "#a78bfa" },
+        ].map(({ Icon, val, label, color }) => (
+          <div key={label} className={`rounded-lg border ${surface} p-1 flex flex-col items-center gap-0.5`}>
+            <Icon style={{ width: 10, height: 10, color }} />
+            <div className="text-[9px] font-bold leading-none" style={{ color }}>{val}</div>
+            <div className={`text-[6.5px] ${sub}`}>{label}</div>
+          </div>
+        ))}
       </div>
-      <div className={`rounded-lg border ${surface} p-2`}>
-        <div className={`text-[8px] font-semibold ${text} mb-1.5`}>7-day activity</div>
-        <div className="flex items-end gap-1 h-8">
-          {bars.map((h, i) => (
-            <div key={i} className="flex flex-col items-center gap-0.5 flex-1">
-              <motion.div className="w-full rounded-sm" style={{ background: "linear-gradient(180deg,#4ade80,#16a34a)", minHeight: 2 }}
-                initial={{ height: 2 }} animate={{ height: animate ? `${h}%` : 2 }} transition={{ delay: i * 0.06, duration: 0.5, ease: "easeOut" }} />
-              <span className={`text-[7px] ${sub}`}>{days[i]}</span>
-            </div>
-          ))}
+      <div className={`rounded-lg border ${surface} p-1.5`}>
+        <div className={`text-[8px] font-semibold ${text} mb-1`}>7-day activity</div>
+        <div className="flex items-end gap-1" style={{ height: 36 }}>
+          {bars.map((b, i) => {
+            const knownH = (b.known / maxBar) * 100;
+            const learningH = (b.learning / maxBar) * 100;
+            return (
+              <div key={i} className="flex flex-col items-center gap-0.5 flex-1">
+                <div className="w-full flex flex-col-reverse" style={{ height: 28 }}>
+                  <motion.div className="w-full rounded-b-sm"
+                    style={{ background: "linear-gradient(180deg,#4ade80,#16a34a)", minHeight: 2 }}
+                    initial={{ height: 0 }} animate={{ height: animate ? `${knownH}%` : 0 }}
+                    transition={{ delay: i * 0.06 + 0.1, duration: 0.5, ease: "easeOut" }} />
+                  <motion.div className="w-full rounded-t-sm"
+                    style={{ background: "linear-gradient(180deg,#fb923c,#ea580c)", minHeight: 2 }}
+                    initial={{ height: 0 }} animate={{ height: animate ? `${learningH}%` : 0 }}
+                    transition={{ delay: i * 0.06 + 0.1, duration: 0.5, ease: "easeOut" }} />
+                </div>
+                <span className={`text-[6.5px] ${sub}`}>{days[i]}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-3 mt-1">
+          <div className="flex items-center gap-1">
+            <div className="h-1.5 w-1.5 rounded-sm bg-green-500/80" />
+            <span className={`text-[7px] ${sub}`}>Known</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-1.5 w-1.5 rounded-sm bg-orange-500/80" />
+            <span className={`text-[7px] ${sub}`}>Learning</span>
+          </div>
         </div>
       </div>
     </div>
