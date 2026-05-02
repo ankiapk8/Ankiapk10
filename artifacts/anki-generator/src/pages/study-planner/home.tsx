@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import {
   BookOpen, Settings, BarChart3, Flame, Download, RefreshCw,
   ChevronDown, ChevronUp, X, AlertTriangle, ArrowRight, FolderPlus,
+  Target,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +29,11 @@ import { ShiftDialog } from "@/components/study-planner/shift-dialog";
 function lsGet(k: string) { try { return localStorage.getItem(k); } catch { return null; } }
 
 const HARDCODED_SUBJECTS = [
-  { emoji: "🩺", label: "Sub Medicine",  color: "blue",   path: "/sub-medicine",  keys: ["dermatology","family","emergency","forensic","radiology"] },
-  { emoji: "🧠", label: "Psychiatric",   color: "purple", path: "/psychiatric",   keys: ["psychiatric"] },
-  { emoji: "🔬", label: "Sub Surgery",   color: "orange", path: "/sub-surgery",   keys: ["ent","ophthalmology","orthopedic","neurosurgery","urology"] },
-  { emoji: "👶", label: "Pediatric",     color: "green",  path: "/pediatric",     keys: ["pediatric"] },
-  { emoji: "🌸", label: "Gynecology",    color: "pink",   path: "/gynecology",    keys: ["gynecology","obstetric"] },
+  { emoji: "🩺", label: "Sub Medicine",  color: "blue",   path: "/sub-medicine",  keys: ["dermatology","family","emergency","forensic","radiology"],   description: "Dermatology · Family · Emergency · Forensic · Radiology" },
+  { emoji: "🧠", label: "Psychiatric",   color: "purple", path: "/psychiatric",   keys: ["psychiatric"],                                                description: "Mental health and psychiatry" },
+  { emoji: "🔬", label: "Sub Surgery",   color: "orange", path: "/sub-surgery",   keys: ["ent","ophthalmology","orthopedic","neurosurgery","urology"],   description: "ENT · Ophthalmology · Orthopedic · Neurosurgery · Urology" },
+  { emoji: "👶", label: "Pediatric",     color: "green",  path: "/pediatric",     keys: ["pediatric"],                                                  description: "Pediatrics and child health" },
+  { emoji: "🌸", label: "Gynecology",    color: "pink",   path: "/gynecology",    keys: ["gynecology","obstetric"],                                     description: "Gynecology · Obstetric" },
 ];
 
 function Accordion({ title, icon, defaultOpen = false, badge, children }: {
@@ -363,14 +364,54 @@ export default function SPHome() {
                     style={{ width: `${totalTopics ? (completed / totalTopics) * 100 : 0}%` }} />
                 </div>
                 <div className="flex flex-wrap gap-2 mt-1.5">
-                  {(["Not Started","In Progress","Done","Revised"] as Status[]).map(s => {
+                  {([
+                    { s: "Not Started" as Status, color: "bg-slate-300" },
+                    { s: "In Progress" as Status, color: "bg-amber-400" },
+                    { s: "Done" as Status, color: "bg-emerald-400" },
+                    { s: "Revised" as Status, color: "bg-green-600" },
+                  ].map(({ s, color }) => {
                     const count = allTopics.filter(t => t.status === s).length;
                     return count > 0 ? (
-                      <span key={s} className="text-[10px] text-muted-foreground">{s}: {count}</span>
+                      <span key={s} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className={`w-2 h-2 rounded-full ${color}`} />
+                        {s} ({count})
+                      </span>
                     ) : null;
-                  })}
+                  }))}
                 </div>
               </div>
+
+              {/* Priority breakdown */}
+              {(() => {
+                const highC = allTopics.filter(t => t.priority === "High").length;
+                const medC  = allTopics.filter(t => t.priority === "Medium").length;
+                const lowC  = allTopics.filter(t => t.priority === "Low").length;
+                return (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Target className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs font-semibold">Priority Breakdown</span>
+                    </div>
+                    <div className="h-2.5 rounded-full overflow-hidden flex bg-muted">
+                      {highC > 0 && <div className="h-full bg-red-500 transition-all" style={{ width: `${(highC/totalTopics)*100}%` }} title={`High: ${highC}`} />}
+                      {medC > 0  && <div className="h-full bg-amber-400 transition-all" style={{ width: `${(medC/totalTopics)*100}%` }} title={`Medium: ${medC}`} />}
+                      {lowC > 0  && <div className="h-full bg-blue-400 transition-all" style={{ width: `${(lowC/totalTopics)*100}%` }} title={`Low: ${lowC}`} />}
+                    </div>
+                    <div className="flex gap-3 mt-1.5 flex-wrap">
+                      {[
+                        { label: "High", val: highC, color: "bg-red-500" },
+                        { label: "Medium", val: medC, color: "bg-amber-400" },
+                        { label: "Low", val: lowC, color: "bg-blue-400" },
+                      ].map(p => (
+                        <span key={p.label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <span className={`w-2 h-2 rounded-full ${p.color}`} />
+                          {p.label} ({p.val})
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Per-subject breakdown */}
               <div className="space-y-2">
@@ -411,6 +452,9 @@ export default function SPHome() {
         {/* Export */}
         <Accordion title="Export & Download" icon={<Download className="h-4 w-4 text-yellow-500" />}>
           <div className="space-y-3 pt-2">
+            <p className="text-xs text-muted-foreground">
+              Dates spread from <strong>all topics combined</strong> — sorted by priority (High first). Second Study = First + {spacing} days.
+            </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={handleExportCSV} disabled={exportProgress}>
                 {exportProgress ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : "Download Combined CSV"}
@@ -419,13 +463,29 @@ export default function SPHome() {
                 {exportProgress ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : "Download as ZIP"}
               </Button>
             </div>
+            {/* CSV columns */}
+            <div className="border-t pt-2">
+              <p className="text-[10px] text-muted-foreground font-medium mb-1.5">CSV columns (Notion-ready):</p>
+              <div className="flex flex-wrap gap-1">
+                {["Name","Subject","Parent Subject","Files and Media","Video Link","University Lecturer","Amboss","First Study Date","Second Study Date","Notes","Status","Difficulty Level","Priority","From","Est. Minutes"].map(col => (
+                  <span key={col} className="text-[10px] bg-muted border px-1.5 py-0.5 rounded text-muted-foreground">{col}</span>
+                ))}
+              </div>
+            </div>
             <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">📖 Notion import guide</summary>
-              <ol className="mt-2 space-y-1 text-muted-foreground list-decimal list-inside">
-                <li>Open Notion → click "+" → choose "Import" → CSV</li>
-                <li>Select the downloaded CSV file</li>
-                <li>Notion auto-detects columns including dates</li>
-                <li>Set "First Study Date" and "Second Study Date" as Date properties</li>
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground font-medium">📋 How to import into Notion</summary>
+              <ol className="mt-2 space-y-1.5 text-muted-foreground list-none">
+                {[
+                  { n: 1, t: "Download the CSV using one of the buttons above." },
+                  { n: 2, t: 'Open Notion and navigate to the database page where you want to add the data.' },
+                  { n: 3, t: 'Click the "…" menu (top right of the database) → Import → CSV.' },
+                  { n: 4, t: 'Select the downloaded CSV file. Notion will map columns automatically.' },
+                ].map(step => (
+                  <li key={step.n} className="flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{step.n}</span>
+                    <span>{step.t}</span>
+                  </li>
+                ))}
               </ol>
             </details>
           </div>
@@ -472,7 +532,10 @@ export default function SPHome() {
                   className={`rounded-xl border p-3 text-left hover:shadow-sm transition-all ${styles.card}`}>
                   <div className="text-xl mb-1">{s.emoji}</div>
                   <div className={`text-sm font-semibold ${styles.text}`}>{s.label}</div>
-                  <div className="text-xs text-muted-foreground">{s.topics.length} topics · {s.pct}%</div>
+                  {s.description && (
+                    <div className="text-[10px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{s.description}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground mt-1">{s.topics.length} topics · {s.pct}%</div>
                   <div className="h-1 w-full bg-white/50 dark:bg-black/20 rounded-full mt-2 overflow-hidden">
                     <div className={`h-full rounded-full transition-all ${styles.bar}`} style={{ width: `${s.pct}%` }} />
                   </div>
