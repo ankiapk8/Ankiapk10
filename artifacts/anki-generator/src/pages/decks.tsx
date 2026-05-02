@@ -25,7 +25,7 @@ import {
   Trash2, Layers, Plus, Download, CheckSquare, X, Search,
   FileText, FolderOpen, ChevronDown, ChevronRight, Pencil,
   Sparkles, BookOpen, Upload, Combine, History as HistoryIcon,
-  Stethoscope,
+  Stethoscope, Play,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -216,6 +216,20 @@ function DeckRow({
                   </span>
                   {!selectMode && (
                     <div className="flex items-center gap-0.5">
+                      {isQbank && deck.cardCount > 0 && (
+                        <Link
+                          href={`/practice/${deck.id}`}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <Button
+                            variant="ghost" size="icon"
+                            className={`${btnSize} text-violet-500 hover:text-violet-700 hover:bg-violet-500/10`}
+                            title="Practice"
+                          >
+                            <Play className={btnIconSize} />
+                          </Button>
+                        </Link>
+                      )}
                       <Button
                         variant="ghost" size="icon"
                         className={`${btnSize} text-muted-foreground hover:text-foreground`}

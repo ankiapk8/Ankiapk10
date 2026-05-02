@@ -53,6 +53,7 @@ function Router() {
           <Route path="/generate" component={Generate} />
           <Route path="/decks" component={Decks} />
           <Route path="/decks/:id" component={DeckDetail} />
+          <Route path="/practice/:id" component={Practice} />
           <Route path="/history" component={History} />
           <Route component={NotFound} />
         </Switch>

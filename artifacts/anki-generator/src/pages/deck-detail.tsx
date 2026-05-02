@@ -1062,6 +1062,13 @@ export default function DeckDetail() {
           {deck.description && <p className="text-muted-foreground mt-1">{deck.description}</p>}
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap">
+          {isQbank && cardList.filter(c => c.cardType === "mcq" && Array.isArray((c as { choices?: unknown[] }).choices) && (c as { choices?: unknown[] }).choices!.length >= 2).length > 0 && (
+            <Link href={`/practice/${deckId}`}>
+              <Button className="gap-2 bg-violet-600 hover:bg-violet-700 text-white shadow-sm shadow-violet-500/20">
+                <Play className="h-4 w-4" /> Practice Mode
+              </Button>
+            </Link>
+          )}
           {filteredCards.length > 0 && (
             <Button 
               variant="outline" 
