@@ -92530,6 +92530,18 @@ function checkAiProvider() {
   }
   return { status: "ok" };
 }
+router.get("/model-info", (_req, res) => {
+  const textModel = process.env.AI_TEXT_MODEL ?? "google/gemini-2.0-flash-exp:free";
+  const visionModel = process.env.AI_VISION_MODEL ?? "google/gemini-2.0-flash-exp:free";
+  const isFree = (m) => /:free$/.test(m) || /free/i.test(m.split("/").pop() ?? "");
+  res.json({
+    textModel,
+    visionModel,
+    textFree: isFree(textModel),
+    visionFree: isFree(visionModel),
+    sameModel: textModel === visionModel
+  });
+});
 router.get("/healthz", async (_req, res) => {
   const [database, ai] = await Promise.all([
     checkDatabase(),

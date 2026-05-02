@@ -20,6 +20,7 @@ import {
 import type { Qbank } from "@workspace/api-client-react";
 import { AppDownloads } from "@/components/app-downloads";
 import { FeaturesShowcase } from "@/components/features-showcase";
+import { ModelBadge } from "@/components/model-badge";
 
 export default function Dashboard() {
   const { data: decks, isLoading } = useListDecks();
@@ -63,6 +64,11 @@ export default function Dashboard() {
         <div>
           <h1 className="text-3xl font-serif font-bold text-primary tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground mt-1">Your study progress at a glance.</p>
+          {import.meta.env.DEV && (
+            <div className="mt-2">
+              <ModelBadge />
+            </div>
+          )}
         </div>
         <Link href="/generate">
           <Button className="gap-2">
