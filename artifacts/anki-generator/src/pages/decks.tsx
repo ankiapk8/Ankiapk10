@@ -688,6 +688,13 @@ export default function Decks() {
   const filteredQbanks = useMemo(() => filterQbanksBySearch(rootQbankDecks), [rootQbankDecks, qbankChildrenMap, search]);
 
   const [libraryTab, setLibraryTab] = useState<"decks" | "qbanks">("decks");
+
+  // Auto-switch to the QBanks tab when the user has qbanks but no flashcard decks.
+  useEffect(() => {
+    if (rootDecks.length === 0 && (qbanks?.length ?? 0) > 0) {
+      setLibraryTab("qbanks");
+    }
+  }, [rootDecks.length, qbanks?.length]);
   const [generateMode, setGenerateMode] = useState<"deck" | "qbank">("deck");
 
   const openGenerateSheet = (mode: "deck" | "qbank") => {
@@ -1160,7 +1167,7 @@ export default function Decks() {
         </div>
       )}
 
-      {allDecksCount > 0 && (
+      {(allDecksCount > 0 || (qbanks?.length ?? 0) > 0) && (
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
@@ -1177,9 +1184,9 @@ export default function Decks() {
         </div>
       )}
 
-      {isLoading ? (
+      {(isLoading || isLoadingQbanks) ? (
         <div className="space-y-3">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
-      ) : rootDecks.length === 0 ? (
+      ) : rootDecks.length === 0 && (qbanks?.length ?? 0) === 0 ? (
         <div className="text-center py-20 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-gradient-to-b from-card/60 to-muted/20">
           <div className="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 flex items-center justify-center mb-5 shadow-sm">
             <BookOpen className="h-8 w-8 text-primary" />
