@@ -20488,27 +20488,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router15;
+    module.exports = Router16;
     module.exports.Route = Route;
-    function Router15(options) {
-      if (!(this instanceof Router15)) {
-        return new Router15(options);
+    function Router16(options) {
+      if (!(this instanceof Router16)) {
+        return new Router16(options);
       }
       const opts = options || {};
-      function router15(req, res, next) {
-        router15.handle(req, res, next);
+      function router16(req, res, next) {
+        router16.handle(req, res, next);
       }
-      Object.setPrototypeOf(router15, this);
-      router15.caseSensitive = opts.caseSensitive;
-      router15.mergeParams = opts.mergeParams;
-      router15.params = {};
-      router15.strict = opts.strict;
-      router15.stack = [];
-      return router15;
+      Object.setPrototypeOf(router16, this);
+      router16.caseSensitive = opts.caseSensitive;
+      router16.mergeParams = opts.mergeParams;
+      router16.params = {};
+      router16.strict = opts.strict;
+      router16.stack = [];
+      return router16;
     }
-    Router15.prototype = function() {
+    Router16.prototype = function() {
     };
-    Router15.prototype.param = function param2(name2, fn) {
+    Router16.prototype.param = function param2(name2, fn) {
       if (!name2) {
         throw new TypeError("argument name is required");
       }
@@ -20528,7 +20528,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router15.prototype.handle = function handle(req, res, callback) {
+    Router16.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20655,7 +20655,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router15.prototype.use = function use(handler) {
+    Router16.prototype.use = function use(handler) {
       let offset = 0;
       let path4 = "/";
       if (typeof handler !== "function") {
@@ -20688,7 +20688,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router15.prototype.route = function route(path4) {
+    Router16.prototype.route = function route(path4) {
       const route2 = new Route(path4);
       const layer = new Layer(path4, {
         sensitive: this.caseSensitive,
@@ -20703,7 +20703,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router15.prototype[method] = function(path4) {
+      Router16.prototype[method] = function(path4) {
         const route = this.route(path4);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -20886,13 +20886,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router15 = require_router();
+    var Router16 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports2 = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router15 = null;
+      var router16 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -20901,13 +20901,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router15 === null) {
-            router15 = new Router15({
+          if (router16 === null) {
+            router16 = new Router16({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router15;
+          return router16;
         }
       });
     };
@@ -20978,15 +20978,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router15 = this.router;
+      var router16 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router15.use(path4, fn2);
+          return router16.use(path4, fn2);
         }
         debug(".use app under %s", path4);
         fn2.mountpath = path4;
         fn2.parent = this;
-        router15.use(path4, function mounted_app(req, res, next) {
+        router16.use(path4, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -23513,7 +23513,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router15 = require_router();
+    var Router16 = require_router();
     var req = require_request();
     var res = require_response();
     exports2 = module.exports = createApplication;
@@ -23535,8 +23535,8 @@ var require_express = __commonJS({
     exports2.application = proto;
     exports2.request = req;
     exports2.response = res;
-    exports2.Route = Router15.Route;
-    exports2.Router = Router15;
+    exports2.Route = Router16.Route;
+    exports2.Router = Router16;
     exports2.json = bodyParser.json;
     exports2.raw = bodyParser.raw;
     exports2.static = require_serve_static();
@@ -76843,14 +76843,14 @@ var init_fxp = __esm({
 });
 
 // src/app.ts
-var import_express15 = __toESM(require_express2(), 1);
+var import_express16 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 import path3 from "node:path";
 import fs2 from "node:fs";
 
 // src/routes/index.ts
-var import_express14 = __toESM(require_express2(), 1);
+var import_express15 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -80761,6 +80761,7 @@ __export(schema_exports, {
   insertDeckSchema: () => insertDeckSchema,
   insertQbankSchema: () => insertQbankSchema,
   insertQuestionSchema: () => insertQuestionSchema,
+  mindMapsTable: () => mindMapsTable,
   qbanksTable: () => qbanksTable,
   questionsTable: () => questionsTable,
   sessionsTable: () => sessionsTable,
@@ -92260,6 +92261,16 @@ var userTopicsTable = pgTable(
   (table) => [primaryKey({ columns: [table.userId, table.storageKey] })]
 );
 
+// ../../lib/db/src/schema/mind-maps.ts
+var mindMapsTable = pgTable("mind_maps", {
+  id: serial("id").primaryKey(),
+  deckId: integer("deck_id").notNull().references(() => decksTable.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  data: text("data").notNull(),
+  cardCount: integer("card_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
+});
+
 // ../../lib/db/src/index.ts
 var { Pool: Pool3 } = esm_default;
 if (!process.env.DATABASE_URL) {
@@ -92416,6 +92427,27 @@ async function ensureDatabaseSchema() {
         ALTER TABLE "user_topics"
           ADD CONSTRAINT "user_topics_user_id_users_id_fk"
           FOREIGN KEY ("user_id") REFERENCES "public"."users"("id")
+          ON DELETE cascade ON UPDATE no action;
+      END IF;
+    END $$;
+
+    CREATE TABLE IF NOT EXISTS "mind_maps" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "deck_id" integer NOT NULL,
+      "title" text NOT NULL,
+      "data" text NOT NULL,
+      "card_count" integer NOT NULL DEFAULT 0,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'mind_maps_deck_id_decks_id_fk'
+      ) THEN
+        ALTER TABLE "mind_maps"
+          ADD CONSTRAINT "mind_maps_deck_id_decks_id_fk"
+          FOREIGN KEY ("deck_id") REFERENCES "public"."decks"("id")
           ON DELETE cascade ON UPDATE no action;
       END IF;
     END $$;
@@ -100212,25 +100244,65 @@ Rules:
 });
 var mind_map_default = router13;
 
-// src/routes/index.ts
+// src/routes/deck-mind-maps.ts
+var import_express14 = __toESM(require_express2(), 1);
+init_drizzle_orm();
 var router14 = (0, import_express14.Router)();
-router14.use(health_default);
-router14.use(decks_default);
-router14.use(cards_default);
-router14.use(generate_default);
-router14.use(export_apkg_default);
-router14.use(extract_pdf_default);
-router14.use(extract_office_default);
-router14.use(explain_default);
-router14.use(transfer_default);
-router14.use(generations_default);
-router14.use(download_apk_default);
-router14.use(qbanks_default);
-router14.use(mind_map_default);
-var routes_default = router14;
+router14.get("/decks/:id/mind-maps", async (req, res) => {
+  const deckId = Number(req.params.id);
+  if (!Number.isFinite(deckId)) {
+    res.status(400).json({ error: "Invalid deck id" });
+    return;
+  }
+  const maps = await db.select().from(mindMapsTable).where(eq(mindMapsTable.deckId, deckId)).orderBy(mindMapsTable.createdAt);
+  res.json(maps);
+});
+router14.post("/decks/:id/mind-maps", async (req, res) => {
+  const deckId = Number(req.params.id);
+  if (!Number.isFinite(deckId)) {
+    res.status(400).json({ error: "Invalid deck id" });
+    return;
+  }
+  const { title, data, cardCount } = req.body;
+  if (!title || !data) {
+    res.status(400).json({ error: "title and data are required" });
+    return;
+  }
+  const [map2] = await db.insert(mindMapsTable).values({ deckId, title: String(title), data: JSON.stringify(data), cardCount: cardCount ?? 0 }).returning();
+  res.json(map2);
+});
+router14.delete("/decks/:id/mind-maps/:mapId", async (req, res) => {
+  const deckId = Number(req.params.id);
+  const mapId = Number(req.params.mapId);
+  if (!Number.isFinite(deckId) || !Number.isFinite(mapId)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+  await db.delete(mindMapsTable).where(and(eq(mindMapsTable.id, mapId), eq(mindMapsTable.deckId, deckId)));
+  res.json({ success: true });
+});
+var deck_mind_maps_default = router14;
+
+// src/routes/index.ts
+var router15 = (0, import_express15.Router)();
+router15.use(health_default);
+router15.use(decks_default);
+router15.use(cards_default);
+router15.use(generate_default);
+router15.use(export_apkg_default);
+router15.use(extract_pdf_default);
+router15.use(extract_office_default);
+router15.use(explain_default);
+router15.use(transfer_default);
+router15.use(generations_default);
+router15.use(download_apk_default);
+router15.use(qbanks_default);
+router15.use(mind_map_default);
+router15.use(deck_mind_maps_default);
+var routes_default = router15;
 
 // src/app.ts
-var app = (0, import_express15.default)();
+var app = (0, import_express16.default)();
 app.use(
   (0, import_pino_http.default)({
     logger,
@@ -100251,14 +100323,14 @@ app.use(
   })
 );
 app.use((0, import_cors.default)());
-app.use(import_express15.default.json({ limit: "200mb" }));
-app.use(import_express15.default.urlencoded({ extended: true, limit: "200mb" }));
+app.use(import_express16.default.json({ limit: "200mb" }));
+app.use(import_express16.default.urlencoded({ extended: true, limit: "200mb" }));
 app.use("/api", routes_default);
 var staticDir = process.env.STATIC_DIR ?? path3.resolve(process.cwd(), "public");
 if (fs2.existsSync(staticDir)) {
   logger.info({ staticDir }, "Serving static frontend");
   app.use(
-    import_express15.default.static(staticDir, {
+    import_express16.default.static(staticDir, {
       index: false,
       maxAge: "1h",
       setHeaders: (res, filePath) => {

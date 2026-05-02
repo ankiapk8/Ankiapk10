@@ -5,3 +5,4 @@ export * from "./qbanks";
 export * from "./questions";
 export * from "./auth";
 export * from "./user-topics";
+export * from "./mind-maps";

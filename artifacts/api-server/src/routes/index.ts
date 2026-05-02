@@ -12,6 +12,7 @@ import generationsRouter from "./generations";
 import downloadApkRouter from "./download-apk";
 import qbanksRouter from "./qbanks";
 import mindMapRouter from "./mind-map";
+import deckMindMapsRouter from "./deck-mind-maps";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(generationsRouter);
 router.use(downloadApkRouter);
 router.use(qbanksRouter);
 router.use(mindMapRouter);
+router.use(deckMindMapsRouter);
 
 export default router;

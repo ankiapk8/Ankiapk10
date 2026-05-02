@@ -9,7 +9,7 @@ import {
   getListDeckCardsQueryKey,
   getGetDeckQueryKey
 } from "@workspace/api-client-react";
-import { MindMapPanel } from "@/components/mind-map-panel";
+import { MindMapGallery } from "@/components/mind-map-panel";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -980,7 +980,6 @@ export default function DeckDetail() {
   const [addFront, setAddFront] = useState("");
   const [addBack, setAddBack] = useState("");
   const [addingCard, setAddingCard] = useState(false);
-  const [showMindMap, setShowMindMap] = useState(false);
   const [deckSourceModalCardId, setDeckSourceModalCardId] = useState<number | null>(null);
 
   const handleAddCard = async () => {
@@ -1231,14 +1230,6 @@ export default function DeckDetail() {
         onNavigate={(i) => setDeckSourceModalCardId(deckVisualCards[i]?.id ?? null)}
       />
 
-      {showMindMap && (
-        <MindMapPanel
-          deckName={deck.name}
-          cards={cardList}
-          onClose={() => setShowMindMap(false)}
-        />
-      )}
-
       <Dialog open={addCardOpen} onOpenChange={open => { setAddCardOpen(open); if (!open) { setAddFront(""); setAddBack(""); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1305,11 +1296,6 @@ export default function DeckDetail() {
             </Link>
           )}
           {filteredCards.length > 0 && (
-            <Button variant="outline" onClick={() => setShowMindMap(true)} className="gap-2">
-              <Network className="h-4 w-4" /> Mind Map
-            </Button>
-          )}
-          {filteredCards.length > 0 && (
             <Button 
               variant="outline" 
               onClick={handleStudyClick} 
@@ -1373,6 +1359,10 @@ export default function DeckDetail() {
             ))}
           </div>
         </div>
+      )}
+
+      {cardList.length > 0 && (
+        <MindMapGallery deckId={deckId} cards={cardList} deckName={deck.name} />
       )}
 
       <div className="space-y-6">

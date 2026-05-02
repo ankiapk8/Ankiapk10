@@ -163,6 +163,27 @@ export async function ensureDatabaseSchema(): Promise<void> {
           ON DELETE cascade ON UPDATE no action;
       END IF;
     END $$;
+
+    CREATE TABLE IF NOT EXISTS "mind_maps" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "deck_id" integer NOT NULL,
+      "title" text NOT NULL,
+      "data" text NOT NULL,
+      "card_count" integer NOT NULL DEFAULT 0,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'mind_maps_deck_id_decks_id_fk'
+      ) THEN
+        ALTER TABLE "mind_maps"
+          ADD CONSTRAINT "mind_maps_deck_id_decks_id_fk"
+          FOREIGN KEY ("deck_id") REFERENCES "public"."decks"("id")
+          ON DELETE cascade ON UPDATE no action;
+      END IF;
+    END $$;
   `);
 }
 
