@@ -22,8 +22,13 @@ import {
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
-  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search
+  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   DropdownMenu,
   DropdownMenuContent,

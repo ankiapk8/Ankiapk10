@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
@@ -74,11 +74,13 @@ function ResultsView({
   cards,
   answers,
   deckName,
+  deckId,
   onReset,
 }: {
   cards: MCQCard[];
   answers: Answer[];
   deckName: string;
+  deckId: number;
   onReset: () => void;
 }) {
   const correct = answers.filter(a => a.correct).length;
@@ -202,9 +204,9 @@ function ResultsView({
             >
               <RotateCcw className="h-4 w-4" /> Practice Again
             </Button>
-            <Link href="/decks" className="flex-1">
+            <Link href={`/decks/${deckId}`} className="flex-1">
               <Button className="w-full gap-2 h-11 bg-violet-600 hover:bg-violet-700 text-white">
-                <BookOpen className="h-4 w-4" /> Back to Library
+                <BookOpen className="h-4 w-4" /> Back to Deck
               </Button>
             </Link>
           </motion.div>
@@ -301,29 +303,33 @@ function PracticeSession({
     setSelected(i);
   }, [revealed]);
 
+  const answersRef = useRef(answers);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+
   const handleConfirm = useCallback(() => {
     if (selected === null || revealed) return;
     const isCorrect = selected === current.correctIndex;
+    const newEntry = { cardIndex: index, selectedIndex: selected, correct: isCorrect };
+    const newAnswers = [...answersRef.current, newEntry];
+    setAnswers(newAnswers);
     setRevealed(true);
-    setAnswers(prev => [...prev, { cardIndex: index, selectedIndex: selected, correct: isCorrect }]);
     if (!isCorrect) {
       setWrongFlash(true);
       setTimeout(() => setWrongFlash(false), 700);
     }
-  }, [selected, revealed, current, index]);
+    if (index + 1 >= total) {
+      setTimeout(() => onDone(newAnswers), 650);
+    }
+  }, [selected, revealed, current, index, total, onDone]);
 
   const handleNext = useCallback(() => {
-    const newAnswers = answers; // captured by closure
-    if (index + 1 >= total) {
-      onDone(newAnswers);
-      return;
-    }
+    if (index + 1 >= total) return;
     setDirection(1);
     setIndex(i => i + 1);
     setSelected(null);
     setRevealed(false);
     setWrongFlash(false);
-  }, [index, total, answers, onDone]);
+  }, [index, total]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -699,6 +705,7 @@ export default function PracticePage() {
         cards={cards}
         answers={finalAnswers}
         deckName={deckName}
+        deckId={deckId}
         onReset={handleReset}
       />
     );

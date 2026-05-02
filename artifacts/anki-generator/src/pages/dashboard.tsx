@@ -185,7 +185,7 @@ export default function Dashboard() {
                               title={`${day.known} known`}
                             />
                             <div
-                              className="w-full rounded-t-sm bg-emerald-400/70"
+                              className="w-full rounded-t-sm bg-orange-400/70"
                               style={{ height: unknownH }}
                               title={`${day.total - day.known} still learning`}
                             />
@@ -203,7 +203,7 @@ export default function Dashboard() {
                   <span className="text-xs text-muted-foreground">Known</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className="h-2.5 w-2.5 rounded-sm bg-emerald-400/70" />
+                  <div className="h-2.5 w-2.5 rounded-sm bg-orange-400/70" />
                   <span className="text-xs text-muted-foreground">Still learning</span>
                 </div>
               </div>
