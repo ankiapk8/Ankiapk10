@@ -50,7 +50,7 @@ function QuestionCard({
 }: {
   question: Question;
   index: number;
-  onUpdate: (id: number, data: { front?: string; back?: string; tags?: string | null }) => void;
+  onUpdate: (id: number, data: { front?: string; back?: string | null; tags?: string | null }) => void;
   onDelete: (id: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
