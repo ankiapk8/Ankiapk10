@@ -11,9 +11,11 @@ import {
   LayoutDashboard,
   Download,
   ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 
 const LOGO_URL = `${import.meta.env.BASE_URL}favicon.svg`;
+const LOGO_PHASE_MS = 1400;
 
 const FEATURES = [
   {
@@ -23,7 +25,8 @@ const FEATURES = [
     label: "AI Flashcard Generation",
     desc: "Upload PDFs, slides, or images. AI reads your material and creates perfectly structured flashcards in seconds.",
     accent: "from-emerald-400 to-teal-500",
-    bg: "from-emerald-500/10 via-teal-500/5 to-transparent",
+    bgDark: "from-emerald-500/10 via-teal-500/5 to-transparent",
+    bgLight: "from-emerald-500/8 via-teal-500/4 to-transparent",
   },
   {
     icon: Image,
@@ -32,7 +35,8 @@ const FEATURES = [
     label: "Visual Card Detection",
     desc: "AI detects diagrams, flowcharts, radiology images & figures — generating rich visual cards from what it sees.",
     accent: "from-indigo-400 to-violet-500",
-    bg: "from-indigo-500/10 via-violet-500/5 to-transparent",
+    bgDark: "from-indigo-500/10 via-violet-500/5 to-transparent",
+    bgLight: "from-indigo-500/8 via-violet-500/4 to-transparent",
   },
   {
     icon: BookOpen,
@@ -41,7 +45,8 @@ const FEATURES = [
     label: "Immersive Study Mode",
     desc: "Flip cards, use keyboard shortcuts, track \"Got it\" vs \"Still learning\", and review at your own pace.",
     accent: "from-sky-400 to-cyan-500",
-    bg: "from-sky-500/10 via-cyan-500/5 to-transparent",
+    bgDark: "from-sky-500/10 via-cyan-500/5 to-transparent",
+    bgLight: "from-sky-500/8 via-cyan-500/4 to-transparent",
   },
   {
     icon: Target,
@@ -50,7 +55,8 @@ const FEATURES = [
     label: "MCQ Practice Mode",
     desc: "AI generates exam-style multiple choice questions with distractors tailored to your deck content.",
     accent: "from-orange-400 to-amber-500",
-    bg: "from-orange-500/10 via-amber-500/5 to-transparent",
+    bgDark: "from-orange-500/10 via-amber-500/5 to-transparent",
+    bgLight: "from-orange-500/8 via-amber-500/4 to-transparent",
   },
   {
     icon: FlaskConical,
@@ -59,7 +65,8 @@ const FEATURES = [
     label: "Question Banks",
     desc: "Medical-grade QBanks with detailed AI explanations for every answer — perfect for licensing exams.",
     accent: "from-pink-400 to-rose-500",
-    bg: "from-pink-500/10 via-rose-500/5 to-transparent",
+    bgDark: "from-pink-500/10 via-rose-500/5 to-transparent",
+    bgLight: "from-pink-500/8 via-rose-500/4 to-transparent",
   },
   {
     icon: Network,
@@ -68,7 +75,8 @@ const FEATURES = [
     label: "AI Mind Maps",
     desc: "Study with a live mind map on the side. AI builds a topic hierarchy of your deck and highlights your current card.",
     accent: "from-violet-400 to-purple-500",
-    bg: "from-violet-500/10 via-purple-500/5 to-transparent",
+    bgDark: "from-violet-500/10 via-purple-500/5 to-transparent",
+    bgLight: "from-violet-500/8 via-purple-500/4 to-transparent",
   },
   {
     icon: LayoutDashboard,
@@ -77,7 +85,8 @@ const FEATURES = [
     label: "Progress Dashboard",
     desc: "Study streaks, 7-day activity charts, deck progress bars, and recent session history — all at a glance.",
     accent: "from-green-400 to-emerald-500",
-    bg: "from-green-500/10 via-emerald-500/5 to-transparent",
+    bgDark: "from-green-500/10 via-emerald-500/5 to-transparent",
+    bgLight: "from-green-500/8 via-emerald-500/4 to-transparent",
   },
   {
     icon: Download,
@@ -86,46 +95,119 @@ const FEATURES = [
     label: "Export & Desktop App",
     desc: "Export any deck as an Anki .apkg file, or download the native Mac app to study offline, anytime.",
     accent: "from-yellow-400 to-amber-400",
-    bg: "from-yellow-500/10 via-amber-500/5 to-transparent",
+    bgDark: "from-yellow-500/10 via-amber-500/5 to-transparent",
+    bgLight: "from-yellow-500/8 via-amber-500/4 to-transparent",
   },
 ];
 
-const FEATURE_DURATION = 1600; // ms per feature
-const LOGO_PHASE_MS = 1200;    // time for logo intro before features start
-
 export function SplashScreen({ children }: { children: React.ReactNode }) {
+  // Read saved theme preference so the splash matches the app's last mode.
+  const [isDark] = useState<boolean>(() => {
+    const stored = localStorage.getItem("ankigen-theme");
+    if (stored) return stored === "dark";
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
   const [phase, setPhase] = useState<"logo" | "features" | "done">("logo");
   const [featureIndex, setFeatureIndex] = useState(0);
   const [dismissed, setDismissed] = useState(false);
+  // Track swipe direction for animation
+  const [direction, setDirection] = useState<1 | -1>(1);
 
   const dismiss = useCallback(() => {
     setPhase("done");
     setTimeout(() => setDismissed(true), 700);
   }, []);
 
-  // Logo phase → features phase
+  // Logo phase → features phase (auto-advance logo only)
   useEffect(() => {
     const t = setTimeout(() => setPhase("features"), LOGO_PHASE_MS);
     return () => clearTimeout(t);
   }, []);
 
-  // Auto-advance features
+  // Keyboard navigation
   useEffect(() => {
     if (phase !== "features") return;
-    if (featureIndex >= FEATURES.length - 1) {
-      const t = setTimeout(dismiss, FEATURE_DURATION + 400);
-      return () => clearTimeout(t);
-    }
-    const t = setTimeout(
-      () => setFeatureIndex((i) => i + 1),
-      FEATURE_DURATION
-    );
-    return () => clearTimeout(t);
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        if (featureIndex < FEATURES.length - 1) {
+          setDirection(1);
+          setFeatureIndex((i) => i + 1);
+        }
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (featureIndex > 0) {
+          setDirection(-1);
+          setFeatureIndex((i) => i - 1);
+        }
+      } else if (e.key === "Enter" || e.key === "Escape") {
+        dismiss();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [phase, featureIndex, dismiss]);
+
+  const goTo = (i: number) => {
+    setDirection(i > featureIndex ? 1 : -1);
+    setFeatureIndex(i);
+  };
+
+  const goNext = () => {
+    if (featureIndex < FEATURES.length - 1) {
+      setDirection(1);
+      setFeatureIndex((i) => i + 1);
+    } else {
+      dismiss();
+    }
+  };
+
+  const goPrev = () => {
+    if (featureIndex > 0) {
+      setDirection(-1);
+      setFeatureIndex((i) => i - 1);
+    }
+  };
 
   const show = !dismissed;
   const feature = FEATURES[featureIndex];
   const FeatureIcon = feature.icon;
+
+  // Theme-aware tokens
+  const splashBg = isDark
+    ? "radial-gradient(ellipse at 20% 30%, hsl(150 40% 8%) 0%, hsl(220 30% 6%) 55%, hsl(150 20% 4%) 100%)"
+    : "radial-gradient(ellipse at 20% 30%, hsl(150 30% 96%) 0%, hsl(220 25% 97%) 55%, hsl(150 20% 95%) 100%)";
+
+  const cardBorder = isDark ? "border-white/10" : "border-black/8";
+  const cardBg = isDark ? feature.bgDark : feature.bgLight;
+  const backdropClass = isDark ? "bg-white/5" : "bg-black/4";
+  const badgeBorder = isDark ? "border-white/10" : "border-black/8";
+  const badgeBg = isDark ? "bg-white/5" : "bg-black/4";
+  const badgeText = isDark ? "text-white/60" : "text-black/50";
+  const skipText = isDark ? "text-white/50 hover:text-white/80 border-white/10 hover:border-white/20" : "text-black/40 hover:text-black/70 border-black/10 hover:border-black/20";
+  const counterText = isDark ? "text-white/30" : "text-black/25";
+  const descText = isDark ? "text-white/60" : "text-black/55";
+  const shimmer = isDark
+    ? "linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.04) 50%, transparent 80%)"
+    : "linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.5) 50%, transparent 80%)";
+
+  const dotDone = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)";
+  const dotPending = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
+
+  const navBtnBase = isDark
+    ? "border-white/10 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white/90"
+    : "border-black/8 bg-black/4 hover:bg-black/8 text-black/40 hover:text-black/70";
+
+  const stripActive = isDark ? "border-white/20 bg-white/10 text-white" : "border-black/15 bg-black/8 text-black/80";
+  const stripDone = isDark ? "border-white/8 bg-white/5 text-white/40" : "border-black/6 bg-black/4 text-black/35";
+  const stripPending = isDark ? "border-white/5 bg-white/3 text-white/25" : "border-black/4 bg-black/3 text-black/20";
+
+  const particleColorA = isDark ? "hsl(150 60% 50% / 0.04)" : "hsl(150 60% 70% / 0.12)";
+  const particleColorB = isDark ? "hsl(220 60% 60% / 0.04)" : "hsl(220 60% 70% / 0.10)";
+  const particleColorC = isDark ? "hsl(280 60% 60% / 0.04)" : "hsl(280 60% 70% / 0.10)";
+  const dotColorA = isDark ? "hsl(150 70% 65% / 0.6)" : "hsl(150 60% 45% / 0.35)";
+  const dotColorB = isDark ? "hsl(220 70% 70% / 0.5)" : "hsl(220 60% 50% / 0.30)";
 
   return (
     <>
@@ -137,10 +219,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
             exit={{ opacity: 0, scale: 1.04, filter: "blur(10px)" }}
             transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
             className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden select-none"
-            style={{
-              background:
-                "radial-gradient(ellipse at 20% 30%, hsl(150 40% 8%) 0%, hsl(220 30% 6%) 55%, hsl(150 20% 4%) 100%)",
-            }}
+            style={{ background: splashBg }}
           >
             {/* Ambient floating orbs */}
             {[...Array(12)].map((_, i) => (
@@ -153,11 +232,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                   left: `${(i * 79) % 90}%`,
                   top: `${(i * 53) % 85}%`,
                   background:
-                    i % 3 === 0
-                      ? "hsl(150 60% 50% / 0.04)"
-                      : i % 3 === 1
-                      ? "hsl(220 60% 60% / 0.04)"
-                      : "hsl(280 60% 60% / 0.04)",
+                    i % 3 === 0 ? particleColorA : i % 3 === 1 ? particleColorB : particleColorC,
                   filter: "blur(40px)",
                 }}
                 animate={{
@@ -184,17 +259,10 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                   height: 2 + (i % 2),
                   left: `${(i * 83) % 100}%`,
                   top: `${(i * 47) % 100}%`,
-                  background:
-                    i % 2 === 0
-                      ? "hsl(150 70% 65% / 0.6)"
-                      : "hsl(220 70% 70% / 0.5)",
+                  background: i % 2 === 0 ? dotColorA : dotColorB,
                 }}
                 initial={{ opacity: 0 }}
-                animate={{
-                  opacity: [0, 0.9, 0],
-                  y: [0, -40 - i * 4],
-                  scale: [0.5, 1.2, 0],
-                }}
+                animate={{ opacity: [0, 0.9, 0], y: [0, -40 - i * 4], scale: [0.5, 1.2, 0] }}
                 transition={{
                   duration: 3 + (i % 3) * 0.8,
                   delay: i * 0.12,
@@ -212,7 +280,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
                 onClick={dismiss}
-                className="absolute top-5 right-5 z-10 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium text-white/50 hover:text-white/80 border border-white/10 hover:border-white/20 backdrop-blur-sm transition-colors"
+                className={`absolute top-5 right-5 z-10 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border backdrop-blur-sm transition-colors ${skipText}`}
               >
                 Skip <ChevronRight className="h-3 w-3" />
               </motion.button>
@@ -241,7 +309,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                         background:
                           "conic-gradient(from 0deg, hsl(150 60% 55%), hsl(95 65% 50%), hsl(220 70% 60%), hsl(150 60% 55%))",
                         filter: "blur(18px)",
-                        opacity: 0.6,
+                        opacity: isDark ? 0.6 : 0.35,
                       }}
                       animate={{ rotate: 360 }}
                       transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
@@ -257,10 +325,10 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.4, duration: 0.7 }}
                   >
-                    <h1 className="font-serif text-4xl font-bold bg-gradient-to-br from-emerald-300 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
+                    <h1 className="font-serif text-4xl font-bold bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-500 bg-clip-text text-transparent">
                       AnkiGen
                     </h1>
-                    <p className="mt-2 text-sm text-white/40 tracking-widest uppercase font-mono">
+                    <p className={`mt-2 text-sm tracking-widest uppercase font-mono ${isDark ? "text-white/40" : "text-black/35"}`}>
                       Smart flashcards, instantly
                     </p>
                   </motion.div>
@@ -273,7 +341,7 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
               {phase === "features" && (
                 <motion.div
                   key="features-phase"
-                  className="flex flex-col items-center gap-6 w-full max-w-lg px-6"
+                  className="flex flex-col items-center gap-5 w-full max-w-lg px-6"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
@@ -281,37 +349,42 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                 >
                   {/* Mini logo badge */}
                   <motion.div
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm"
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${badgeBorder} ${badgeBg} backdrop-blur-sm`}
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
                   >
                     <img src={LOGO_URL} alt="" className="w-4 h-4 rounded-sm" draggable={false} />
-                    <span className="text-xs font-semibold text-white/60 tracking-wide">AnkiGen</span>
+                    <span className={`text-xs font-semibold tracking-wide ${badgeText}`}>AnkiGen</span>
                   </motion.div>
 
                   {/* Feature card */}
-                  <div className="relative w-full h-52">
-                    <AnimatePresence mode="wait">
+                  <div className="relative w-full h-56">
+                    <AnimatePresence mode="wait" custom={direction}>
                       <motion.div
                         key={featureIndex}
-                        className={`absolute inset-0 rounded-2xl border border-white/10 bg-gradient-to-br ${feature.bg} backdrop-blur-sm overflow-hidden`}
-                        initial={{ opacity: 0, x: 40, scale: 0.96 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        exit={{ opacity: 0, x: -40, scale: 0.96 }}
-                        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                        custom={direction}
+                        className={`absolute inset-0 rounded-2xl border ${cardBorder} bg-gradient-to-br ${cardBg} backdrop-blur-sm overflow-hidden`}
+                        variants={{
+                          enter: (d: number) => ({ opacity: 0, x: d * 50, scale: 0.96 }),
+                          center: { opacity: 1, x: 0, scale: 1 },
+                          exit: (d: number) => ({ opacity: 0, x: -d * 50, scale: 0.96 }),
+                        }}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                       >
-                        {/* Glow orb behind icon */}
+                        {/* Glow orb */}
                         <motion.div
                           className="absolute top-0 left-0 w-48 h-48 rounded-full"
-                          style={{ background: feature.glow, filter: "blur(50px)", opacity: 0.5 }}
-                          animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.65, 0.4] }}
+                          style={{ background: feature.glow, filter: "blur(50px)", opacity: isDark ? 0.5 : 0.25 }}
+                          animate={{ scale: [1, 1.15, 1], opacity: isDark ? [0.4, 0.65, 0.4] : [0.2, 0.35, 0.2] }}
                           transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                         />
 
                         {/* Card content */}
                         <div className="relative h-full flex flex-col justify-between p-6">
-                          {/* Icon + feature number */}
                           <div className="flex items-start justify-between">
                             <motion.div
                               className="flex items-center justify-center w-14 h-14 rounded-2xl shadow-lg"
@@ -323,81 +396,89 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                               <FeatureIcon className="h-7 w-7" style={{ color: feature.color }} />
                             </motion.div>
 
-                            <span className="text-[11px] font-mono text-white/30 tabular-nums">
+                            <span className={`text-[11px] font-mono tabular-nums ${counterText}`}>
                               {String(featureIndex + 1).padStart(2, "0")} / {String(FEATURES.length).padStart(2, "0")}
                             </span>
                           </div>
 
-                          {/* Text */}
                           <motion.div
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2, duration: 0.5 }}
                           >
-                            <h2
-                              className={`text-xl font-bold bg-gradient-to-r ${feature.accent} bg-clip-text text-transparent leading-tight mb-2`}
-                            >
+                            <h2 className={`text-xl font-bold bg-gradient-to-r ${feature.accent} bg-clip-text text-transparent leading-tight mb-2`}>
                               {feature.label}
                             </h2>
-                            <p className="text-sm text-white/60 leading-relaxed">
+                            <p className={`text-sm leading-relaxed ${descText}`}>
                               {feature.desc}
                             </p>
                           </motion.div>
                         </div>
 
-                        {/* Animated shimmer */}
+                        {/* Shimmer */}
                         <motion.div
                           className="absolute inset-0 pointer-events-none"
-                          style={{
-                            background:
-                              "linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.04) 50%, transparent 80%)",
-                          }}
+                          style={{ background: shimmer }}
                           animate={{ x: ["-100%", "200%"] }}
-                          transition={{
-                            duration: 1.8,
-                            ease: "easeInOut",
-                            repeat: Infinity,
-                            repeatDelay: 0.4,
-                          }}
+                          transition={{ duration: 2.2, ease: "easeInOut", repeat: Infinity, repeatDelay: 1.2 }}
                         />
                       </motion.div>
                     </AnimatePresence>
                   </div>
 
-                  {/* Progress dots */}
-                  <div className="flex items-center gap-1.5">
-                    {FEATURES.map((_, i) => (
-                      <motion.button
-                        key={i}
-                        onClick={() => setFeatureIndex(i)}
-                        className="rounded-full transition-all duration-300"
-                        style={{
-                          width: i === featureIndex ? 20 : 6,
-                          height: 6,
-                          background:
-                            i < featureIndex
-                              ? "rgba(255,255,255,0.4)"
-                              : i === featureIndex
-                              ? feature.color
-                              : "rgba(255,255,255,0.12)",
-                        }}
-                        whileHover={{ scale: 1.3 }}
-                        whileTap={{ scale: 0.85 }}
-                        aria-label={`Feature ${i + 1}`}
-                      />
-                    ))}
-                  </div>
+                  {/* Dot navigation + Prev/Next row */}
+                  <div className="flex items-center gap-3 w-full justify-center">
+                    {/* Prev button */}
+                    <motion.button
+                      onClick={goPrev}
+                      disabled={featureIndex === 0}
+                      className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${navBtnBase} disabled:opacity-20 disabled:cursor-not-allowed`}
+                      whileHover={featureIndex > 0 ? { scale: 1.1 } : {}}
+                      whileTap={featureIndex > 0 ? { scale: 0.9 } : {}}
+                      aria-label="Previous feature"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </motion.button>
 
-                  {/* Progress bar */}
-                  <div className="w-full h-[2px] rounded-full bg-white/8 overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full"
-                      style={{ background: feature.color }}
-                      initial={{ width: "0%" }}
-                      animate={{ width: "100%" }}
-                      key={`bar-${featureIndex}`}
-                      transition={{ duration: FEATURE_DURATION / 1000, ease: "linear" }}
-                    />
+                    {/* Dots */}
+                    <div className="flex items-center gap-1.5">
+                      {FEATURES.map((_, i) => (
+                        <motion.button
+                          key={i}
+                          onClick={() => goTo(i)}
+                          className="rounded-full transition-all duration-300"
+                          style={{
+                            width: i === featureIndex ? 20 : 6,
+                            height: 6,
+                            background:
+                              i < featureIndex
+                                ? dotDone
+                                : i === featureIndex
+                                ? feature.color
+                                : dotPending,
+                          }}
+                          whileHover={{ scale: 1.3 }}
+                          whileTap={{ scale: 0.85 }}
+                          aria-label={`Feature ${i + 1}`}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Next / Get Started button */}
+                    <motion.button
+                      onClick={goNext}
+                      className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${navBtnBase}`}
+                      style={
+                        featureIndex === FEATURES.length - 1
+                          ? { borderColor: `${feature.color}60`, background: `${feature.color}18`, color: feature.color }
+                          : {}
+                      }
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      aria-label={featureIndex === FEATURES.length - 1 ? "Get started" : "Next feature"}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </motion.button>
                   </div>
 
                   {/* Feature list mini-strip */}
@@ -414,13 +495,9 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                       return (
                         <motion.button
                           key={i}
-                          onClick={() => setFeatureIndex(i)}
+                          onClick={() => goTo(i)}
                           className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-[10px] font-medium transition-all ${
-                            active
-                              ? "border-white/20 bg-white/10 text-white"
-                              : done
-                              ? "border-white/8 bg-white/5 text-white/40"
-                              : "border-white/5 bg-white/3 text-white/25"
+                            active ? stripActive : done ? stripDone : stripPending
                           }`}
                           whileHover={{ scale: 1.04 }}
                           whileTap={{ scale: 0.95 }}
@@ -428,13 +505,29 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
                         >
                           <FIcon
                             className="h-3 w-3 shrink-0"
-                            style={{ color: active ? f.color : done ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)" }}
+                            style={{
+                              color: active
+                                ? f.color
+                                : done
+                                ? isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.3)"
+                                : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.18)",
+                            }}
                           />
                           <span className="truncate hidden xs:block">{f.label.split(" ")[0]}</span>
                         </motion.button>
                       );
                     })}
                   </motion.div>
+
+                  {/* Keyboard hint */}
+                  <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.8 }}
+                    className={`text-[10px] font-mono ${isDark ? "text-white/20" : "text-black/20"}`}
+                  >
+                    ← → arrow keys to navigate · Enter to get started
+                  </motion.p>
                 </motion.div>
               )}
             </AnimatePresence>
