@@ -10,6 +10,7 @@ import { PageTransition } from "@/components/page-transition";
 import { ClickRipple } from "@/components/click-ripple";
 import { OfflineBanner } from "@/components/offline-indicator";
 import { UpdateBanner } from "@/components/update-banner";
+import { WhatsNewBanner } from "@/components/whats-new-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
 
 import Dashboard from "@/pages/dashboard";
@@ -75,6 +76,7 @@ function AppContent() {
     <>
       <OfflineBanner />
       <UpdateBanner />
+      <WhatsNewBanner />
       <SplashScreen>
         <AppRouter />
       </SplashScreen>
