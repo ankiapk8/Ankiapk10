@@ -229,13 +229,13 @@ export function GenerateForm({
   const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files ?? []);
     e.target.value = "";
-    for (const f of selected) await processFile(f);
+    await Promise.all(selected.map(f => processFile(f)));
   };
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    for (const f of Array.from(e.dataTransfer.files)) await processFile(f);
+    await Promise.all(Array.from(e.dataTransfer.files).map(f => processFile(f)));
   };
 
   const resolvedParentId = parentId === "none" ? null : parseInt(parentId, 10);

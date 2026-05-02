@@ -41,7 +41,7 @@ export default function Dashboard() {
 
   const maxDay = Math.max(...last7.map(d => d.total), 1);
 
-  const recentDecks = [...(decks ?? [])].sort(
+  const recentDecks = [...(decks ?? [])].filter((d: { kind?: string }) => (d.kind ?? "deck") !== "qbank").sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   ).slice(0, 5);
 

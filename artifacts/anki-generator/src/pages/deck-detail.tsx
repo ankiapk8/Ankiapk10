@@ -22,7 +22,7 @@ import {
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
-  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle
+  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -844,6 +844,7 @@ export default function DeckDetail() {
   const [activeSavePoint, setActiveSavePoint] = useState<StudySavePoint | null>(null);
   const [resumePrompt, setResumePrompt] = useState<StudySavePoint | null>(null);
   const [cardFilter, setCardFilter] = useState<"all" | "text" | "visual">("all");
+  const [cardSearch, setCardSearch] = useState("");
 
   const handleStudyClick = useCallback(() => {
     const sp = getSavePoint(deckId);
@@ -934,18 +935,21 @@ export default function DeckDetail() {
   const visualCount = cardList.filter(c => (c as Card & { image?: string | null }).image).length;
   const textCount = cardList.length - visualCount;
   const hasMixedCards = visualCount > 0 && textCount > 0;
-  // Show the Text/Visual tabs whenever the deck has any cards at all so the
-  // structure is always visible — even if one side currently has 0 cards
-  // (e.g. visual generation produced nothing yet, or this is a text-only deck).
   const isQbank = (deck as Deck & { kind?: string } | undefined)?.kind === "qbank";
   const showTabs = !isQbank && cardList.length > 0;
-  const filteredCards = !showTabs
+  const tabFilteredCards = !showTabs
     ? cardList
     : cardFilter === "visual"
       ? cardList.filter(c => (c as Card & { image?: string | null }).image)
       : cardFilter === "text"
         ? cardList.filter(c => !(c as Card & { image?: string | null }).image)
         : cardList;
+  const filteredCards = cardSearch.trim()
+    ? tabFilteredCards.filter(c => {
+        const q = cardSearch.toLowerCase();
+        return c.front.toLowerCase().includes(q) || c.back.toLowerCase().includes(q);
+      })
+    : tabFilteredCards;
 
   if (studyMode && filteredCards.length > 0) {
     return (
@@ -1136,29 +1140,47 @@ export default function DeckDetail() {
       )}
 
       <div className="space-y-6">
-        <div className="flex items-center justify-between border-b pb-2 gap-3 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-xl font-medium tracking-tight">
-              Cards ({showTabs ? filteredCards.length : cardList.length})
-              {hasSubDecks && cardList.length > 0 && (
-                <span className="text-sm font-normal text-muted-foreground ml-2">across all sub-topics</span>
-              )}
-            </h2>
+        <div className="flex flex-col gap-3 border-b pb-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-medium tracking-tight">
+                Cards ({cardSearch.trim() ? `${filteredCards.length} of ${cardList.length}` : (showTabs ? tabFilteredCards.length : cardList.length)})
+                {hasSubDecks && cardList.length > 0 && (
+                  <span className="text-sm font-normal text-muted-foreground ml-2">across all sub-topics</span>
+                )}
+              </h2>
+            </div>
+            {showTabs && (
+              <Tabs value={cardFilter} onValueChange={(v) => { setCardFilter(v as "all" | "text" | "visual"); setCardSearch(""); }}>
+                <TabsList className="h-9">
+                  <TabsTrigger value="all" className="text-xs gap-1.5">
+                    All <span className="text-[10px] opacity-70">{cardList.length}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="text" className="text-xs gap-1.5">
+                    <FileText className="h-3 w-3" /> Text <span className="text-[10px] opacity-70">{textCount}</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="visual" className="text-xs gap-1.5">
+                    <ImageIcon className="h-3 w-3" /> Visual <span className="text-[10px] opacity-70">{visualCount}</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
           </div>
-          {showTabs && (
-            <Tabs value={cardFilter} onValueChange={(v) => setCardFilter(v as "all" | "text" | "visual")}>
-              <TabsList className="h-9">
-                <TabsTrigger value="all" className="text-xs gap-1.5">
-                  All <span className="text-[10px] opacity-70">{cardList.length}</span>
-                </TabsTrigger>
-                <TabsTrigger value="text" className="text-xs gap-1.5">
-                  <FileText className="h-3 w-3" /> Text <span className="text-[10px] opacity-70">{textCount}</span>
-                </TabsTrigger>
-                <TabsTrigger value="visual" className="text-xs gap-1.5">
-                  <ImageIcon className="h-3 w-3" /> Visual <span className="text-[10px] opacity-70">{visualCount}</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+          {cardList.length > 6 && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={cardSearch}
+                onChange={e => setCardSearch(e.target.value)}
+                placeholder="Search cards…"
+                className="pl-9 pr-9 h-9 text-sm"
+              />
+              {cardSearch && (
+                <button onClick={() => setCardSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           )}
         </div>
 
