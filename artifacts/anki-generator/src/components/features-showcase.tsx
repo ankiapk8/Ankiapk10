@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState, useRef } from "react";
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";
 import {
   Sparkles, BookOpen, Image, Target, FlaskConical,
   Network, LayoutDashboard, Download,
@@ -749,6 +749,28 @@ export function FeaturesShowcase() {
   const goPrev = () => { if (idx > 0) { setDir(-1); setIdx(i => i - 1); } };
   const goNext = () => { if (idx < FEATURES.length - 1) { setDir(1); setIdx(i => i + 1); } };
 
+  // 3D card tilt (mouse tracking)
+  const cardRef = useRef<HTMLDivElement>(null);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const rawTiltX = useTransform(mouseY, [-0.5, 0.5], [4, -4]);
+  const rawTiltY = useTransform(mouseX, [-0.5, 0.5], [-5, 5]);
+  const tiltX = useSpring(rawTiltX, { stiffness: 300, damping: 30 });
+  const tiltY = useSpring(rawTiltY, { stiffness: 300, damping: 30 });
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = cardRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    mouseX.set((e.clientX - rect.left) / rect.width - 0.5);
+    mouseY.set((e.clientY - rect.top) / rect.height - 0.5);
+  };
+
+  const handleCardLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
+
   const feature = FEATURES[idx];
   const FeatureIcon = feature.icon;
   const FeaturePreview = FEATURE_PREVIEWS[idx];
@@ -775,65 +797,99 @@ export function FeaturesShowcase() {
       </div>
 
       <div className="flex flex-col items-center gap-4 w-full max-w-lg mx-auto">
-        {/* Feature card with animated preview */}
-        <div className="relative w-full h-72">
-          <AnimatePresence mode="wait" custom={dir}>
-            <motion.div
-              key={idx}
-              custom={dir}
-              className={`absolute inset-0 rounded-2xl border ${cardBorder} bg-gradient-to-br ${cardBg} backdrop-blur-sm overflow-hidden`}
-              variants={{
-                enter: (d: number) => ({ opacity: 0, x: d * 50, scale: 0.96 }),
-                center: { opacity: 1, x: 0, scale: 1 },
-                exit: (d: number) => ({ opacity: 0, x: -d * 50, scale: 0.96 }),
-              }}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {/* Glow orb */}
-              <motion.div
-                className="absolute top-0 left-0 w-48 h-48 rounded-full pointer-events-none"
-                style={{ background: feature.glow, filter: "blur(50px)", opacity: dark ? 0.5 : 0.25 }}
-                animate={{ scale: [1, 1.15, 1], opacity: dark ? [0.4, 0.65, 0.4] : [0.2, 0.35, 0.2] }}
-                transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-              />
+        {/* Feature card — 3D tilt */}
+        <div
+          ref={cardRef}
+          className="relative w-full"
+          style={{ height: 300, perspective: "1400px" }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleCardLeave}
+        >
+          {/* Floating glow shadow */}
+          <motion.div
+            className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
+            style={{ width: "65%", height: 20, background: feature.glow, filter: "blur(20px)" }}
+            animate={{ scaleX: [1, 1.12, 1], opacity: dark ? [0.3, 0.5, 0.3] : [0.12, 0.22, 0.12] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          />
 
-              <div className="relative h-full flex flex-col p-4 gap-3">
+          <motion.div
+            className="relative h-full"
+            style={{ rotateX: tiltX, rotateY: tiltY, transformStyle: "preserve-3d" }}
+          >
+            <AnimatePresence mode="wait" custom={dir}>
+              <motion.div
+                key={idx}
+                custom={dir}
+                className={`absolute inset-0 rounded-2xl border ${cardBorder} overflow-hidden`}
+                style={{
+                  background: dark
+                    ? `radial-gradient(ellipse at 5% 5%, ${feature.color}22 0%, hsl(220 20% 7%) 55%)`
+                    : `radial-gradient(ellipse at 5% 5%, ${feature.color}14 0%, hsl(220 20% 98%) 55%)`,
+                  boxShadow: dark
+                    ? `0 16px 48px rgba(0,0,0,0.4), 0 0 30px ${feature.color}15`
+                    : `0 16px 48px rgba(0,0,0,0.06), 0 0 30px ${feature.color}0c`,
+                }}
+                variants={{
+                  enter: (d: number) => ({ opacity: 0, x: d * 70, rotateY: d * 15, scale: 0.9, filter: "blur(3px)" }),
+                  center: { opacity: 1, x: 0, rotateY: 0, scale: 1, filter: "blur(0px)" },
+                  exit: (d: number) => ({ opacity: 0, x: -d * 70, rotateY: -d * 15, scale: 0.9, filter: "blur(3px)" }),
+                }}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {/* Animated glow orb */}
+                <motion.div
+                  className="absolute top-0 left-0 w-56 h-56 rounded-full pointer-events-none"
+                  style={{ background: feature.glow, filter: "blur(55px)", opacity: dark ? 0.4 : 0.18 }}
+                  animate={{ scale: [1, 1.2, 1], x: [0, 15, 0], y: [0, 10, 0] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                />
+
+                {/* Header */}
+                <div className="relative flex items-center gap-2.5 px-4 pt-3 pb-2 shrink-0">
+                  <motion.div
+                    className="flex items-center justify-center w-8 h-8 rounded-xl shrink-0"
+                    style={{ background: `${feature.color}25`, border: `1.5px solid ${feature.color}55` }}
+                    animate={{ boxShadow: [`0 0 0px ${feature.color}00`, `0 0 14px ${feature.color}66`, `0 0 0px ${feature.color}00`] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                  >
+                    <FeatureIcon className="h-[18px] w-[18px]" style={{ color: feature.color }} />
+                  </motion.div>
+                  <h3 className={`text-sm font-bold bg-gradient-to-r ${feature.accent} bg-clip-text text-transparent leading-tight flex-1 truncate`}>
+                    {feature.label}
+                  </h3>
+                  <span className="text-[10px] font-mono tabular-nums shrink-0 text-muted-foreground/50">
+                    {String(idx + 1).padStart(2, "0")} / {String(FEATURES.length).padStart(2, "0")}
+                  </span>
+                </div>
+
+                <div className={`mx-4 h-px ${dark ? "bg-white/8" : "bg-black/5"}`} />
+
                 {/* Live preview */}
-                <div className="flex-1 min-h-0">
+                <div className="relative px-3 py-2" style={{ height: 160, overflow: "hidden" }}>
                   <FeaturePreview isDark={dark} />
                 </div>
 
-                {/* Divider */}
-                <div className={`w-full h-px ${dark ? "bg-white/8" : "bg-black/6"}`} />
+                <div className={`mx-4 h-px ${dark ? "bg-white/8" : "bg-black/5"}`} />
 
-                {/* Label + description */}
-                <div className="flex items-start gap-3 shrink-0">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-xl shadow-md shrink-0"
-                    style={{ background: `${feature.color}22`, border: `1px solid ${feature.color}44` }}>
-                    <FeatureIcon className="h-5 w-5" style={{ color: feature.color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className={`text-sm font-bold bg-gradient-to-r ${feature.accent} bg-clip-text text-transparent leading-tight`}>
-                        {feature.label}
-                      </h3>
-                      <span className="text-[10px] font-mono tabular-nums shrink-0 text-muted-foreground/50">
-                        {String(idx + 1).padStart(2, "0")} / {String(FEATURES.length).padStart(2, "0")}
-                      </span>
-                    </div>
-                    <p className={`text-[11px] leading-relaxed mt-0.5 ${descText}`}>{feature.desc}</p>
-                  </div>
+                {/* Description */}
+                <div className="px-4 py-2.5">
+                  <p className={`text-[11px] leading-relaxed ${descText}`}>{feature.desc}</p>
                 </div>
-              </div>
 
-              {/* Shimmer sweep */}
-              <motion.div className="absolute inset-0 pointer-events-none" style={{ background: shimmer }}
-                animate={{ x: ["-100%", "200%"] }} transition={{ duration: 2.2, ease: "easeInOut", repeat: Infinity, repeatDelay: 1.5 }} />
-            </motion.div>
-          </AnimatePresence>
+                {/* Shimmer sweep */}
+                <motion.div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{ background: shimmer }}
+                  animate={{ x: ["-100%", "200%"] }}
+                  transition={{ duration: 2.5, ease: "easeInOut", repeat: Infinity, repeatDelay: 2.5 }}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
         </div>
 
         {/* Dot nav + prev/next */}
