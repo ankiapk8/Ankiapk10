@@ -19,6 +19,7 @@ import {
 } from "@/lib/study-stats";
 import type { Qbank } from "@workspace/api-client-react";
 import { AppDownloads } from "@/components/app-downloads";
+import { FeaturesShowcase } from "@/components/features-showcase";
 
 export default function Dashboard() {
   const { data: decks, isLoading } = useListDecks();
@@ -373,6 +374,9 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Features showcase */}
+      <FeaturesShowcase />
 
       {/* Download section — shown only on this page */}
       <AppDownloads />
