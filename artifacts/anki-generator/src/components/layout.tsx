@@ -4,6 +4,7 @@ import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History } from
 import { HeaderApkButton } from "@/components/header-apk-button";
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
 import { BottomNav } from "@/components/bottom-nav";
+import { PomodoroTimer } from "@/components/pomodoro-timer";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { Button } from "@/components/ui/button";
 
@@ -96,6 +97,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           </nav>
           <div className="ml-auto pl-2 flex items-center gap-1">
+            <PomodoroTimer />
             <Button
               variant="ghost"
               size="icon"
