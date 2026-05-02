@@ -141,7 +141,7 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
               data: { name: s.name.trim(), parentId: created.id, kind } as Parameters<typeof createDeck.mutateAsync>[0]["data"],
             });
           }
-          const label = kind === "qbank" ? "question bank" : "sub-deck";
+          const label = kind === "qbank" ? "question bank" : "sub-topic";
           toast({
             title: kind === "qbank" ? "QBank topic created!" : "Topic created!",
             description: validSlots.length > 0
@@ -176,11 +176,11 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
       icon: FolderOpen,
       accent: "primary" as const,
       namePlaceholder: "e.g. Biology, Machine Learning…",
-      subLabel: "Sub-decks",
-      subPlaceholder: (i: number) => `Sub-deck ${i + 1} name…`,
-      subNote: (n: number) => `${n} sub-deck${n !== 1 ? "s" : ""} will be created.`,
-      badgeLabel: (n: number) => `${n} sub-deck${n !== 1 ? "s" : ""}`,
-      btnLabel: (subs: number) => subs > 0 ? `Create Topic + ${subs} Sub-deck${subs !== 1 ? "s" : ""}` : "Create Topic",
+      subLabel: "Sub-topics",
+      subPlaceholder: (i: number) => `Sub-topic ${i + 1} name…`,
+      subNote: (n: number) => `${n} sub-topic${n !== 1 ? "s" : ""} will be created.`,
+      badgeLabel: (n: number) => `${n} sub-topic${n !== 1 ? "s" : ""}`,
+      btnLabel: (subs: number) => subs > 0 ? `Create Topic + ${subs} Sub-topic${subs !== 1 ? "s" : ""}` : "Create Topic",
     },
     "new-qbank-topic": {
       title: "New QBank Topic",
@@ -195,8 +195,8 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
       btnLabel: (subs: number) => subs > 0 ? `Create Topic + ${subs} QBank${subs !== 1 ? "s" : ""}` : "Create QBank Topic",
     },
     "new-subdeck": {
-      title: "New Sub-deck",
-      desc: "Create a flashcard deck inside an existing topic.",
+      title: "New Sub-Topic",
+      desc: "Create a sub-topic inside an existing main topic.",
       icon: FileText,
       accent: "primary" as const,
       namePlaceholder: "e.g. Chapter 1, Week 3 Notes…",
@@ -204,7 +204,7 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
       subPlaceholder: () => "",
       subNote: () => "",
       badgeLabel: () => "",
-      btnLabel: () => "Create Deck",
+      btnLabel: () => "Create Sub-Topic",
     },
     "new-qbank": {
       title: "New Question Bank",
@@ -239,7 +239,7 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
   const isViolet = config.accent === "violet";
   const selectedParentOpt = parentOptions.find(o => o.id.toString() === parentId);
 
-  const parentLabel = mode.type === "new-qbank" ? "QBank Topic" : "Parent Deck";
+  const parentLabel = mode.type === "new-qbank" ? "QBank Topic" : "Parent Topic";
   const parentRequired = isNewWithParent;
 
   return (
@@ -258,7 +258,7 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
         <div className="space-y-5">
           <div className="space-y-1.5">
             <Label htmlFor="deck-name">
-              {isTopicMode ? "Topic Name" : mode.type === "new-qbank" ? "Question Bank Name" : "Deck Name"}{" "}
+              {isTopicMode ? "Topic Name" : mode.type === "new-qbank" ? "Question Bank Name" : mode.type === "new-subdeck" ? "Sub-Topic Name" : "Deck Name"}{" "}
               <span className="text-destructive">*</span>
             </Label>
             <Input
@@ -299,14 +299,14 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
                   {parentId === "none" || !selectedParentOpt
                     ? <span className="text-muted-foreground text-sm">
                         {isNewWithParent
-                          ? mode.type === "new-qbank" ? "Select a QBank topic…" : "Select a parent deck…"
+                          ? mode.type === "new-qbank" ? "Select a QBank topic…" : "Select a main topic…"
                           : "No parent — standalone"}
                       </span>
                     : <span className="text-sm truncate">{selectedParentOpt.label}</span>
                   }
                 </SelectTrigger>
                 <SelectContent className="max-h-64">
-                  {mode.type === "edit" && <SelectItem value="none">No parent — standalone deck</SelectItem>}
+                  {mode.type === "edit" && <SelectItem value="none">No parent — standalone topic</SelectItem>}
                   {parentOptions.map(opt => (
                     <SelectItem key={opt.id} value={opt.id.toString()} className="py-1.5">
                       <span className="flex items-center gap-1 min-w-0">
@@ -366,7 +366,7 @@ export function DeckFormSheet({ open, onOpenChange, mode, onDone }: DeckFormShee
                   disabled={isSaving}
                 >
                   <Plus className="h-4 w-4" />
-                  Add {isViolet ? "question banks" : "sub-decks"} inside this topic
+                  Add {isViolet ? "question banks" : "sub-topics"} inside this topic
                 </button>
               ) : (
                 <div className="space-y-2">

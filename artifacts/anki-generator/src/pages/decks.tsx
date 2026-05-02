@@ -137,7 +137,7 @@ function DeckRow({
     ? "hover:text-primary hover:bg-primary/5"
     : "hover:text-violet-500 hover:bg-violet-500/5";
 
-  const subLabel = isQbank ? "question bank" : "sub-deck";
+  const subLabel = isQbank ? "question bank" : "sub-topic";
   const subFormType = isQbank ? "new-qbank" : "new-subdeck";
 
   return (
@@ -182,7 +182,7 @@ function DeckRow({
                     <p className={`${nameClass} truncate`}>{deck.name}</p>
                     {hasChildren && (
                       <Badge variant="outline" className="text-xs shrink-0 py-0 px-1.5">
-                        {children.length} {isQbank ? "question bank" : "sub-deck"}{children.length !== 1 ? "s" : ""}
+                        {children.length} {isQbank ? "question bank" : "sub-topic"}{children.length !== 1 ? "s" : ""}
                       </Badge>
                     )}
                   </div>
@@ -507,7 +507,7 @@ export default function Decks() {
     const target = all.find(d => d.id === id);
     const totalCards = (target?.cardCount ?? 0) + descendants.reduce((s, d) => s + d.cardCount, 0);
     const msg = descendants.length > 0
-      ? `Delete "${target?.name}" and ALL ${descendants.length} sub-deck${descendants.length !== 1 ? "s" : ""} inside it?\n\nThis will permanently remove ${totalCards} card${totalCards !== 1 ? "s" : ""}. This cannot be undone.`
+      ? `Delete "${target?.name}" and ALL ${descendants.length} sub-topic${descendants.length !== 1 ? "s" : ""} inside it?\n\nThis will permanently remove ${totalCards} card${totalCards !== 1 ? "s" : ""}. This cannot be undone.`
       : `Delete "${target?.name}"? This will permanently remove ${totalCards} card${totalCards !== 1 ? "s" : ""}. This cannot be undone.`;
     if (!confirm(msg)) return;
     deleteDeck.mutate({ id }, {
@@ -632,7 +632,7 @@ export default function Decks() {
               {isLoading
                 ? "Loading…"
                 : allDecksCount === 0
-                ? "Your flashcard decks will appear here."
+                ? "Your topics and flashcard decks will appear here."
                 : `${allDecksCount} deck${allDecksCount !== 1 ? "s" : ""} · ${totalCards} card${totalCards !== 1 ? "s" : ""} total`}
             </p>
           </div>
@@ -852,15 +852,15 @@ export default function Decks() {
                   <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => openDeckForm({ type: "new-subdeck" })}>
                     <FileText className="h-4 w-4 text-blue-500" />
                     <div>
-                      <div className="text-sm font-medium">Empty Sub-deck</div>
-                      <div className="text-xs text-muted-foreground">Flashcard deck inside a topic</div>
+                      <div className="text-sm font-medium">Empty Sub-Topic</div>
+                      <div className="text-xs text-muted-foreground">Flashcard sub-topic inside a main topic</div>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => openDeckForm({ type: "new-topic" })}>
                     <FolderOpen className="h-4 w-4 text-primary" />
                     <div>
-                      <div className="text-sm font-medium">New Flashcard Topic</div>
-                      <div className="text-xs text-muted-foreground">With optional sub-decks</div>
+                      <div className="text-sm font-medium">New Main Topic</div>
+                      <div className="text-xs text-muted-foreground">With optional sub-topics</div>
                     </div>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => openDeckForm({ type: "new-qbank-topic" })}>
@@ -896,7 +896,7 @@ export default function Decks() {
           </div>
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-3.5 shadow-sm">
             <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium">
-              <FileText className="h-3.5 w-3.5 text-blue-500" /> Sub-decks
+              <FileText className="h-3.5 w-3.5 text-blue-500" /> Sub-topics
             </div>
             <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{flashcardChildrenCount}</div>
           </div>
@@ -997,17 +997,41 @@ export default function Decks() {
               </div>
             ) : filteredFlashcards.length === 0 ? (
               <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
-                <p className="font-medium">No decks match "{search}"</p>
+                <p className="font-medium">No topics match "{search}"</p>
                 <Button variant="ghost" className="mt-3" onClick={() => setSearch("")}>Clear search</Button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredFlashcards.map((deck, idx) => (
-                  <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
-                    <DeckRow deck={deck} depth={0} {...sharedRowProps} />
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">
+                    {rootFlashcardDecks.length} main topic{rootFlashcardDecks.length !== 1 ? "s" : ""}
+                    {flashcardChildrenCount > 0 ? ` · ${flashcardChildrenCount} sub-topic${flashcardChildrenCount !== 1 ? "s" : ""}` : ""}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline" size="sm"
+                      className="gap-1.5 h-8 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50"
+                      onClick={() => openDeckForm({ type: "new-topic" })}
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" /> New Topic
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-1.5 h-8"
+                      onClick={() => openGenerateSheet("deck")}
+                    >
+                      <Sparkles className="h-3.5 w-3.5" /> Generate
+                    </Button>
                   </div>
-                ))}
-              </div>
+                </div>
+                <div className="space-y-3">
+                  {filteredFlashcards.map((deck, idx) => (
+                    <div key={deck.id} className="animate-in fade-in slide-in-from-bottom-2" style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}>
+                      <DeckRow deck={deck} depth={0} {...sharedRowProps} />
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </TabsContent>
 
@@ -1125,7 +1149,7 @@ export default function Decks() {
               Merge {selectedIds.size} deck{selectedIds.size !== 1 ? "s" : ""}
             </DialogTitle>
             <DialogDescription>
-              Combines every card from the selected decks (and their sub-decks) into one new deck.
+              Combines every card from the selected topics (and their sub-topics) into one new topic.
             </DialogDescription>
           </DialogHeader>
 
@@ -1167,7 +1191,7 @@ export default function Decks() {
               <span>
                 <span className="font-medium block">Delete original decks after merging</span>
                 <span className="text-xs text-muted-foreground">
-                  Removes the source decks and any sub-decks they contain. Cannot be undone.
+                  Removes the source topics and any sub-topics they contain. Cannot be undone.
                 </span>
               </span>
             </label>

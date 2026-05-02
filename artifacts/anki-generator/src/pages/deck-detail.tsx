@@ -1055,7 +1055,7 @@ export default function DeckDetail() {
             )}
             {hasSubDecks && (
               <Badge variant="outline" className="text-sm">
-                {subDecks.length} sub-deck{subDecks.length !== 1 ? "s" : ""}
+                {subDecks.length} sub-topic{subDecks.length !== 1 ? "s" : ""}
               </Badge>
             )}
           </div>
@@ -1141,7 +1141,7 @@ export default function DeckDetail() {
             <h2 className="text-xl font-medium tracking-tight">
               Cards ({showTabs ? filteredCards.length : cardList.length})
               {hasSubDecks && cardList.length > 0 && (
-                <span className="text-sm font-normal text-muted-foreground ml-2">across all sub-decks</span>
+                <span className="text-sm font-normal text-muted-foreground ml-2">across all sub-topics</span>
               )}
             </h2>
           </div>

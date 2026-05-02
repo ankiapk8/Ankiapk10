@@ -457,17 +457,17 @@ export function GenerateForm({
       <div className="space-y-1.5">
         <Label className="text-sm flex items-center gap-1.5">
           <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
-          Parent Deck <span className="text-muted-foreground font-normal">(optional)</span>
+          Parent Topic <span className="text-muted-foreground font-normal">(optional)</span>
         </Label>
         <Select value={parentId} onValueChange={setParentId}>
           <SelectTrigger className="h-8 text-sm">
             {parentId === "none" || !selected
-              ? <span className="text-muted-foreground">No parent — standalone deck</span>
+              ? <span className="text-muted-foreground">No parent — standalone topic</span>
               : <span className="truncate">{selected.label}</span>
             }
           </SelectTrigger>
           <SelectContent className="max-h-64">
-            <SelectItem value="none">No parent — standalone deck</SelectItem>
+            <SelectItem value="none">No parent — standalone topic</SelectItem>
             {parentOptions.map(opt => (
               <SelectItem key={opt.id} value={opt.id.toString()} className="py-1.5">
                 <span className="flex items-center gap-1 min-w-0">
