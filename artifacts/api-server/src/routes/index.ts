@@ -13,6 +13,7 @@ import downloadApkRouter from "./download-apk";
 import qbanksRouter from "./qbanks";
 import mindMapRouter from "./mind-map";
 import deckMindMapsRouter from "./deck-mind-maps";
+import feedbackRouter from "./feedback";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(downloadApkRouter);
 router.use(qbanksRouter);
 router.use(mindMapRouter);
 router.use(deckMindMapsRouter);
+router.use(feedbackRouter);
 
 export default router;

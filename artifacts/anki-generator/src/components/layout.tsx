@@ -4,6 +4,7 @@ import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History } from
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
 import { BottomNav } from "@/components/bottom-nav";
 import { PomodoroTimer } from "@/components/pomodoro-timer";
+import { FeedbackButton } from "@/components/feedback-button";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { Button } from "@/components/ui/button";
 
@@ -113,6 +114,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <BottomNav />
+      <FeedbackButton />
       <ApkWelcomeBanner />
     </div>
   );

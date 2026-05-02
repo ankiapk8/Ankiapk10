@@ -184,6 +184,17 @@ export async function ensureDatabaseSchema(): Promise<void> {
           ON DELETE cascade ON UPDATE no action;
       END IF;
     END $$;
+
+    CREATE TABLE IF NOT EXISTS "feedback" (
+      "id" serial PRIMARY KEY NOT NULL,
+      "type" text NOT NULL DEFAULT 'general',
+      "rating" integer,
+      "message" text NOT NULL,
+      "email" text,
+      "user_id" text,
+      "page" text,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL
+    );
   `);
 }
 
