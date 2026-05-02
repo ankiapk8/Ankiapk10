@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./authUser";
 export * from "./card";
 export * from "./clearGenerations200";
 export * from "./createDeckBody";
@@ -19,8 +20,17 @@ export * from "./generateCardsBodyPageImageRegionsItemItem";
 export * from "./generateCardsResponse";
 export * from "./generateQbankBody";
 export * from "./generation";
+export * from "./getAllTopicsResponse";
+export * from "./getAllTopicsResponseTopics";
+export * from "./getCurrentAuthUserResponse";
 export * from "./healthStatus";
 export * from "./listGenerationsParams";
+export * from "./topic";
+export * from "./topicDifficultyLevel";
+export * from "./topicPriority";
+export * from "./topicStatus";
 export * from "./updateCardBody";
 export * from "./updateDeckBody";
 export * from "./updateDeckBodyKind";
+export * from "./upsertTopicsBody";
+export * from "./upsertTopicsResponse";

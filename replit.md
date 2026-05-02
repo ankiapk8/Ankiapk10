@@ -37,6 +37,18 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Safari/iPad compatibility uses a `Promise.withResolvers` polyfill in `src/main.tsx` before loading the app and the legacy PDF.js build
 - Direct API fetches use the Vite base path helper in `src/lib/utils.ts` so PDF extraction, explain, and `.apkg` export requests route correctly in the preview/deployed app
 
+### Final Year Study Planner (`artifacts/study-scheduler`)
+- React + Vite web app at `/study-scheduler/`
+- Replit Auth (OIDC + custom session cookies) — AuthGate shows sign-in screen when unauthenticated
+- WelcomeModal shown once per user (localStorage key `welcomed-{userId}`)
+- 14 clinical subjects organized under 5 parent groups: Sub Medicine (Dermatology, Family Medicine, Emergency, Forensic, Radiology), Psychiatric, Sub Surgery (ENT, Ophthalmology, Orthopedic, Neurosurgery, Urology), Pediatric, Gynecology (Gynecology, Obstetric)
+- Scheduling algorithm in `src/lib/topics.ts`: sorts topics (Family Medicine first, then High > Medium > Low priority), distributes over remaining days of month, assigns First Study Date + Second Study Date (+14 days)
+- Full-month animated calendar: day cells show topic chips color-coded by priority; clicking a day shows detail panel with inline status/priority toggles
+- CSV export (single file or ZIP), JSON backup/restore
+- localStorage migration: on first authenticated load, migrates any existing localStorage topics to the database
+- API routes: `GET /api/study-topics`, `PUT /api/study-topics/:storageKey`, `GET /api/auth/user`
+- Global `authMiddleware` in `app.ts` sets `req.isAuthenticated()` and `req.user` via custom session lookup
+
 ### API Server (`artifacts/api-server`)
 - Express 5 backend at `/api`
 - In production (Docker / Render), the same Express server also serves the built React frontend from `STATIC_DIR` (defaults to `<cwd>/public`) with SPA fallback. In Replit dev the Vite dev server runs separately so this static block is just inactive.

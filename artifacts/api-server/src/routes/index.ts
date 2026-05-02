@@ -12,6 +12,8 @@ import generationsRouter from "./generations";
 import downloadApkRouter from "./download-apk";
 import qbanksRouter from "./qbanks";
 import mindMapRouter from "./mind-map";
+import authRouter from "./auth";
+import studyTopicsRouter from "./study-topics";
 
 const router: IRouter = Router();
 
@@ -28,5 +30,7 @@ router.use(generationsRouter);
 router.use(downloadApkRouter);
 router.use(qbanksRouter);
 router.use(mindMapRouter);
+router.use(authRouter);
+router.use(studyTopicsRouter);
 
 export default router;
