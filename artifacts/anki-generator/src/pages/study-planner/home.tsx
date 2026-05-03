@@ -5,8 +5,10 @@ import { AmbientOrbs } from "@/components/ambient-orbs";
 import {
   BookOpen, Settings, BarChart3, Flame, Download, RefreshCw,
   ChevronDown, X, AlertTriangle, ArrowRight, FolderPlus,
-  Target, CalendarDays, TrendingDown, TrendingUp, Printer,
+  Target, CalendarDays, TrendingDown, TrendingUp, Printer, Wand2,
 } from "lucide-react";
+import { SmartScheduleModal } from "@/components/study-planner/smart-schedule-modal";
+import { getSmartSchedule, getSmartScheduleTodaySlots } from "@/lib/smart-schedule";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -104,6 +106,9 @@ export default function SPHome() {
   const [importMsg, setImportMsg] = useState<{ ok: boolean; msg: string } | null>(null);
   const [showShiftDialog, setShowShiftDialog] = useState(false);
   const [overdueItems, setOverdueItems] = useState<ScheduledItem[]>([]);
+  const [showSmartSchedule, setShowSmartSchedule] = useState(false);
+  const [smartScheduleExists, setSmartScheduleExists] = useState(() => !!getSmartSchedule());
+  const [smartScheduleTodayCount, setSmartScheduleTodayCount] = useState(() => getSmartScheduleTodaySlots().length);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // All groups: hardcoded + custom
@@ -117,6 +122,16 @@ export default function SPHome() {
     const handler = () => setActivityTick(t => t + 1);
     window.addEventListener("sp-study-activity-updated", handler);
     return () => window.removeEventListener("sp-study-activity-updated", handler);
+  }, []);
+
+  // Smart schedule change listener
+  useEffect(() => {
+    const handler = () => {
+      setSmartScheduleExists(!!getSmartSchedule());
+      setSmartScheduleTodayCount(getSmartScheduleTodaySlots().length);
+    };
+    window.addEventListener("smart-schedule-changed", handler);
+    return () => window.removeEventListener("smart-schedule-changed", handler);
   }, []);
 
   // Check for overdue topics after data loads
@@ -436,6 +451,45 @@ ${monthsHtml}
             </button>
           </div>
         )}
+
+        {/* Smart Schedule card */}
+        <motion.button
+          type="button"
+          onClick={() => setShowSmartSchedule(true)}
+          whileHover={{ scale: 1.005 }}
+          whileTap={{ scale: 0.995 }}
+          transition={{ duration: 0.15 }}
+          className={`w-full text-left rounded-xl border px-3 py-2.5 transition-colors ${
+            smartScheduleExists
+              ? "border-amber-200/70 dark:border-amber-700/40 bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/60 dark:hover:bg-amber-950/30"
+              : "border-dashed border-amber-200/80 dark:border-amber-700/50 hover:bg-amber-50/40 dark:hover:bg-amber-950/20"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <div
+              className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: "hsl(38 95% 60% / 0.15)", boxShadow: "0 0 10px hsl(38 95% 60% / 0.18)" }}
+            >
+              <Wand2 className="h-3.5 w-3.5" style={{ color: "#fb923c" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold leading-tight">
+                {smartScheduleExists ? "Smart Schedule Active" : "Generate Smart Schedule"}
+              </div>
+              <div className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                {smartScheduleExists
+                  ? smartScheduleTodayCount > 0
+                    ? `${smartScheduleTodayCount} session${smartScheduleTodayCount !== 1 ? "s" : ""} scheduled for today · Tap to edit`
+                    : "AI-assisted deck scheduling · Tap to view or edit"
+                  : "Distribute decks across study days toward your exam date"}
+              </div>
+            </div>
+            <ChevronDown
+              className="h-4 w-4 text-muted-foreground shrink-0"
+              style={{ transform: "rotate(-90deg)" }}
+            />
+          </div>
+        </motion.button>
 
         <Accordion title="Dashboard" defaultOpen icon={<BarChart3 className="h-4 w-4 text-primary" />}
           badge={streak > 0 ? (
@@ -827,6 +881,15 @@ ${monthsHtml}
           </div>
         </div>
       </div>
+
+      <SmartScheduleModal
+        open={showSmartSchedule}
+        onOpenChange={setShowSmartSchedule}
+        onScheduleChange={() => {
+          setSmartScheduleExists(!!getSmartSchedule());
+          setSmartScheduleTodayCount(getSmartScheduleTodaySlots().length);
+        }}
+      />
     </div>
   );
 }
