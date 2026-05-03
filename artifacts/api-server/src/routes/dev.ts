@@ -51,7 +51,7 @@ if (process.env.NODE_ENV !== "production") {
     }
     const userId = req.user!.id;
     setDevProOverride(userId, true, true);
-    res.json({ ok: true, userId, devIsPro: true, simulated: true });
+    res.json({ ok: true, isPro: true, userId, simulated: true });
   });
 
   router.delete("/dev/simulate-subscribe", (req, res): void => {
@@ -60,8 +60,8 @@ if (process.env.NODE_ENV !== "production") {
       return;
     }
     const userId = req.user!.id;
-    clearDevProOverride(userId);
-    res.json({ ok: true, userId, devIsPro: null, simulated: false });
+    setDevProOverride(userId, false, false);
+    res.json({ ok: true, isPro: false, userId, simulated: false });
   });
 }
 
