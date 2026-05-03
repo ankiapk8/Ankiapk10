@@ -4,9 +4,9 @@ import { sql, eq } from "drizzle-orm";
 import { getDevProOverride, getDevOverrideForRequest } from "./dev-overrides";
 
 export const FREE_TIER = {
-  MAX_CARDS_PER_DECK: 20,
-  MAX_DECKS: 2,
-  MAX_APKG_EXPORTS_PER_DAY: 1,
+  MAX_CARDS_PER_DECK: 500,
+  MAX_DECKS: 100,
+  MAX_APKG_EXPORTS_PER_DAY: 50,
 } as const;
 
 export interface LimitError {

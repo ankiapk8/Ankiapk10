@@ -28,7 +28,7 @@ The project is structured as a pnpm workspace monorepo.
 *   **Validation:** Zod (`zod/v4`), `drizzle-zod`.
 *   **API Codegen:** Orval (from OpenAPI spec).
 *   **Build System:** esbuild (CJS bundle).
-*   **AI Integration:** OpenAI via Replit AI Integrations (`@workspace/integrations-openai-ai-server`). AI client loaded lazily.
+*   **AI Integration:** OpenRouter via `@workspace/integrations-openai-ai-server`. Uses `OPENROUTER_API_KEY`. Default model: `google/gemini-2.5-flash-preview` (upgraded from 2.0-flash). AI client loaded lazily.
 *   **PDF Extraction:** Client-side processing for smaller files, server-side for larger, with OCR fallback. Uses `FormData` for server uploads to bypass proxy limits.
 *   **Server-side Rendering (Production):** The Express server serves the built React frontend and handles SPA fallback in production environments (Docker/Render).
 *   **Streaming Endpoints:** Long-running AI endpoints (`/api/generate/stream`, `/api/generate-qbank/stream`, `/api/explain`) use SSE with heartbeat comments and `X-Accel-Buffering: no` to prevent proxy buffering.

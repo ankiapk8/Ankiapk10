@@ -99,24 +99,78 @@ async function createChatCompletionWithRetry(
 
 function parseJson<T>(raw: string): T[] {
   const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
-  const candidates = [
-    cleaned,
-    cleaned.match(/\[[\s\S]*\]/)?.[0],
-    cleaned.match(/\{[\s\S]*\}/)?.[0],
-  ].filter((v): v is string => Boolean(v));
 
-  for (const candidate of candidates) {
+  const tryParse = (s: string): T[] | null => {
     try {
-      const parsed = JSON.parse(candidate);
-      if (Array.isArray(parsed)) return parsed as T[];
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) {
+        const items = parsed.filter(x => x !== null && x !== undefined);
+        if (items.length > 0) return items as T[];
+        if (parsed.length === 0) return [] as T[];
+      }
       if (parsed && typeof parsed === "object") {
-        const arr = (parsed as Record<string, unknown>).cards ?? (parsed as Record<string, unknown>).items;
-        if (Array.isArray(arr)) return arr as T[];
+        const arr =
+          (parsed as Record<string, unknown>).cards ??
+          (parsed as Record<string, unknown>).items ??
+          (parsed as Record<string, unknown>).questions;
+        if (Array.isArray(arr) && arr.length > 0) return arr as T[];
+        return [parsed as T];
       }
     } catch {
-      continue;
+      return null;
     }
+    return null;
+  };
+
+  // 1. Full cleaned string
+  const r1 = tryParse(cleaned);
+  if (r1 !== null) return r1;
+
+  // 2. First complete [...] block
+  const arrayMatch = cleaned.match(/\[[\s\S]*\]/);
+  if (arrayMatch?.[0]) {
+    const r2 = tryParse(arrayMatch[0]);
+    if (r2 !== null) return r2;
   }
+
+  // 3. First complete {...} block
+  const objMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (objMatch?.[0]) {
+    const r3 = tryParse(objMatch[0]);
+    if (r3 !== null) return r3;
+  }
+
+  // 4. Truncation repair: the AI hit the token limit mid-array.
+  //    Try closing the partial JSON in a few different ways and keep the
+  //    longest result that actually parses.
+  const arrayStart = cleaned.indexOf("[");
+  if (arrayStart >= 0) {
+    const partial = cleaned.slice(arrayStart);
+    const repairAttempts: string[] = [];
+
+    // a) Simply close the array
+    repairAttempts.push(partial + "]");
+
+    // b) Remove the last (likely incomplete) item then close
+    const lastComma = partial.lastIndexOf(",");
+    if (lastComma > 0) {
+      repairAttempts.push(partial.slice(0, lastComma) + "]");
+    }
+
+    // c) Close an open string then close the object then close the array
+    repairAttempts.push(partial + '"}]');
+    repairAttempts.push(partial + '"}}]');
+
+    let best: T[] | null = null;
+    for (const attempt of repairAttempts) {
+      const r = tryParse(attempt);
+      if (r !== null && (best === null || r.length > best.length)) {
+        best = r;
+      }
+    }
+    if (best !== null && best.length > 0) return best;
+  }
+
   return [];
 }
 
@@ -302,9 +356,9 @@ function customPromptBlock(customPrompt: string | undefined): string {
 // Chunking constants for exhaustive text generation. We split very long PDFs
 // into manageable pieces so the model can cover every paragraph instead of
 // summarising the whole text in a single call (which silently drops content).
-const TEXT_CHUNK_CHARS = 6000;
-const TEXT_CHUNK_OVERLAP = 300;
-const ABSOLUTE_TEXT_CARD_CAP = 1000;
+const TEXT_CHUNK_CHARS = 8000;
+const TEXT_CHUNK_OVERLAP = 400;
+const ABSOLUTE_TEXT_CARD_CAP = 2000;
 
 type TextChunk = { text: string; pageNumber: number | null };
 
@@ -437,7 +491,7 @@ Goal: ~${targetCards} cards for this segment, but you MUST add more if the segme
 
   const response = await createChatCompletionWithRetry(openai, {
     model: FREE_TEXT_MODEL,
-    max_completion_tokens: 16384,
+    max_completion_tokens: 32768,
     stream: false as const,
     messages: [
       { role: "system", content: systemPrompt },
@@ -490,7 +544,7 @@ async function generateTextCards(
 
   const allCards: RawCard[] = [];
   // Run chunks with limited concurrency to avoid hammering the AI provider.
-  const CONCURRENCY = 3;
+  const CONCURRENCY = 5;
   let done = 0;
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
     if (signal?.aborted) throw new Error("Cancelled");
@@ -654,7 +708,7 @@ No markdown, no commentary, no \`\`\` fences — just the JSON array.${regionHin
   try {
     const response = await createChatCompletionWithRetry(openai, {
       model: FREE_VISION_MODEL,
-      max_completion_tokens: 16384,
+      max_completion_tokens: 32768,
       stream: false as const,
       messages: [
         { role: "system", content: systemPrompt },
@@ -1259,7 +1313,7 @@ Goal: ~${targetQuestions} high-quality MCQs for this segment, but you MUST add m
 
   const response = await createChatCompletionWithRetry(openai, {
     model: FREE_TEXT_MODEL,
-    max_completion_tokens: 16384,
+    max_completion_tokens: 32768,
     stream: false as const,
     messages: [
       { role: "system", content: systemPrompt },
@@ -1302,7 +1356,7 @@ async function generateQbankCards(
   const allCards: RawCard[] = [];
   const failures: unknown[] = [];
   let chunksAttempted = 0;
-  const CONCURRENCY = 3;
+  const CONCURRENCY = 5;
   for (let i = 0; i < chunks.length; i += CONCURRENCY) {
     if (signal?.aborted) throw new Error("Cancelled");
     const slice = chunks.slice(i, i + CONCURRENCY);
