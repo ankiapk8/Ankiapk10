@@ -8,6 +8,7 @@ import { GenerateForm } from "@/components/generate-form";
 import { GenerateQbankForm } from "@/components/generate-qbank-form";
 import { useSubscription } from "@/hooks/useSubscription";
 import { UpgradeBanner } from "@/components/upgrade-gate";
+import { RequireAuthBanner } from "@/components/require-auth";
 
 type Mode = "deck" | "qbank";
 
@@ -105,6 +106,7 @@ export default function Generate() {
 
   return (
     <div className="relative min-h-[60vh] pb-12">
+      <RequireAuthBanner className="mb-4" message="Sign in to save your decks across devices and track your progress." />
       {/* Animated background */}
       <motion.div
         aria-hidden

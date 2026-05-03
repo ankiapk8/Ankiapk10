@@ -129,8 +129,12 @@ router.patch("/qbanks/:id", async (req, res, next): Promise<void> => {
 
   if (Object.keys(updates).length <= 1) { res.status(400).json({ error: "No fields to update" }); return; }
 
+  const patchUserId = getRequestUserId(req);
   try {
-    const [updated] = await db.update(qbanksTable).set(updates).where(eq(qbanksTable.id, id)).returning();
+    const [existing] = await db.select({ userId: qbanksTable.userId }).from(qbanksTable).where(eq(qbanksTable.id, id));
+    if (!existing || !ownsResource(existing.userId ?? null, patchUserId)) { res.status(404).json({ error: "QBank not found" }); return; }
+
+    const [updated] = await db.update(qbanksTable).set(updates).where(and(eq(qbanksTable.id, id), qbankOwnerFilter(patchUserId))).returning();
     if (!updated) { res.status(404).json({ error: "QBank not found" }); return; }
 
     const [row] = await db
@@ -157,7 +161,11 @@ router.delete("/qbanks/:id", async (req, res, next): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
+  const deleteUserId = getRequestUserId(req);
   try {
+    const [target] = await db.select({ userId: qbanksTable.userId }).from(qbanksTable).where(eq(qbanksTable.id, id));
+    if (!target || !ownsResource(target.userId ?? null, deleteUserId)) { res.status(404).json({ error: "QBank not found" }); return; }
+
     const allQbanks = await db.select({ id: qbanksTable.id, parentId: qbanksTable.parentId }).from(qbanksTable);
 
     function collectDescendants(pid: number): number[] {
