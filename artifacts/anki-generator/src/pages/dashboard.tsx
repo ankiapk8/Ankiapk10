@@ -304,9 +304,9 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {/* Due today widget */}
+      {/* Due today widget — links to combined cross-deck review session */}
       {dueNowCount > 0 && (
-        <Link href="/decks">
+        <Link href="/study/due">
           <Card className="border-amber-400/40 dark:border-amber-600/30 bg-amber-500/5 shadow-sm hover:border-amber-500/60 hover:shadow-md transition-all cursor-pointer group">
             <CardContent className="flex items-center gap-4 p-5">
               <div className="h-10 w-10 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0 group-hover:bg-amber-500/25 transition-colors">
@@ -316,7 +316,7 @@ export default function Dashboard() {
                 <p className="font-semibold text-amber-800 dark:text-amber-200">
                   {dueNowCount} card{dueNowCount !== 1 ? "s" : ""} due for review
                 </p>
-                <p className="text-sm text-amber-700/70 dark:text-amber-400/70">Open a deck to review scheduled cards</p>
+                <p className="text-sm text-amber-700/70 dark:text-amber-400/70">Review due cards across all decks</p>
               </div>
               <ChevronRight className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
             </CardContent>

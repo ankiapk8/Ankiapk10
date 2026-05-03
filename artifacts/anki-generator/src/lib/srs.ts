@@ -133,6 +133,13 @@ export function getDueCountForDeck(cardIds: number[]): number {
   return getDueCardIds(cardIds).length;
 }
 
+/**
+ * Counts due cards for a deck by scanning the SRS map.
+ * Only counts cards that have been reviewed at least once (have lastReviewedAt),
+ * because the deck library doesn't provide card IDs — so unreviewed new cards
+ * cannot be counted here. For complete due counts (including new cards), use
+ * getDueCardIds(cardIds) from the deck detail page where card IDs are available.
+ */
 export function getDueCountByDeckId(deckId: number): number {
   const map = getSrsMap();
   const today = todayStr();

@@ -1719,7 +1719,7 @@ function EditableCard({
                 {daysUntilDue <= 0 ? "Due now" : `Due in ${daysUntilDue}d`}
               </span>
             )}
-            {cardSrs.reps > 0 && (
+            {cardSrs !== null && cardSrs.reps > 0 && (
               <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full border border-border/40">
                 EF {cardSrs.easeFactor.toFixed(2)}
               </span>
