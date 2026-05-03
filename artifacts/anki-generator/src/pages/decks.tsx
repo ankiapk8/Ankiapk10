@@ -58,6 +58,7 @@ import { getSessions, getDeckStats } from "@/lib/study-stats";
 // ─── Types ────────────────────────────────────────────────────────────────────
 type DeckWithParent = Deck & { parentId?: number | null };
 type SortOption = "name" | "created" | "cards" | "lastStudied" | "mastery";
+type MasteryFilter = "all" | "mastered" | "needs-review";
 type LibFolder = { id: string; name: string; deckIds: number[] };
 
 // ─── Tag palette ──────────────────────────────────────────────────────────────
@@ -108,6 +109,15 @@ function getAllDescendants(deckId: number, childrenMap: Map<number, DeckWithPare
 function getAllQbankDescendants(qbankId: number, childrenMap: Map<number, Qbank[]>): Qbank[] {
   const direct = childrenMap.get(qbankId) ?? [];
   return [...direct, ...direct.flatMap(q => getAllQbankDescendants(q.id, childrenMap))];
+}
+
+function useDebouncedValue<T>(value: T, delay = 180) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const handle = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(handle);
+  }, [value, delay]);
+  return debounced;
 }
 
 // ─── QbankRow ─────────────────────────────────────────────────────────────────
@@ -520,6 +530,7 @@ export default function Decks() {
   const [deckFormOpen, setDeckFormOpen] = useState(false);
   const [deckFormMode, setDeckFormMode] = useState<DeckFormMode>({ type: "new-topic" });
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [exporting, setExporting] = useState(false);
@@ -536,6 +547,7 @@ export default function Decks() {
   const initializedRef = useRef(false);
   const [libraryTab, setLibraryTab] = useState<"decks" | "qbanks">("decks");
   const [generateMode, setGenerateMode] = useState<"deck" | "qbank">("deck");
+  const [masteryFilter, setMasteryFilter] = useState<MasteryFilter>("all");
 
   // ── Task 13: tags ──────────────────────────────────────────────────────────
   const [deckTags, setDeckTagsState] = useState<Record<number, string[]>>(loadDeckTags);
@@ -698,24 +710,28 @@ export default function Decks() {
   }, [sortBy, lastStudiedMap, masteryMap, deckChildrenMap]);
 
   const filterBySearch = useCallback((list: DeckWithParent[]) => {
-    if (!search.trim()) return list;
-    const q = search.toLowerCase();
+    if (!debouncedSearch.trim()) return list;
+    const q = debouncedSearch.toLowerCase();
     function matchesSearch(d: DeckWithParent): boolean {
-      if (d.name.toLowerCase().includes(q) || d.description?.toLowerCase().includes(q)) return true;
+      if (
+        d.name.toLowerCase().includes(q) ||
+        d.description?.toLowerCase().includes(q) ||
+        (deckTags[d.id] ?? []).some(tag => tag.toLowerCase().includes(q))
+      ) return true;
       return (deckChildrenMap.get(d.id) ?? []).some(child => matchesSearch(child));
     }
     return list.filter(d => matchesSearch(d));
-  }, [search, deckChildrenMap]);
+  }, [debouncedSearch, deckChildrenMap, deckTags]);
 
   const filterQbanksBySearch = useCallback((list: Qbank[]) => {
-    if (!search.trim()) return list;
-    const q = search.toLowerCase();
+    if (!debouncedSearch.trim()) return list;
+    const q = debouncedSearch.toLowerCase();
     function matchesSearch(qb: Qbank): boolean {
       if (qb.name.toLowerCase().includes(q) || qb.description?.toLowerCase().includes(q)) return true;
       return (qbankChildrenMap.get(qb.id) ?? []).some(child => matchesSearch(child));
     }
     return list.filter(qb => matchesSearch(qb));
-  }, [search, qbankChildrenMap]);
+  }, [debouncedSearch, qbankChildrenMap]);
 
   const filteredFlashcards = useMemo(() => {
     let list = filterBySearch(rootFlashcardDecks);
@@ -724,8 +740,15 @@ export default function Decks() {
       const folder = folders.find(f => f.id === activeFolderFilter);
       if (folder) list = list.filter(d => folder.deckIds.includes(d.id));
     }
+    if (masteryFilter !== "all") {
+      list = list.filter(d => {
+        const pct = masteryMap.get(d.id);
+        if (masteryFilter === "mastered") return (pct ?? 0) >= 80;
+        return (pct ?? 0) < 80;
+      });
+    }
     return sortDecks(list);
-  }, [rootFlashcardDecks, filterBySearch, activeTagFilter, activeFolderFilter, folders, deckTags, sortDecks]);
+  }, [rootFlashcardDecks, filterBySearch, activeTagFilter, activeFolderFilter, folders, deckTags, masteryFilter, masteryMap, sortDecks]);
 
   const filteredQbanks = useMemo(() => filterQbanksBySearch(rootQbankDecks), [rootQbankDecks, filterQbanksBySearch]);
 
@@ -940,7 +963,7 @@ export default function Decks() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="relative space-y-6 animate-in fade-in duration-500 pb-32">
+      <div className="relative space-y-6 animate-in fade-in duration-500 pb-32">
       <AmbientOrbs color="hsl(239 84% 68% / 0.10)" className="rounded-3xl" />
 
       {/* Header */}
@@ -1130,7 +1153,7 @@ export default function Decks() {
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
-                placeholder="Search decks by name or description…"
+                placeholder="Search decks, cards, and tags…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-10 pr-10 h-11 rounded-xl bg-card/60 backdrop-blur-sm border-border/60 shadow-sm focus-visible:ring-primary/30 focus-visible:border-primary/40"
@@ -1157,7 +1180,7 @@ export default function Decks() {
             )}
           </div>
 
-          {/* Tag filter chips */}
+          {/* Filter chips */}
           {libraryTab === "decks" && allTags.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
@@ -1180,6 +1203,25 @@ export default function Decks() {
                   </button>
                 );
               })}
+              <div className="ml-2 flex items-center gap-1">
+                {([
+                  { key: "all", label: "All" },
+                  { key: "mastered", label: "Mastered" },
+                  { key: "needs-review", label: "Needs review" },
+                ] as const).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setMasteryFilter(key)}
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border transition-all ${
+                      masteryFilter === key
+                        ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                        : "bg-card/60 text-muted-foreground border-border/60 hover:border-border"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -1428,6 +1470,25 @@ export default function Decks() {
             <Button variant="outline" onClick={openMergeDialog} disabled={selectedIds.size < 2 || merging} className="gap-1.5 h-8">
               <Combine className="h-3.5 w-3.5" /> Merge
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5 h-8" disabled={selectedIds.size === 0 || folders.length === 0}>
+                  <FolderOutput className="h-3.5 w-3.5" /> Move to folder
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-44">
+                <DropdownMenuItem className="gap-2 cursor-pointer" onClick={() => { for (const id of selectedIds) moveDeckToFolder(id, null); }}>
+                  <FolderX className="h-3.5 w-3.5" /> No folder
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {folders.map(folder => (
+                  <DropdownMenuItem key={folder.id} className="gap-2 cursor-pointer" onClick={() => { for (const id of selectedIds) moveDeckToFolder(id, folder.id); }}>
+                    <Folder className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="truncate flex-1">{folder.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={handleExportApkg} disabled={selectedIds.size === 0 || exporting} className="gap-1.5 h-8 shadow-sm">
               <Download className="h-3.5 w-3.5" />
               {exporting ? "Exporting…" : "Export"}
