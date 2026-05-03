@@ -21,6 +21,38 @@ const NAV_ACCENTS: Record<string, { color: string; glow: string }> = {
   "/planner": { color: "#fb923c", glow: "hsl(24 95% 60% / 0.35)" },
 };
 
+const NAV_BACKDROPS: Record<string, { light: string; dark: string }> = {
+  "/":        {
+    light: "radial-gradient(ellipse 90% 55% at 50% -5%, hsl(152 72% 55% / 0.055) 0%, transparent 70%)",
+    dark:  "radial-gradient(ellipse 90% 55% at 50% -5%, hsl(152 72% 55% / 0.08) 0%, transparent 70%)",
+  },
+  "/decks":   {
+    light: "radial-gradient(ellipse 90% 55% at 50% -5%, hsl(239 84% 68% / 0.055) 0%, transparent 70%)",
+    dark:  "radial-gradient(ellipse 90% 55% at 50% -5%, hsl(239 84% 68% / 0.08) 0%, transparent 70%)",
+  },
+  "/history": {
+    light: "radial-gradient(ellipse 90% 55% at 50% -5%, hsl(199 89% 60% / 0.055) 0%, transparent 70%)",
+    dark:  "radial-gradient(ellipse 90% 55% at 50% -5%, hsl(199 89% 60% / 0.08) 0%, transparent 70%)",
+  },
+  "/planner": {
+    light: "radial-gradient(ellipse 90% 55% at 50% -5%, hsl(24 95% 60% / 0.055) 0%, transparent 70%)",
+    dark:  "radial-gradient(ellipse 90% 55% at 50% -5%, hsl(24 95% 60% / 0.08) 0%, transparent 70%)",
+  },
+};
+
+function resolveBackdropKey(location: string): string {
+  if (location === "/" || location === "/generate") return "/";
+  if (
+    location.startsWith("/decks") ||
+    location.startsWith("/practice") ||
+    location.startsWith("/qbanks") ||
+    location.startsWith("/study")
+  ) return "/decks";
+  if (location.startsWith("/history")) return "/history";
+  if (location.startsWith("/planner")) return "/planner";
+  return "/";
+}
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [dark, setDark] = useDarkMode();
@@ -56,8 +88,23 @@ export function Layout({ children }: { children: React.ReactNode }) {
     return isIos && !isStandalone;
   }, []);
 
+  const backdropKey = resolveBackdropKey(location);
+  const activeBackdrop = NAV_BACKDROPS[backdropKey];
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
+      <AnimatePresence>
+        <motion.div
+          key={backdropKey + (dark ? "-dark" : "-light")}
+          aria-hidden
+          className="fixed inset-0 pointer-events-none z-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.7, ease: "easeInOut" }}
+          style={{ background: dark ? activeBackdrop.dark : activeBackdrop.light }}
+        />
+      </AnimatePresence>
       <header className="sticky top-0 z-50 w-full border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative overflow-hidden" style={{ boxShadow: "0 1px 0 0 hsl(var(--border) / 0.5), 0 4px 16px -4px rgba(0,0,0,0.06)" }}>
         <AnimatePresence mode="wait">
           {activeHeaderAccent && (
@@ -195,7 +242,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className={`flex-1 flex flex-col w-full ${location.startsWith("/planner") ? "" : "max-w-5xl mx-auto p-4 md:p-8"}`}>
+      <main className={`relative z-[1] flex-1 flex flex-col w-full ${location.startsWith("/planner") ? "" : "max-w-5xl mx-auto p-4 md:p-8"}`}>
         {children}
       </main>
       <FeedbackButton />
