@@ -687,7 +687,7 @@ ${monthsHtml}
               <div className="space-y-2">
                 <span className="text-xs font-semibold">Completion by Subject</span>
                 {allStats.filter(s => s.topics.length > 0).map(s => (
-                  <div key={s.label} className="rounded-lg border bg-background p-2">
+                  <div key={s.label} className="rounded-lg border border-border/40 bg-card/70 backdrop-blur-sm p-2">
                     <div className="flex items-center gap-2 mb-1">
                       <span>{s.emoji}</span>
                       <span className="text-xs font-semibold flex-1">{s.label}</span>
@@ -792,7 +792,7 @@ ${monthsHtml}
         {/* Subjects */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold">Subjects</h2>
+            <h2 className="text-sm font-semibold bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #fb923c, #fbbf24)" }}>Subjects</h2>
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => nav("/manage-subjects")}>
               <FolderPlus className="h-3.5 w-3.5" /> Manage
             </Button>
@@ -865,8 +865,8 @@ ${monthsHtml}
 
         {/* Calendar */}
         <div>
-          <h2 className="text-sm font-semibold mb-3">Study Calendar</h2>
-          <div className="rounded-xl border bg-card p-4">
+          <h2 className="text-sm font-semibold mb-3 bg-clip-text text-transparent" style={{ backgroundImage: "linear-gradient(90deg, #fb923c, #fbbf24)" }}>Study Calendar</h2>
+          <div className="rounded-xl border border-border/40 bg-card/70 backdrop-blur-sm p-4">
             <CalendarView
               key={calendarKey}
               groups={allGroups}

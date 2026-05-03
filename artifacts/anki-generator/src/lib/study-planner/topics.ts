@@ -444,16 +444,16 @@ export const CUSTOM_DOT_COLORS: Record<string, string> = {
 };
 
 export const CUSTOM_COLOR_STYLES: Record<string, { card: string; text: string; bar: string }> = {
-  blue:   { card:"border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800",     text:"text-blue-700 dark:text-blue-400",     bar:"bg-blue-500"   },
-  purple: { card:"border-purple-200 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-800", text:"text-purple-700 dark:text-purple-400", bar:"bg-purple-500" },
-  orange: { card:"border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800", text:"text-orange-700 dark:text-orange-400", bar:"bg-orange-500" },
-  green:  { card:"border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800",   text:"text-green-700 dark:text-green-400",   bar:"bg-green-500"  },
-  pink:   { card:"border-pink-200 bg-pink-50 dark:bg-pink-950/20 dark:border-pink-800",      text:"text-pink-700 dark:text-pink-400",     bar:"bg-pink-500"   },
-  teal:   { card:"border-teal-200 bg-teal-50 dark:bg-teal-950/20 dark:border-teal-800",      text:"text-teal-700 dark:text-teal-400",     bar:"bg-teal-500"   },
-  red:    { card:"border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800",          text:"text-red-700 dark:text-red-400",       bar:"bg-red-500"    },
-  indigo: { card:"border-indigo-200 bg-indigo-50 dark:bg-indigo-950/20 dark:border-indigo-800",text:"text-indigo-700 dark:text-indigo-400", bar:"bg-indigo-500" },
-  cyan:   { card:"border-cyan-200 bg-cyan-50 dark:bg-cyan-950/20 dark:border-cyan-800",      text:"text-cyan-700 dark:text-cyan-400",     bar:"bg-cyan-500"   },
-  amber:  { card:"border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800",   text:"text-amber-700 dark:text-amber-400",   bar:"bg-amber-500"  },
+  blue:   { card:"border-blue-200/70 bg-blue-50/70 dark:bg-blue-950/25 dark:border-blue-800/60 backdrop-blur-sm shadow-sm",     text:"text-blue-700 dark:text-blue-400",     bar:"bg-blue-500"   },
+  purple: { card:"border-purple-200/70 bg-purple-50/70 dark:bg-purple-950/25 dark:border-purple-800/60 backdrop-blur-sm shadow-sm", text:"text-purple-700 dark:text-purple-400", bar:"bg-purple-500" },
+  orange: { card:"border-orange-200/70 bg-orange-50/70 dark:bg-orange-950/25 dark:border-orange-800/60 backdrop-blur-sm shadow-sm", text:"text-orange-700 dark:text-orange-400", bar:"bg-orange-500" },
+  green:  { card:"border-green-200/70 bg-green-50/70 dark:bg-green-950/25 dark:border-green-800/60 backdrop-blur-sm shadow-sm",   text:"text-green-700 dark:text-green-400",   bar:"bg-green-500"  },
+  pink:   { card:"border-pink-200/70 bg-pink-50/70 dark:bg-pink-950/25 dark:border-pink-800/60 backdrop-blur-sm shadow-sm",      text:"text-pink-700 dark:text-pink-400",     bar:"bg-pink-500"   },
+  teal:   { card:"border-teal-200/70 bg-teal-50/70 dark:bg-teal-950/25 dark:border-teal-800/60 backdrop-blur-sm shadow-sm",      text:"text-teal-700 dark:text-teal-400",     bar:"bg-teal-500"   },
+  red:    { card:"border-red-200/70 bg-red-50/70 dark:bg-red-950/25 dark:border-red-800/60 backdrop-blur-sm shadow-sm",          text:"text-red-700 dark:text-red-400",       bar:"bg-red-500"    },
+  indigo: { card:"border-indigo-200/70 bg-indigo-50/70 dark:bg-indigo-950/25 dark:border-indigo-800/60 backdrop-blur-sm shadow-sm",text:"text-indigo-700 dark:text-indigo-400", bar:"bg-indigo-500" },
+  cyan:   { card:"border-cyan-200/70 bg-cyan-50/70 dark:bg-cyan-950/25 dark:border-cyan-800/60 backdrop-blur-sm shadow-sm",      text:"text-cyan-700 dark:text-cyan-400",     bar:"bg-cyan-500"   },
+  amber:  { card:"border-amber-200/70 bg-amber-50/70 dark:bg-amber-950/25 dark:border-amber-800/60 backdrop-blur-sm shadow-sm",   text:"text-amber-700 dark:text-amber-400",   bar:"bg-amber-500"  },
 };
 
 export function getCustomGroups(): CustomSubjectGroup[] {
