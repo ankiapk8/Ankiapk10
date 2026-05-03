@@ -367,7 +367,10 @@ export function CalendarView({
                       {dayItems.length > 0 && !isStart && !isEnd && !isToday && (
                         <div className="flex flex-wrap gap-0.5 mt-0.5 justify-center">
                           {dayItems.slice(0, 3).map((item, di) => (
-                            <div key={di} className={`w-1.5 h-1.5 rounded-full ${getDotColor(item.parentLabel)}`} />
+                            <div
+                              key={di}
+                              className={`w-4 h-1.5 rounded-full ${getDotColor(item.parentLabel)}`}
+                            />
                           ))}
                           {dayItems.length > 3 && (
                             <span className="text-[8px] text-muted-foreground">+{dayItems.length - 3}</span>
@@ -377,7 +380,10 @@ export function CalendarView({
                       {dayItems.length > 0 && (isStart || isEnd) && (
                         <div className="flex flex-wrap gap-0.5 justify-center">
                           {dayItems.slice(0, 2).map((item, di) => (
-                            <div key={di} className={`w-1.5 h-1.5 rounded-full ${getDotColor(item.parentLabel)}`} />
+                            <div
+                              key={di}
+                              className={`w-4 h-1.5 rounded-full ${getDotColor(item.parentLabel)}`}
+                            />
                           ))}
                         </div>
                       )}
