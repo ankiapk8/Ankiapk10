@@ -11,7 +11,7 @@ async function getActiveSubscription(userId: string) {
     sql`
       SELECT s.id, s.status, s.current_period_end, s.cancel_at_period_end
       FROM stripe.subscriptions s
-      JOIN public.users u ON u.stripe_subscription_id = s.id
+      JOIN public.users u ON u.stripe_customer_id = s.customer
       WHERE u.id = ${userId}
         AND s.status = 'active'
       LIMIT 1
