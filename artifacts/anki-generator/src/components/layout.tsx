@@ -6,6 +6,9 @@ import { PomodoroTimer } from "@/components/pomodoro-timer";
 import { FeedbackButton } from "@/components/feedback-button";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { Button } from "@/components/ui/button";
+import { SettingsSheet } from "@/components/settings-sheet";
+import { SyncIndicator } from "@/components/sync-indicator";
+import { useOfflineQueue } from "@/hooks/use-offline-queue";
 
 const NAV_ACCENTS: Record<string, { color: string; glow: string }> = {
   "/":        { color: "#34d399", glow: "hsl(152 72% 55% / 0.35)" },
@@ -17,6 +20,7 @@ const NAV_ACCENTS: Record<string, { color: string; glow: string }> = {
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [dark, setDark] = useDarkMode();
+  const { queueCount, isSyncing } = useOfflineQueue();
 
   const navLinks = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -124,6 +128,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           </nav>
           <div className="ml-auto pl-2 flex items-center gap-1">
+            <SyncIndicator queueCount={queueCount} isSyncing={isSyncing} />
             <PomodoroTimer />
             <Button
               variant="ghost"
@@ -134,6 +139,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
+            <SettingsSheet />
           </div>
         </div>
       </header>

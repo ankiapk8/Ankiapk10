@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
-import { WifiOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { WifiOff, X } from "lucide-react";
+import { useLocation } from "wouter";
 
 export function useOnlineStatus() {
   const [online, setOnline] = useState(
@@ -18,17 +20,56 @@ export function useOnlineStatus() {
   return online;
 }
 
+const STUDY_ROUTES = ["/practice", "/practice-qbank", "/study"];
+
 export function OfflineBanner() {
   const online = useOnlineStatus();
-  if (online) return null;
+  const [location] = useLocation();
+  const [dismissed, setDismissed] = useState(false);
+  const shownThisSessionRef = useRef(false);
+  const [visible, setVisible] = useState(false);
+
+  const inStudyMode = STUDY_ROUTES.some((r) => location.startsWith(r));
+
+  useEffect(() => {
+    if (!online && !shownThisSessionRef.current && !inStudyMode) {
+      shownThisSessionRef.current = true;
+      setDismissed(false);
+      setVisible(true);
+    }
+    if (online) {
+      setVisible(false);
+    }
+  }, [online, inStudyMode]);
+
+  const shouldShow = visible && !dismissed && !inStudyMode;
+
   return (
-    <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-800 dark:text-amber-300 px-4 py-1.5 text-xs flex items-center justify-center gap-2 animate-in slide-in-from-top duration-300">
-      <WifiOff className="h-3.5 w-3.5" />
-      <span>
-        <strong>Offline mode</strong> — showing your saved decks. New
-        generation, exports and AI features need internet.
-      </span>
-    </div>
+    <AnimatePresence>
+      {shouldShow && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.22 }}
+          className="overflow-hidden"
+        >
+          <div className="bg-amber-500/15 border-b border-amber-500/30 text-amber-800 dark:text-amber-300 px-4 py-1.5 text-xs flex items-center gap-2">
+            <WifiOff className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1 text-center">
+              <strong>Offline mode</strong> — your saved decks are available. Generation and AI features need internet.
+            </span>
+            <button
+              onClick={() => setDismissed(true)}
+              className="rounded p-0.5 hover:bg-amber-500/20 transition-colors shrink-0"
+              aria-label="Dismiss"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 

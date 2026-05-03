@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useListGenerations, useClearGenerations, getListGenerationsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { format, formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,10 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft, Trash2, History as HistoryIcon, CheckCircle2, XCircle, Ban,
-  Clock, Layers, FileText, Sparkles, Type, Image as ImageIcon, RotateCcw,
+  Clock, Layers, FileText, Sparkles, Type, Image as ImageIcon, RotateCcw, CloudOff,
 } from "lucide-react";
+import { useOfflineQueue } from "@/hooks/use-offline-queue";
+import { SyncBanner } from "@/components/sync-indicator";
 import { useToast } from "@/hooks/use-toast";
 import { AmbientOrbs } from "@/components/ambient-orbs";
 import { PageHeader } from "@/components/page-header";
@@ -66,6 +68,12 @@ export default function History() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [confirmClear, setConfirmClear] = useState(false);
+  const { queueCount, isSyncing, dbGetAll } = useOfflineQueue();
+  const [queuedItems, setQueuedItems] = useState<import("@/hooks/use-offline-queue").QueuedGeneration[]>([]);
+
+  useEffect(() => {
+    dbGetAll().then(setQueuedItems).catch(() => {});
+  }, [queueCount, dbGetAll]);
 
   const stats = useMemo(() => {
     const list = generations ?? [];
@@ -125,6 +133,34 @@ export default function History() {
           }
         />
       </div>
+
+      <SyncBanner queueCount={queueCount} isSyncing={isSyncing} />
+
+      {queuedItems.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <CloudOff className="h-3.5 w-3.5" />
+            Queued for sync ({queuedItems.length})
+          </p>
+          {queuedItems.map((item) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-3 rounded-xl border border-amber-500/25 bg-amber-500/8 px-3.5 py-2.5"
+            >
+              <CloudOff className="h-4 w-4 text-amber-500/80 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate">{item.deckName}</p>
+                <p className="text-[11px] text-muted-foreground">{item.numCards} cards · queued offline</p>
+              </div>
+              <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10 shrink-0">
+                Pending
+              </Badge>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {(generations?.length ?? 0) > 0 && (
         <div className="relative grid grid-cols-2 sm:grid-cols-4 gap-3">
