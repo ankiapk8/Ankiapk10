@@ -67,9 +67,9 @@ The CLI prints a webhook signing secret like `whsec_...`. Add it to Replit Secre
 
 ## Testing a Checkout
 
-### Via the pricing page
+### Via the pricing page (recommended)
 
-Open the app in your browser and go to `/pricing`. Click **Get Pro** — it redirects to Stripe Checkout.
+Open the frontend at `http://localhost:23060/pricing` and click **Get Pro**. The page calls the API, creates a Checkout session, and redirects you to Stripe automatically.
 
 ### Via curl
 
@@ -77,10 +77,11 @@ Open the app in your browser and go to `/pricing`. Click **Get Pro** — it redi
 # POST to start a checkout session (requires an authenticated session cookie)
 curl -X POST http://localhost:8080/api/subscription/checkout \
   -H "Content-Type: application/json" \
-  -d '{"priceId":"price_REPLACE_WITH_YOURS","origin":"http://localhost:5173"}'
+  -d '{"priceId":"$STRIPE_PRICE_ID"}'
 ```
 
 The response contains a `url` — open it in your browser to complete the checkout.
+After a successful payment you will be redirected to `http://localhost:8080/pricing?success=1`.
 
 ## Test Cards
 

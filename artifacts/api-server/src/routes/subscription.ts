@@ -10,7 +10,13 @@ function resolveBaseUrl(): string {
   if (process.env.REPLIT_DOMAINS) {
     return `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
   }
-  return `http://localhost:${process.env.PORT ?? '8080'}`;
+  if (process.env.NODE_ENV === 'development') {
+    return `http://localhost:${process.env.PORT ?? '8080'}`;
+  }
+  throw new Error(
+    'Cannot resolve base URL for Stripe redirects: set REPLIT_DOMAINS (production) ' +
+    'or run with NODE_ENV=development (local dev).'
+  );
 }
 
 async function getActiveSubscription(userId: string) {
