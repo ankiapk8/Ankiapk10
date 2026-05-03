@@ -24,7 +24,7 @@ import {
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
   Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network, CheckCircle2, CalendarClock, Zap,
-  Lightbulb, Activity, Copy, BookmarkPlus, StickyNote, Clock, Tag
+  Lightbulb, Activity, Copy, BookmarkPlus, StickyNote, Clock, Tag, Library
 } from "lucide-react";
 import {
   Dialog,
@@ -61,6 +61,8 @@ import remarkGfm from "remark-gfm";
 import { CropCompare, parseBbox } from "@/components/crop-compare";
 import { motion, AnimatePresence } from "framer-motion";
 import { SourcePageModal, type VisualCardRef } from "@/components/source-page-modal";
+import { AmbientOrbs } from "@/components/ambient-orbs";
+import { PageHeader } from "@/components/page-header";
 
 type DeckWithSubDecks = Deck & { subDecks?: Deck[] };
 
@@ -1698,7 +1700,9 @@ export default function DeckDetail() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+    <div className="relative space-y-8 animate-in fade-in duration-500 pb-20">
+      <AmbientOrbs color="hsl(239 84% 68% / 0.08)" className="rounded-3xl" />
+
       <SourcePageModal
         open={deckSourceModalCardId !== null && deckSourceModalActiveIndex !== -1}
         onClose={() => setDeckSourceModalCardId(null)}
@@ -1744,13 +1748,25 @@ export default function DeckDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <Link href="/decks" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary mb-2 transition-colors">
-            <ArrowLeft className="mr-1 h-4 w-4" /> Back to Library
+
+      <div className="relative flex items-start justify-between flex-wrap gap-4">
+        <div className="flex-1 min-w-0">
+          <Link href="/decks" className="inline-flex items-center text-sm text-muted-foreground hover:text-indigo-500 mb-3 transition-colors gap-1">
+            <ArrowLeft className="h-4 w-4" /> Back to Library
           </Link>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-serif font-bold text-primary tracking-tight">{deck.name}</h1>
+          <PageHeader
+            icon={Library}
+            iconColor="#818cf8"
+            iconGlow="hsl(239 84% 68% / 0.5)"
+            gradient="from-indigo-400 via-violet-400 to-purple-500"
+            title={deck.name}
+            subtitle={
+              deck.description
+                ? deck.description
+                : `${cardList.length} card${cardList.length !== 1 ? "s" : ""}${dueCount > 0 ? ` · ${dueCount} due` : ""}`
+            }
+          />
+          <div className="flex items-center gap-2 flex-wrap mt-2 ml-[52px]">
             {(deck as Deck & { kind?: string }).kind === "qbank" && (
               <Badge className="gap-1.5 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20 hover:bg-violet-500/10">
                 <Stethoscope className="h-3.5 w-3.5" /> Question Bank
@@ -1761,14 +1777,10 @@ export default function DeckDetail() {
                 {subDecks.length} sub-topic{subDecks.length !== 1 ? "s" : ""}
               </Badge>
             )}
-          </div>
-          {deck.description && <p className="text-muted-foreground mt-1">{deck.description}</p>}
-          {/* Deck tags */}
-          <div className="flex items-center gap-1.5 flex-wrap mt-2">
             {deckTags.map(tag => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary border border-primary/25 px-2.5 py-0.5 rounded-full font-medium"
+                className="inline-flex items-center gap-1 text-xs bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/25 px-2.5 py-0.5 rounded-full font-medium"
               >
                 <Tag className="h-2.5 w-2.5 opacity-60" />
                 {tag}
@@ -1792,12 +1804,12 @@ export default function DeckDetail() {
                 }}
                 onBlur={() => { if (!tagAddInput.trim()) { setTagAddOpen(false); } }}
                 placeholder="Tag name…"
-                className="h-6 w-24 px-2 text-xs rounded-full border border-primary/30 bg-background/80 outline-none focus:ring-1 focus:ring-primary/30"
+                className="h-6 w-24 px-2 text-xs rounded-full border border-indigo-500/30 bg-background/80 outline-none focus:ring-1 focus:ring-indigo-500/30"
               />
             ) : (
               <button
                 onClick={() => setTagAddOpen(true)}
-                className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 border border-dashed border-muted-foreground/25 hover:border-primary/40 hover:text-primary px-2 py-0.5 rounded-full transition-colors"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 border border-dashed border-muted-foreground/25 hover:border-indigo-400/40 hover:text-indigo-500 px-2 py-0.5 rounded-full transition-colors"
               >
                 <Tag className="h-2.5 w-2.5" />
                 {deckTags.length > 0 ? "+ tag" : "Add tags"}
@@ -2066,7 +2078,7 @@ function EditableCard({
 
   return (
     <CardUI 
-      className="group hover-elevate transition-all duration-300 border-border/40 animate-in fade-in slide-in-from-bottom-2"
+      className="group hover-elevate transition-all duration-300 border-border/40 bg-card/70 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 hover:border-indigo-500/30 hover:shadow-sm"
       style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
     >
       {subDeckName && (

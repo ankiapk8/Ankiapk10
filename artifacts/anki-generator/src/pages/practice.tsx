@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
+import { AmbientOrbs } from "@/components/ambient-orbs";
 import { useGetDeck, useListDeckCards } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -109,11 +110,12 @@ function ResultsView({
 
   return (
     <motion.div
-      className="min-h-screen flex flex-col pb-10"
+      className="relative min-h-screen flex flex-col pb-10"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35 }}
     >
+      <AmbientOrbs color="hsl(160 84% 39% / 0.08)" />
       {/* Results header */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50 px-4 py-3 flex items-center gap-3">
         <Link href={`/decks`}>
@@ -122,10 +124,10 @@ function ResultsView({
           </Button>
         </Link>
         <div className="flex items-center gap-2 min-w-0">
-          <Stethoscope className="h-4 w-4 text-violet-500 shrink-0" />
-          <span className="font-semibold text-sm truncate">{deckName}</span>
+          <Stethoscope className="h-4 w-4 text-emerald-500 shrink-0" />
+          <span className="font-semibold text-sm truncate bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">{deckName}</span>
         </div>
-        <Badge className="ml-auto shrink-0 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20">
+        <Badge className="ml-auto shrink-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20">
           Results
         </Badge>
       </div>
@@ -353,7 +355,8 @@ function PracticeSession({
   }, [current, selected, revealed, handleSelect, handleConfirm, handleNext]);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="relative min-h-screen flex flex-col">
+      <AmbientOrbs color="hsl(160 84% 39% / 0.08)" />
       {/* Sticky header */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50">
         <div className="px-4 py-3 flex items-center gap-3">
@@ -364,8 +367,8 @@ function PracticeSession({
           </Link>
 
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Stethoscope className="h-4 w-4 text-violet-500 shrink-0" />
-            <span className="font-semibold text-sm truncate">{deckName}</span>
+            <Stethoscope className="h-4 w-4 text-emerald-500 shrink-0" />
+            <span className="font-semibold text-sm truncate bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">{deckName}</span>
           </div>
 
           {/* Score pills */}

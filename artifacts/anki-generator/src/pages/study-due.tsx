@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
+import { AmbientOrbs } from "@/components/ambient-orbs";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/utils";
 import {
@@ -186,16 +187,17 @@ export default function StudyDue() {
   if (!current) return null;
 
   return (
-    <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
+    <div className="relative max-w-xl mx-auto px-4 py-6 space-y-5">
+      <AmbientOrbs color="hsl(199 89% 48% / 0.08)" />
       <div className="flex items-center justify-between">
         <Link href="/">
           <Button variant="ghost" size="sm" className="gap-1.5 -ml-2">
             <ChevronLeft className="h-4 w-4" /> Dashboard
           </Button>
         </Link>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <CalendarClock className="h-4 w-4" />
-          <span>{reviewed + 1} / {initialTotal} due</span>
+        <div className="flex items-center gap-2 text-sm">
+          <CalendarClock className="h-4 w-4 text-sky-500" />
+          <span className="font-semibold bg-gradient-to-r from-sky-500 to-cyan-500 bg-clip-text text-transparent">{reviewed + 1} / {initialTotal} due</span>
         </div>
       </div>
 

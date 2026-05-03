@@ -25,9 +25,9 @@ export function PageHeader({ icon: Icon, iconColor, iconGlow, gradient, title, s
           style={{ background: `${iconColor}22`, border: `1.5px solid ${iconColor}44` }}
           animate={{
             boxShadow: [
-              `0 0 0px ${iconColor}00`,
-              `0 0 18px ${iconColor}55`,
-              `0 0 0px ${iconColor}00`,
+              "0 0 0px transparent",
+              `0 0 18px ${iconGlow}`,
+              "0 0 0px transparent",
             ],
           }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}

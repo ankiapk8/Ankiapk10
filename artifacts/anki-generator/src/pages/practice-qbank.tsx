@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { Link, useRoute } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
+import { AmbientOrbs } from "@/components/ambient-orbs";
 import { useGetQbank, useListQbankQuestions } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -148,11 +149,12 @@ function PreSessionConfig({
 
   return (
     <motion.div
-      className="min-h-screen flex flex-col pb-10"
+      className="relative min-h-screen flex flex-col pb-10"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
+      <AmbientOrbs color="hsl(262 84% 68% / 0.08)" />
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50">
         <div className="px-4 py-3 flex items-center gap-3">
@@ -163,7 +165,7 @@ function PreSessionConfig({
           </Link>
           <div className="flex items-center gap-2 min-w-0">
             <Stethoscope className="h-4 w-4 text-violet-500 shrink-0" />
-            <span className="font-semibold text-sm truncate">{qbankName}</span>
+            <span className="font-semibold text-sm truncate bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">{qbankName}</span>
           </div>
           <Badge className="ml-auto shrink-0 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20">
             {activeTab === "setup" ? <><Filter className="h-3 w-3 mr-1" />Setup</> : <><Clock className="h-3 w-3 mr-1" />History</>}
@@ -421,11 +423,12 @@ function ResultsView({
 
   return (
     <motion.div
-      className="min-h-screen flex flex-col pb-10"
+      className="relative min-h-screen flex flex-col pb-10"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35 }}
     >
+      <AmbientOrbs color="hsl(262 84% 68% / 0.08)" />
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50 px-4 py-3 flex items-center gap-3">
         <Link href={`/qbanks/${qbankId}`}>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
@@ -434,7 +437,7 @@ function ResultsView({
         </Link>
         <div className="flex items-center gap-2 min-w-0">
           <Stethoscope className="h-4 w-4 text-violet-500 shrink-0" />
-          <span className="font-semibold text-sm truncate">{qbankName}</span>
+          <span className="font-semibold text-sm truncate bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">{qbankName}</span>
         </div>
         <Badge className="ml-auto shrink-0 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20">
           Results
@@ -869,7 +872,8 @@ function PracticeSession({
   }, [choices.length, selected, revealed, handleSelect, handleConfirm, handleNext, handlePrev, handleFlag]);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="relative min-h-screen flex flex-col">
+      <AmbientOrbs color="hsl(262 84% 68% / 0.08)" />
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50">
         <div className="px-4 py-3 flex items-center gap-3">
@@ -880,7 +884,7 @@ function PracticeSession({
           </Link>
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <Stethoscope className="h-4 w-4 text-violet-500 shrink-0" />
-            <span className="font-semibold text-sm truncate">{qbankName}</span>
+            <span className="font-semibold text-sm truncate bg-gradient-to-r from-violet-500 to-purple-500 bg-clip-text text-transparent">{qbankName}</span>
           </div>
           {timed && (
             <div className={`flex items-center gap-1 font-mono text-sm font-bold shrink-0 ${timerColor}`}>

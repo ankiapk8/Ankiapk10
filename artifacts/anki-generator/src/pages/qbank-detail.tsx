@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { Link, useRoute } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
+import { AmbientOrbs } from "@/components/ambient-orbs";
+import { PageHeader } from "@/components/page-header";
 import {
   useGetQbank,
   useListQbankQuestions,
@@ -106,7 +108,7 @@ function QuestionCard({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.03, duration: 0.3 }}
       >
-        <Card className="border-border/50 group hover:border-violet-500/30 hover:shadow-sm transition-all">
+        <Card className="border-border/50 group hover:border-violet-500/30 hover:shadow-sm transition-all bg-card/70 backdrop-blur-sm">
           <CardContent className="p-0">
             {editing ? (
               <div className="p-4 space-y-4">
@@ -562,26 +564,27 @@ export default function QbankDetail() {
   const totalQuestions = questions?.length ?? 0;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+    <div className="relative space-y-6 animate-in fade-in duration-500 pb-20">
+      <AmbientOrbs color="hsl(262 84% 68% / 0.08)" className="rounded-3xl" />
+
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <Link href="/decks?tab=qbanks" className="inline-flex items-center text-sm text-muted-foreground hover:text-violet-600 mb-2 transition-colors gap-1">
+      <div className="relative flex items-start justify-between flex-wrap gap-4">
+        <div className="flex-1 min-w-0">
+          <Link href="/decks?tab=qbanks" className="inline-flex items-center text-sm text-muted-foreground hover:text-violet-500 mb-3 transition-colors gap-1">
             <ArrowLeft className="h-4 w-4" /> Back to Library
           </Link>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center shrink-0">
-              <Stethoscope className="h-5 w-5 text-violet-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-serif font-bold text-violet-700 dark:text-violet-300 tracking-tight">
-                {qbank.name}
-              </h1>
-              {qbank.description && (
-                <p className="text-muted-foreground text-sm mt-0.5">{qbank.description}</p>
-              )}
-            </div>
-          </div>
+          <PageHeader
+            icon={Stethoscope}
+            iconColor="#a78bfa"
+            iconGlow="hsl(262 84% 68% / 0.5)"
+            gradient="from-violet-400 via-purple-400 to-fuchsia-500"
+            title={qbank.name}
+            subtitle={
+              qbank.description
+                ? qbank.description
+                : `${totalQuestions} question${totalQuestions !== 1 ? "s" : ""} total`
+            }
+          />
         </div>
         {totalQuestions > 0 && (
           <Link href={`/practice-qbank/${id}`}>
