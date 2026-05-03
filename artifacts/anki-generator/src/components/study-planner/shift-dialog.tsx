@@ -38,8 +38,8 @@ export function ShiftDialog({ items, onShift, onDismiss, onRedistribute }: Props
 
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                <CalendarClock className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" style={{ width: 18, height: 18 }} />
+              <div className="w-9 h-9 rounded-xl bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center shrink-0">
+                <CalendarClock className="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" style={{ width: 18, height: 18 }} />
               </div>
               <div>
                 <p className="text-sm font-bold leading-tight">Unfinished Topics</p>
@@ -57,7 +57,7 @@ export function ShiftDialog({ items, onShift, onDismiss, onRedistribute }: Props
           <div className="flex flex-col gap-1 max-h-36 overflow-y-auto">
             {displayItems.map((item, i) => (
               <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-muted/40 text-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
                 <span className="truncate font-medium">{item.topic.name}</span>
                 <span className="ml-auto text-muted-foreground shrink-0">{item.subjectLabel}</span>
               </div>

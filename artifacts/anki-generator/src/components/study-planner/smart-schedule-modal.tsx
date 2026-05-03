@@ -302,8 +302,8 @@ export function SmartScheduleModal({ open, onOpenChange, onScheduleChange }: Pro
                           onClick={() => toggleDayOfWeek(day)}
                           className={`h-8 px-3 rounded-lg text-xs font-semibold transition-all border ${
                             availableDays.includes(day)
-                              ? "bg-amber-500 text-white border-amber-500 shadow-sm"
-                              : "bg-muted text-muted-foreground border-border hover:border-amber-400/70"
+                              ? "bg-orange-500 text-white border-orange-500 shadow-sm"
+                              : "bg-muted text-muted-foreground border-border hover:border-orange-400/70"
                           }`}
                         >
                           {DAY_LABELS[day]}
@@ -351,12 +351,12 @@ export function SmartScheduleModal({ open, onOpenChange, onScheduleChange }: Pro
                             key={deck.id}
                             className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer select-none transition-colors hover:bg-muted/50 ${
                               idx < availableDecks.length - 1 ? "border-b border-border/50" : ""
-                            } ${selectedDeckIds.has(deck.id) ? "bg-amber-50/50 dark:bg-amber-950/15" : ""}`}
+                            } ${selectedDeckIds.has(deck.id) ? "bg-orange-50/50 dark:bg-orange-950/15" : ""}`}
                           >
                             <Checkbox
                               checked={selectedDeckIds.has(deck.id)}
                               onCheckedChange={() => toggleDeck(deck.id)}
-                              className="data-[state=checked]:bg-amber-500 data-[state=checked]:border-amber-500 shrink-0"
+                              className="data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500 shrink-0"
                             />
                             <span className="flex-1 text-sm font-medium leading-snug line-clamp-1">{deck.name}</span>
                             <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
@@ -395,14 +395,14 @@ export function SmartScheduleModal({ open, onOpenChange, onScheduleChange }: Pro
               transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col flex-1 min-h-0 overflow-hidden"
             >
-              <div className="px-5 py-2 bg-amber-50/70 dark:bg-amber-950/20 border-b border-amber-200/60 dark:border-amber-800/40 flex flex-wrap gap-x-4 gap-y-1 shrink-0">
+              <div className="px-5 py-2 bg-orange-50/70 dark:bg-orange-950/20 border-b border-orange-200/60 dark:border-orange-800/40 flex flex-wrap gap-x-4 gap-y-1 shrink-0">
                 {[
                   { label: "study days", value: activeDays },
                   { label: "sessions", value: totalSessions },
                   { label: "decks", value: currentSchedule?.config.deckIds.length ?? 0 },
                 ].map(s => (
                   <span key={s.label} className="flex items-baseline gap-1">
-                    <span className="text-xs font-bold text-amber-700 dark:text-amber-400 tabular-nums">{s.value}</span>
+                    <span className="text-xs font-bold text-orange-700 dark:text-orange-400 tabular-nums">{s.value}</span>
                     <span className="text-[10px] text-muted-foreground">{s.label}</span>
                   </span>
                 ))}
@@ -450,9 +450,9 @@ export function SmartScheduleModal({ open, onOpenChange, onScheduleChange }: Pro
                                 key={ci}
                                 className={`min-h-[60px] rounded-lg border transition-all duration-150 p-1 overflow-hidden ${
                                   isOver
-                                    ? "border-amber-400 bg-amber-50 dark:bg-amber-950/40 scale-[1.03] shadow-sm"
+                                    ? "border-orange-400 bg-orange-50 dark:bg-orange-950/40 scale-[1.03] shadow-sm"
                                     : isToday && cell.available
-                                    ? "border-amber-300 bg-amber-50/50 dark:bg-amber-950/20"
+                                    ? "border-orange-300 bg-orange-50/50 dark:bg-orange-950/20"
                                     : cell.available
                                     ? "border-border/60 bg-card/60"
                                     : "border-border/20 bg-muted/20"
@@ -462,7 +462,7 @@ export function SmartScheduleModal({ open, onOpenChange, onScheduleChange }: Pro
                                 onDragLeave={() => setDragOverDate(null)}
                               >
                                 <div className={`text-[9px] font-semibold leading-none mb-1 ${
-                                  isToday ? "text-amber-600" : cell.available ? "text-foreground/70" : "text-muted-foreground/40"
+                                  isToday ? "text-orange-600" : cell.available ? "text-foreground/70" : "text-muted-foreground/40"
                                 }`}>
                                   {dayNum}
                                 </div>
@@ -476,7 +476,7 @@ export function SmartScheduleModal({ open, onOpenChange, onScheduleChange }: Pro
                                       title={`${slot.deckName} · ${slot.isReview ? "Review" : "Study"} · ${slot.cardCount} cards`}
                                       className={`rounded text-[7px] font-semibold px-0.5 py-[1px] cursor-grab active:cursor-grabbing truncate leading-tight transition-opacity select-none ${
                                         slot.isReview
-                                          ? "bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-700/40"
+                                          ? "bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border border-orange-200/80 dark:border-orange-700/40"
                                           : "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-700/40"
                                       } ${dragging?.slotId === slot.slotId ? "opacity-30" : ""}`}
                                     >
@@ -498,7 +498,7 @@ export function SmartScheduleModal({ open, onOpenChange, onScheduleChange }: Pro
                       <span className="text-[10px] text-muted-foreground">Initial study</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-3 h-2.5 rounded-[3px] bg-amber-100 dark:bg-amber-900/50 border border-amber-200/80 dark:border-amber-700/40" />
+                      <div className="w-3 h-2.5 rounded-[3px] bg-orange-100 dark:bg-orange-900/50 border border-orange-200/80 dark:border-orange-700/40" />
                       <span className="text-[10px] text-muted-foreground">Review</span>
                     </div>
                     <span className="text-[10px] text-muted-foreground ml-auto">Drag chips to reschedule</span>
