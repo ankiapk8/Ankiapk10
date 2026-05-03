@@ -35,7 +35,6 @@ import { FeaturesShowcase } from "@/components/features-showcase";
 import { ModelBadge } from "@/components/model-badge";
 import { AmbientOrbs } from "@/components/ambient-orbs";
 import { PageHeader } from "@/components/page-header";
-import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
 const RING_R = 36;
 const RING_C = 2 * Math.PI * RING_R; // ≈ 226.2
@@ -1216,7 +1215,6 @@ export default function Dashboard() {
 
       <FeaturesShowcase />
       <AppDownloads />
-      <PwaInstallPrompt />
     </div>
   );
 }

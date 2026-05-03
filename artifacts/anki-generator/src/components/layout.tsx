@@ -1,6 +1,7 @@
+import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays } from "lucide-react";
+import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays, Download } from "lucide-react";
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
 import { PomodoroTimer } from "@/components/pomodoro-timer";
 import { FeedbackButton } from "@/components/feedback-button";
@@ -9,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { SyncIndicator } from "@/components/sync-indicator";
 import { useOfflineQueue } from "@/hooks/use-offline-queue";
+import { OfflineBadge } from "@/components/offline-indicator";
+import { usePwaInstall } from "@/hooks/use-pwa-install";
+import { IosInstallModal } from "@/components/ios-install-modal";
 
 const NAV_ACCENTS: Record<string, { color: string; glow: string }> = {
   "/":        { color: "#34d399", glow: "hsl(152 72% 55% / 0.35)" },
@@ -35,6 +39,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
     href === "/" ? location === "/" : location.startsWith(href)
   )?.href;
   const activeHeaderAccent = activeNavHref ? NAV_ACCENTS[activeNavHref] : null;
+
+  const { canInstall, install } = usePwaInstall();
+  const [showIosModal, setShowIosModal] = useState(false);
+
+  const isIosInstallable = useMemo(() => {
+    if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+    const ua = navigator.userAgent;
+    const isIos =
+      /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === "MacIntel" &&
+        (navigator as Navigator & { maxTouchPoints?: number }).maxTouchPoints! > 1);
+    const isStandalone =
+      window.matchMedia?.("(display-mode: standalone)").matches ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    return isIos && !isStandalone;
+  }, []);
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
@@ -146,8 +166,21 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </motion.span>
             </Link>
           </nav>
-          <div className="ml-auto pl-2 flex items-center gap-1">
+          <div className="ml-auto pl-2 flex items-center gap-1.5">
+            <OfflineBadge />
             <SyncIndicator queueCount={queueCount} isSyncing={isSyncing} />
+            {(canInstall || isIosInstallable) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={canInstall ? install : () => setShowIosModal(true)}
+                aria-label="Install app"
+                title="Install AnkiGen as an app"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            )}
             <PomodoroTimer />
             <Button
               variant="ghost"
@@ -167,6 +200,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </main>
       <FeedbackButton />
       <ApkWelcomeBanner />
+      <IosInstallModal open={showIosModal} onClose={() => setShowIosModal(false)} />
     </div>
   );
 }
