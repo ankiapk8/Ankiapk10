@@ -239,17 +239,22 @@ export function CardPreviewPanel({
                           </span>
                           <div className="flex-1 min-w-0 grid grid-cols-2 gap-x-3">
                             {isImage ? (
-                              <div className="col-span-2 flex items-center gap-1.5">
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] px-1.5 h-4 font-normal border-muted-foreground/30"
-                                >
-                                  image card
-                                </Badge>
-                                <span className="text-[11px] text-muted-foreground truncate">
+                              <>
+                                <div className="col-span-2 mb-0.5">
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] px-1.5 h-4 font-normal border-muted-foreground/30"
+                                  >
+                                    image card
+                                  </Badge>
+                                </div>
+                                <p className="text-[11px] leading-snug line-clamp-2 text-foreground">
                                   {card.front}
-                                </span>
-                              </div>
+                                </p>
+                                <p className="text-[11px] leading-snug line-clamp-2 text-muted-foreground">
+                                  {card.back}
+                                </p>
+                              </>
                             ) : (
                               <>
                                 <p className="text-[11px] leading-snug line-clamp-2 text-foreground">
@@ -261,7 +266,7 @@ export function CardPreviewPanel({
                               </>
                             )}
                           </div>
-                          <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-0.5 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => startEdit(idx)}
                               title="Edit card"
