@@ -101,18 +101,24 @@ export function DevPlanBadge() {
 
   if (state.isPro === null) return null;
 
+  function openPanel() {
+    window.dispatchEvent(new Event("dev-panel-open"));
+  }
+
   return (
-    <span
-      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-wide border ${
+    <button
+      type="button"
+      onClick={openPanel}
+      title="Click to open Dev Mode panel"
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-wide border cursor-pointer transition-opacity hover:opacity-80 ${
         state.isPro
           ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300/50"
           : "bg-muted text-muted-foreground border-border"
       }`}
-      title="Dev subscription override"
     >
       {state.isPro ? <Crown className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
       {state.isPro ? (state.simulated ? "SIMULATED PRO" : "DEV PRO") : "DEV FREE"}
-    </span>
+    </button>
   );
 }
 
@@ -178,6 +184,12 @@ export function DevPanel() {
       }
     }
   }, [refresh]);
+
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("dev-panel-open", handler);
+    return () => window.removeEventListener("dev-panel-open", handler);
+  }, []);
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["subscription/status"] });
