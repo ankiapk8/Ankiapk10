@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays } from "lucide-react";
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
 import { PomodoroTimer } from "@/components/pomodoro-timer";
@@ -31,10 +31,29 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const generateActive = location === "/generate";
 
+  const activeNavHref = navLinks.find(({ href }) =>
+    href === "/" ? location === "/" : location.startsWith(href)
+  )?.href;
+  const activeHeaderAccent = activeNavHref ? NAV_ACCENTS[activeNavHref] : null;
+
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60" style={{ boxShadow: "0 1px 0 0 hsl(var(--border) / 0.5), 0 4px 16px -4px rgba(0,0,0,0.06)" }}>
-        <div className="container flex h-14 items-center gap-1 sm:gap-2 px-3 sm:px-4 md:px-6 max-w-5xl mx-auto">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60 relative overflow-hidden" style={{ boxShadow: "0 1px 0 0 hsl(var(--border) / 0.5), 0 4px 16px -4px rgba(0,0,0,0.06)" }}>
+        <AnimatePresence mode="wait">
+          {activeHeaderAccent && (
+            <motion.div
+              key={activeNavHref}
+              aria-hidden
+              className="absolute inset-0 pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              style={{ background: `linear-gradient(135deg, ${activeHeaderAccent.color}0d 0%, ${activeHeaderAccent.color}05 40%, transparent 65%)` }}
+            />
+          )}
+        </AnimatePresence>
+        <div className="container flex h-14 items-center gap-1 sm:gap-2 px-3 sm:px-4 md:px-6 max-w-5xl mx-auto relative z-10">
           <Link href="/" className="flex items-center gap-2 mr-1 sm:mr-2 md:mr-6 shrink-0">
             <BookOpen className="h-6 w-6 text-primary" />
             <span className="font-serif text-lg font-bold tracking-tight hidden sm:inline">AnkiGen</span>

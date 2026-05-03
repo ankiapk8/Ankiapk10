@@ -284,10 +284,12 @@ function DeckRow({
     "cursor-pointer transition-all border",
     clampedDepth === 0
       ? isQbank
-        ? "border-border/50 bg-card/70 backdrop-blur-sm shadow-sm hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-500/5"
-        : "border-border/50 bg-card/70 backdrop-blur-sm shadow-sm hover:border-indigo-500/40 hover:shadow-md hover:shadow-indigo-500/5"
+        ? "border-border/50 border-l-2 border-l-violet-500/40 bg-card/70 backdrop-blur-sm shadow-sm hover:border-violet-500/50 hover:border-l-violet-500/70 hover:shadow-md hover:shadow-violet-500/5"
+        : "border-border/50 border-l-2 border-l-indigo-500/40 bg-card/70 backdrop-blur-sm shadow-sm hover:border-indigo-500/50 hover:border-l-indigo-500/70 hover:shadow-md hover:shadow-indigo-500/5"
       : clampedDepth === 1
-      ? isQbank ? "border-border/30 bg-muted/20 hover:border-violet-500/30 hover:shadow-sm" : "border-border/30 bg-muted/20 hover:border-primary/30 hover:shadow-sm"
+      ? isQbank
+        ? "border-border/30 border-l-2 border-l-violet-500/25 bg-muted/20 hover:border-violet-500/35 hover:shadow-sm"
+        : "border-border/30 border-l-2 border-l-blue-500/25 bg-muted/20 hover:border-primary/35 hover:shadow-sm"
       : isQbank ? "border-border/20 bg-muted/30 hover:border-violet-500/20" : "border-border/20 bg-muted/30 hover:border-primary/20",
     selectMode ? isSelected ? isQbank ? "border-violet-500 ring-1 ring-violet-500/20 bg-violet-500/5" : "border-primary ring-1 ring-primary/20 bg-primary/5" : "opacity-80" : "",
   ].join(" ");
@@ -1095,34 +1097,66 @@ export default function Decks() {
 
       {allDecksCount > 0 && libraryTab === "decks" && (
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-3.5 shadow-sm">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium"><FolderOpen className="h-3.5 w-3.5 text-primary" /> Topics</div>
-            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{rootFlashcardDecks.length}</div>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-3.5 shadow-sm">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium"><FileText className="h-3.5 w-3.5 text-blue-500" /> Sub-topics</div>
-            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{flashcardChildrenCount}</div>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-3.5 shadow-sm">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium"><Layers className="h-3.5 w-3.5 text-primary/70" /> Total cards</div>
-            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{flashcardTotalCards}</div>
-          </div>
+          {[
+            { label: "Topics",     value: rootFlashcardDecks.length, icon: FolderOpen, hex: "#818cf8", glow: "129,140,248", bg: "bg-indigo-500/10" },
+            { label: "Sub-topics", value: flashcardChildrenCount,    icon: FileText,   hex: "#60a5fa", glow: "96,165,250",  bg: "bg-blue-500/10"  },
+            { label: "Total cards",value: flashcardTotalCards,       icon: Layers,     hex: "#818cf8", glow: "129,140,248", bg: "bg-indigo-500/10" },
+          ].map(({ label, value, icon: Icon, hex, glow, bg }, idx) => (
+            <motion.div
+              key={label}
+              className="rounded-xl border bg-card/70 backdrop-blur-sm shadow-sm overflow-hidden relative"
+              style={{ boxShadow: `inset 0 0 0 1px rgba(${glow},0.14)` }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.07, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <motion.div aria-hidden className="absolute inset-0 pointer-events-none"
+                style={{ background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.11) 50%, transparent 70%)" }}
+                initial={{ x: "-120%" }} animate={{ x: "160%" }}
+                transition={{ delay: 0.35 + idx * 0.1, duration: 0.65, ease: "easeOut" }}
+              />
+              <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(circle at 15% 50%, rgba(${glow},0.10) 0%, transparent 65%)` }} />
+              <div className="p-3.5 relative">
+                <div className={`h-7 w-7 rounded-lg ${bg} flex items-center justify-center mb-2`} style={{ boxShadow: `0 0 10px rgba(${glow},0.22)` }}>
+                  <Icon className="h-3.5 w-3.5" style={{ color: hex }} />
+                </div>
+                <div className="text-2xl font-serif font-bold text-foreground">{value}</div>
+                <div className="text-[11px] text-muted-foreground font-medium mt-0.5 uppercase tracking-wider">{label}</div>
+              </div>
+            </motion.div>
+          ))}
         </div>
       )}
       {(qbanks?.length ?? 0) > 0 && libraryTab === "qbanks" && (
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 backdrop-blur-sm p-3.5 shadow-sm">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium"><FolderOpen className="h-3.5 w-3.5 text-violet-600" /> QBank Topics</div>
-            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{rootQbankDecks.length}</div>
-          </div>
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 backdrop-blur-sm p-3.5 shadow-sm">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium"><Stethoscope className="h-3.5 w-3.5 text-violet-500" /> Question Banks</div>
-            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{qbankChildrenCount}</div>
-          </div>
-          <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 backdrop-blur-sm p-3.5 shadow-sm">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wider font-medium"><Layers className="h-3.5 w-3.5 text-violet-500" /> Total MCQs</div>
-            <div className="mt-1.5 text-2xl font-serif font-bold text-foreground">{qbankTotalMcqs}</div>
-          </div>
+          {[
+            { label: "QBank Topics",   value: rootQbankDecks.length, icon: FolderOpen,   hex: "#a78bfa", glow: "167,139,250", bg: "bg-violet-500/10" },
+            { label: "Question Banks", value: qbankChildrenCount,    icon: Stethoscope,  hex: "#a78bfa", glow: "167,139,250", bg: "bg-violet-500/10" },
+            { label: "Total MCQs",     value: qbankTotalMcqs,        icon: Layers,       hex: "#c084fc", glow: "192,132,252", bg: "bg-purple-500/10" },
+          ].map(({ label, value, icon: Icon, hex, glow, bg }, idx) => (
+            <motion.div
+              key={label}
+              className="rounded-xl border bg-card/70 backdrop-blur-sm shadow-sm overflow-hidden relative"
+              style={{ boxShadow: `inset 0 0 0 1px rgba(${glow},0.16)` }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.07, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <motion.div aria-hidden className="absolute inset-0 pointer-events-none"
+                style={{ background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.11) 50%, transparent 70%)" }}
+                initial={{ x: "-120%" }} animate={{ x: "160%" }}
+                transition={{ delay: 0.35 + idx * 0.1, duration: 0.65, ease: "easeOut" }}
+              />
+              <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(circle at 15% 50%, rgba(${glow},0.10) 0%, transparent 65%)` }} />
+              <div className="p-3.5 relative">
+                <div className={`h-7 w-7 rounded-lg ${bg} flex items-center justify-center mb-2`} style={{ boxShadow: `0 0 10px rgba(${glow},0.22)` }}>
+                  <Icon className="h-3.5 w-3.5" style={{ color: hex }} />
+                </div>
+                <div className="text-2xl font-serif font-bold text-foreground">{value}</div>
+                <div className="text-[11px] text-muted-foreground font-medium mt-0.5 uppercase tracking-wider">{label}</div>
+              </div>
+            </motion.div>
+          ))}
         </div>
       )}
 
