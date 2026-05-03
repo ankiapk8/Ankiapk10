@@ -37,6 +37,15 @@ import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 const RING_R = 36;
 const RING_C = 2 * Math.PI * RING_R; // ≈ 226.2
 
+function relativeDate(iso: string): string {
+  const diffDays = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return `${Math.floor(diffDays / 30)}mo ago`;
+}
+
 function masteryColor(pct: number | null): { chip: string; dot: string } {
   if (pct === null) return { chip: "bg-muted/60 border-border/40 text-muted-foreground", dot: "bg-muted-foreground/40" };
   if (pct >= 80) return { chip: "bg-emerald-500/15 border-emerald-400/30 text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500" };
@@ -71,6 +80,14 @@ export default function Dashboard() {
   const streak = useMemo(() => getStudyStreak(sessions), [sessions]);
   const last7 = useMemo(() => getLast7Days(), []);
   const deckStats = useMemo(() => getDeckStats(sessions), [sessions]);
+  const lastStudiedByDeck = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const s of sessions) {
+      const ex = map.get(s.deckId);
+      if (!ex || s.completedAt > ex) map.set(s.deckId, s.completedAt);
+    }
+    return map;
+  }, [sessions]);
   const todayStats = useMemo(() => getTodayStats(sessions), [sessions]);
   const thisWeekCards = useMemo(() => getThisWeekCards(sessions), [sessions]);
   const sparklineDays = useMemo(() => getLast14DaysTotals(), []);
@@ -316,6 +333,89 @@ export default function Dashboard() {
           </motion.div>
         ))}
       </div>
+
+      {/* Study performance stats bar */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.28, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {hasStudied ? (
+          <div className="relative rounded-xl border border-border/50 bg-card/70 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(circle at 5% 50%, rgba(52,211,153,0.07) 0%, transparent 55%)" }} />
+            <div className="flex flex-col sm:flex-row sm:items-stretch divide-y sm:divide-y-0 sm:divide-x divide-border/40">
+              <div className="flex items-center gap-3 px-5 py-4 flex-1">
+                <div className="h-9 w-9 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0" style={{ boxShadow: "0 0 12px rgba(52,211,153,0.25)" }}>
+                  <Brain className="h-4 w-4 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold leading-none tabular-nums">{totalSessionCards.toLocaleString()}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Cards studied all-time</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 px-5 py-4 flex-1">
+                <div className="h-9 w-9 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0" style={{ boxShadow: "0 0 12px rgba(251,146,60,0.25)" }}>
+                  <Flame className="h-4 w-4 text-orange-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold leading-none tabular-nums">{streak > 0 ? streak : "—"}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Day streak</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 px-5 py-4 flex-1">
+                <div className="h-9 w-9 rounded-lg bg-sky-500/10 flex items-center justify-center shrink-0" style={{ boxShadow: "0 0 12px rgba(56,189,248,0.25)" }}>
+                  <CheckCircle2 className="h-4 w-4 text-sky-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold leading-none tabular-nums">{overallPct}%</p>
+                  <p className="text-[11px] text-muted-foreground mt-1">Overall accuracy</p>
+                </div>
+              </div>
+              <div className="flex flex-col justify-center gap-2 px-5 py-4 sm:min-w-[168px]">
+                <p className="text-[11px] text-muted-foreground font-medium">7-day activity</p>
+                <div className="flex items-end gap-1 h-8">
+                  {last7.map((day, i) => {
+                    const barH = day.total > 0 ? Math.max(4, Math.round((day.total / maxDay) * 28)) : 3;
+                    const isLast = i === 6;
+                    return (
+                      <div
+                        key={day.date}
+                        className="flex-1 rounded-sm"
+                        title={`${day.label}: ${day.total} cards`}
+                        style={{
+                          height: barH,
+                          background: day.total > 0
+                            ? isLast ? "rgb(52,211,153)" : "rgba(52,211,153,0.45)"
+                            : "hsl(var(--border))",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-muted-foreground">{last7.reduce((s, d) => s + d.total, 0)} this week</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-border/50 bg-card/40 backdrop-blur-sm p-5 flex flex-col sm:flex-row items-center gap-4">
+            <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center shrink-0">
+              <Brain className="h-5 w-5 text-emerald-400/60" />
+            </div>
+            <div className="flex-1 text-center sm:text-left">
+              <p className="text-sm font-semibold">Start studying to track your progress</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Your streak, accuracy, and 7-day activity will appear here once you study a deck.
+              </p>
+            </div>
+            <Link href="/decks">
+              <Button size="sm" variant="outline" className="gap-1.5 shrink-0">
+                <Layers className="h-3.5 w-3.5" />
+                Browse decks
+              </Button>
+            </Link>
+          </div>
+        )}
+      </motion.div>
 
       {/* Knowledge Map */}
       {!isLoading && knowledgeMap.length > 0 && (
@@ -926,40 +1026,53 @@ export default function Dashboard() {
             )}
           </div>
           <div className="space-y-2">
-            {recentDecks.map((deck, idx) => (
-              <Link key={deck.id} href={`/decks/${deck.id}`}>
-                <Card
-                  className="border-border/50 shadow-sm hover:border-primary/40 hover:shadow-md transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
-                  style={{ animationDelay: `${idx * 40}ms` }}
-                >
-                  <CardContent className="flex items-center gap-4 py-3 px-4">
-                    <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                      <Layers className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{deck.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(deck.createdAt), "MMM d, yyyy 'at' h:mm a")}
-                        </p>
+            {recentDecks.map((deck, idx) => {
+              const ds = deckStats.get(deck.id);
+              const deckPct = ds && ds.total > 0 ? Math.round((ds.known / ds.total) * 100) : null;
+              const lastStudied = lastStudiedByDeck.get(deck.id);
+              const { chip } = masteryColor(deckPct);
+              return (
+                <Link key={deck.id} href={`/decks/${deck.id}`}>
+                  <Card
+                    className="border-border/50 shadow-sm hover:border-primary/40 hover:shadow-md transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
+                    style={{ animationDelay: `${idx * 40}ms` }}
+                  >
+                    <CardContent className="flex items-center gap-4 py-3 px-4">
+                      <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                        <Layers className="h-4 w-4 text-primary" />
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {(recentDeckDueCounts.get(deck.id) ?? 0) > 0 && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
-                          {recentDeckDueCounts.get(deck.id)} to review
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{deck.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                          <p className="text-xs text-muted-foreground">
+                            {lastStudied
+                              ? `Studied ${relativeDate(lastStudied)}`
+                              : format(new Date(deck.createdAt), "MMM d, yyyy")}
+                          </p>
+                          {deckPct !== null && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${chip}`}>
+                              {deckPct}% known
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {(recentDeckDueCounts.get(deck.id) ?? 0) > 0 && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                            {recentDeckDueCounts.get(deck.id)} to review
+                          </span>
+                        )}
+                        <span className="text-sm font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-md">
+                          {deck.cardCount} {deck.cardCount === 1 ? "card" : "cards"}
                         </span>
-                      )}
-                      <span className="text-sm font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-md">
-                        {deck.cardCount} {deck.cardCount === 1 ? "card" : "cards"}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}
