@@ -5,7 +5,7 @@ import {
   ExchangeMobileAuthorizationCodeBody,
   ExchangeMobileAuthorizationCodeResponse,
   LogoutMobileSessionResponse,
-} from "@workspace/api-zod";
+} from "../lib/auth-types";
 import { db, usersTable } from "@workspace/db";
 import {
   clearSession,

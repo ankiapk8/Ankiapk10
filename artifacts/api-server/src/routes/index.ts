@@ -1,5 +1,7 @@
 import { Router, type IRouter } from "express";
+import { authMiddleware } from "../middlewares/authMiddleware";
 import healthRouter from "./health";
+import authRouter from "./auth";
 import decksRouter from "./decks";
 import cardsRouter from "./cards";
 import generateRouter from "./generate";
@@ -19,7 +21,9 @@ import subscriptionRouter from "./subscription";
 
 const router: IRouter = Router();
 
+router.use(authMiddleware);
 router.use(healthRouter);
+router.use(authRouter);
 router.use(subscriptionRouter);
 router.use(decksRouter);
 router.use(cardsRouter);
