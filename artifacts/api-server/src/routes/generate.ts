@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db, decksTable, cardsTable, generationsTable, qbanksTable, questionsTable } from "@workspace/db";
 import { GenerateCardsBody } from "@workspace/api-zod";
 import { createCanvas, loadImage } from "canvas";
@@ -133,7 +133,7 @@ type RawCard = {
   correctIndex?: number;
   pageNumber?: number | null;
 };
-type Bbox = { x: number; y: number; w: number; h: number };
+type Bbox = { x: number; y: number; w: number; h: number; source?: string };
 type FigureType = "chart" | "table" | "radiology" | "flowchart" | "diagram" | "photomicrograph" | "trace" | "equation";
 type VisualRawCard = { pageIndex: number; front: string; back: string; bbox?: Bbox; figureType?: FigureType };
 type VisualCardResult = { front: string; back: string; image: string; sourceImage: string; bbox: Bbox | null; figureType: FigureType | null; pageNumber: number | null };
@@ -1645,7 +1645,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   }
 });
 
-router.post("/generate/commit", generateRateLimiter, async (req, res, next): Promise<void> => {
+router.post("/generate/commit", generateRateLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { deckName, parentId, cards } = req.body as {
     deckName?: string;
     parentId?: number | null;
@@ -1686,7 +1686,7 @@ router.post("/generate/commit", generateRateLimiter, async (req, res, next): Pro
   }
 });
 
-router.post("/generate/regenerate-card", generateRateLimiter, async (req, res, next): Promise<void> => {
+router.post("/generate/regenerate-card", generateRateLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { front, back, deckName } = req.body as { front?: string; back?: string; deckName?: string };
   if (!front?.trim() || !back?.trim()) { res.status(400).json({ error: "front and back are required" }); return; }
 
@@ -1718,8 +1718,8 @@ router.post("/generate/regenerate-card", generateRateLimiter, async (req, res, n
   } catch (err) { next(err); }
 });
 
-router.post("/cards/:id/regenerate", generateRateLimiter, async (req, res, next): Promise<void> => {
-  const cardId = parseInt(req.params.id ?? "", 10);
+router.post("/cards/:id/regenerate", generateRateLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const cardId = parseInt(String(req.params.id ?? ""), 10);
   if (isNaN(cardId)) { res.status(400).json({ error: "Invalid card ID" }); return; }
 
   const [card] = await db.select().from(cardsTable).where(eq(cardsTable.id, cardId));
