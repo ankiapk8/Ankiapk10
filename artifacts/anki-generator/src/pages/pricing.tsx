@@ -305,6 +305,25 @@ export default function Pricing() {
           ))}
         </div>
       </div>
+
+      <div className="rounded-xl border border-border/60 bg-card/60 p-5">
+        <h3 className="font-semibold mb-3 text-sm flex items-center gap-2">
+          <Star className="h-4 w-4 text-amber-500" />
+          Plans to improve
+        </h3>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {[
+            "Smarter card quality checks",
+            "Better question bank explanations",
+            "More study planner automation",
+            "Faster large PDF processing",
+          ].map((item) => (
+            <div key={item} className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm text-muted-foreground">
+              {item}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
