@@ -571,8 +571,8 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
               <p className="text-xs font-semibold mb-2 text-foreground">Keyboard shortcuts</p>
               <div className="space-y-1.5">
                 {[
-                  ["Space / →", "Flip / Good"],
-                  ["←", "Previous"],
+                  ["Space", "Flip card"],
+                  ["→ / ←", "Next / Prev"],
                   ["1", "Again"],
                   ["2", "Hard"],
                   ["3", "Good"],

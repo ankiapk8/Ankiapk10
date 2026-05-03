@@ -5,7 +5,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/utils";
 import {
   getSrsState, saveSrsState, getDefaultSrsState, computeNextState,
-  getNextInterval, intervalLabel, getDueCardIds,
+  getNextInterval, intervalLabel, getDueCardIds, getDueDeckIds,
   type SrsRating,
 } from "@/lib/srs";
 import { saveSession } from "@/lib/study-stats";
@@ -15,28 +15,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Card, Deck } from "@workspace/api-client-react/src/generated/api.schemas";
 
 type DueCard = Card & { deckName: string; deckId: number };
-
-function getSrsMap(): Record<number, { deckId: number; lastReviewedAt: string; dueDate: string }> {
-  try {
-    const raw = localStorage.getItem("ankigen_srs_data");
-    if (!raw) return {};
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-function getDueDeckIds(): number[] {
-  const map = getSrsMap();
-  const today = new Date().toISOString().slice(0, 10);
-  const ids = new Set<number>();
-  for (const s of Object.values(map)) {
-    if (s.deckId && s.lastReviewedAt && s.dueDate <= today) {
-      ids.add(s.deckId);
-    }
-  }
-  return Array.from(ids);
-}
 
 export default function StudyDue() {
   const [flipped, setFlipped] = useState(false);
