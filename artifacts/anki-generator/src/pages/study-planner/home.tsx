@@ -242,7 +242,7 @@ export default function SPHome() {
 
   const allStats = useMemo(() => [
     ...hardcodedStats.map(s => ({ emoji: s.emoji, label: s.label, path: s.path, topics: s.topics, pct: s.pct, byStatus: s.byStatus, timeLeft: s.timeLeft, colorText: CUSTOM_COLOR_STYLES[s.color]?.text ?? "text-primary", barColor: SUBJECT_BAR_COLORS[s.color] ?? "bg-blue-500" })),
-    ...customStats.map(s => ({ emoji: s.emoji, label: s.label, path: s.navPath, topics: s.topics, pct: s.pct, byStatus: { "Not Started": s.topics.filter(t => t.status === "Not Started").length, "In Progress": s.topics.filter(t => t.status === "In Progress").length, "Done": s.topics.filter(t => t.status === "Done").length, "Revised": s.topics.filter(t => t.status === "Revised").length } as Record<Status, number>, timeLeft: s.topics.filter(t => t.status === "Not Started" || t.status === "In Progress").reduce((acc, t) => acc + (t.estimatedMinutes ?? 0), 0), colorText: s.styles.text, barColor: "bg-blue-500" })),
+    ...customStats.map(s => ({ emoji: s.emoji, label: s.label, path: s.navPath, topics: s.topics, pct: s.pct, byStatus: { "Not Started": s.topics.filter(t => t.status === "Not Started").length, "In Progress": s.topics.filter(t => t.status === "In Progress").length, "Done": s.topics.filter(t => t.status === "Done").length, "Revised": s.topics.filter(t => t.status === "Revised").length } as Record<Status, number>, timeLeft: s.topics.filter(t => t.status === "Not Started" || t.status === "In Progress").reduce((acc, t) => acc + (t.estimatedMinutes ?? 0), 0), colorText: s.styles.text, barColor: s.styles.bar })),
   ], [hardcodedStats, customStats]);
 
   const revisionLabel = useMemo(() => {
