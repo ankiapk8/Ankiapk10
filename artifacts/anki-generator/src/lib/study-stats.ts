@@ -38,7 +38,7 @@ export type QBankSession = {
   totalSeconds: number;
   filterMode: "all" | "unseen" | "wrong" | "flagged";
   timed: boolean;
-  timeLimitSeconds?: number;
+  secondsPerQuestion?: number;
 };
 
 const STORAGE_KEY = "ankigen_study_sessions";

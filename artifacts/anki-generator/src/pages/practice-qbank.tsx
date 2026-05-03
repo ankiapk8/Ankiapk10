@@ -1258,7 +1258,7 @@ export default function PracticeQbank() {
         totalSeconds,
         filterMode: sessionConfig.filterMode,
         timed: sessionConfig.timed,
-        timeLimitSeconds: sessionConfig.timed ? sessionConfig.secondsPerQuestion : undefined,
+        secondsPerQuestion: sessionConfig.timed ? sessionConfig.secondsPerQuestion : undefined,
       });
 
       saveSession({
@@ -1274,6 +1274,7 @@ export default function PracticeQbank() {
       // (e.g. those skipped when the timer expired) stay unseen so they appear
       // correctly in the "Unseen Only" filter next time.
       const attemptedIds = answers
+        .filter(a => a.selectedIndex !== -1)
         .map(a => activeQuestions[a.questionIndex]?.id)
         .filter((qid): qid is number => qid != null);
       markSeen(id, attemptedIds);
