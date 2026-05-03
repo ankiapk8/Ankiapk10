@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueries, useQuery } from "@tanstack/react-query";
@@ -40,7 +40,6 @@ function getDueDeckIds(): number[] {
 
 export default function StudyDue() {
   const [flipped, setFlipped] = useState(false);
-  const [cursor, setCursor] = useState(0);
   const [done, setDone] = useState(false);
   const [sessionStats, setSessionStats] = useState({ total: 0, known: 0 });
 
@@ -76,7 +75,7 @@ export default function StudyDue() {
 
   const isLoading = dueDeckIds.length > 0 && cardQueries.some(q => q.isPending);
 
-  const allCards = useMemo<DueCard[]>(() => {
+  const candidateCards = useMemo<DueCard[]>(() => {
     if (isLoading) return [];
     const out: DueCard[] = [];
     dueDeckIds.forEach((deckId, i) => {
@@ -91,8 +90,19 @@ export default function StudyDue() {
     return out;
   }, [isLoading, dueDeckIds, cardQueries, deckNameMap]);
 
-  const current = allCards[cursor];
-  const total = allCards.length;
+  const [queue, setQueue] = useState<DueCard[] | null>(null);
+  const queueInitialized = useRef(false);
+
+  useEffect(() => {
+    if (!isLoading && candidateCards.length > 0 && !queueInitialized.current) {
+      queueInitialized.current = true;
+      setQueue([...candidateCards]);
+    }
+  }, [isLoading, candidateCards]);
+
+  const current = queue?.[0] ?? null;
+  const total = queue?.length ?? candidateCards.length;
+  const reviewed = (queue !== null ? (total - queue.length) : 0);
 
   const rateCard = useCallback((rating: SrsRating) => {
     if (!current) return;
@@ -103,13 +113,16 @@ export default function StudyDue() {
       total: prev.total + 1,
       known: prev.known + (rating >= 3 ? 1 : 0),
     }));
-    if (cursor + 1 >= total) {
-      setDone(true);
-    } else {
-      setFlipped(false);
-      setTimeout(() => setCursor(c => c + 1), 80);
-    }
-  }, [current, cursor, total]);
+    setFlipped(false);
+    setQueue(prev => {
+      if (!prev) return prev;
+      const remaining = prev.slice(1);
+      if (remaining.length === 0) {
+        setDone(true);
+      }
+      return remaining;
+    });
+  }, [current]);
 
   useEffect(() => {
     if (done && sessionStats.total > 0) {
@@ -121,9 +134,9 @@ export default function StudyDue() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === " " || e.key === "f" || e.key === "F") {
         e.preventDefault();
-        if (!flipped && !done) setFlipped(true);
+        if (!flipped && !done && current) setFlipped(true);
       }
-      if (flipped && !done) {
+      if (flipped && !done && current) {
         if (e.key === "1") rateCard(1);
         else if (e.key === "2") rateCard(2);
         else if (e.key === "3") rateCard(3);
@@ -132,7 +145,7 @@ export default function StudyDue() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [flipped, done, rateCard]);
+  }, [flipped, done, current, rateCard]);
 
   if (isLoading) {
     return (
@@ -143,13 +156,13 @@ export default function StudyDue() {
         </div>
         <Skeleton className="h-44 w-full rounded-2xl" />
         <div className="grid grid-cols-4 gap-2">
-          {[0,1,2,3].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}
+          {[0, 1, 2, 3].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}
         </div>
       </div>
     );
   }
 
-  if (dueDeckIds.length === 0 || done || (total === 0 && !isLoading)) {
+  if (done || (!isLoading && (dueDeckIds.length === 0 || (queue !== null && queue.length === 0 && sessionStats.total === 0) || candidateCards.length === 0))) {
     const pct = sessionStats.total > 0 ? Math.round((sessionStats.known / sessionStats.total) * 100) : 0;
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
@@ -183,6 +196,10 @@ export default function StudyDue() {
     );
   }
 
+  if (!current) return null;
+
+  const initialTotal = (queue?.length ?? 0) + reviewed;
+
   return (
     <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
       <div className="flex items-center justify-between">
@@ -193,15 +210,14 @@ export default function StudyDue() {
         </Link>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <CalendarClock className="h-4 w-4" />
-          <span>{cursor + 1} / {total} due</span>
+          <span>{reviewed + 1} / {initialTotal} due</span>
         </div>
       </div>
 
       <div className="w-full bg-muted/30 rounded-full h-1.5">
         <motion.div
           className="h-1.5 rounded-full bg-primary"
-          initial={{ width: 0 }}
-          animate={{ width: `${(cursor / total) * 100}%` }}
+          animate={{ width: `${initialTotal > 0 ? (reviewed / initialTotal) * 100 : 0}%` }}
           transition={{ type: "spring", stiffness: 200, damping: 30 }}
         />
       </div>
@@ -212,7 +228,7 @@ export default function StudyDue() {
 
       <AnimatePresence mode="wait">
         <motion.div
-          key={`card-${cursor}-${flipped ? "back" : "front"}`}
+          key={`card-${current.id}-${flipped ? "back" : "front"}`}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
