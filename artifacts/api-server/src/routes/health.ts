@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { pool } from "@workspace/db";
 import { logger } from "../lib/logger";
+import { FREE_TEXT_MODEL, FREE_VISION_MODEL } from "../lib/models";
 
 const router: IRouter = Router();
 
@@ -54,8 +55,8 @@ function checkAiProvider(): CheckResult {
 }
 
 router.get("/model-info", (_req, res) => {
-  const textModel  = process.env.AI_TEXT_MODEL   ?? "google/gemini-2.0-flash-exp:free";
-  const visionModel = process.env.AI_VISION_MODEL ?? "google/gemini-2.0-flash-exp:free";
+  const textModel  = FREE_TEXT_MODEL;
+  const visionModel = FREE_VISION_MODEL;
   const isFree = (m: string) => /:free$/.test(m) || /free/i.test(m.split("/").pop() ?? "");
   res.json({
     textModel,
