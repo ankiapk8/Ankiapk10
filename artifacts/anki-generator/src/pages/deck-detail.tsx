@@ -328,28 +328,37 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
     localStorage.setItem(`ankigen-last-mode-${deckId}`, mode);
     setLastMode(mode);
 
-    // Word-by-word reveal: advances one word (+ trailing whitespace) every 20ms
+    // Word-by-word reveal: one word per 20ms; records history once animation catches up
+    const recordHistory = (text: string) => {
+      if (text && !text.startsWith("Failed") && !text.startsWith("Could not")) {
+        setExplainHistory(prev => [{ mode, text }, ...prev.filter((_, i) => i < 4)]);
+      }
+    };
     revealTimerRef.current = setInterval(() => {
       const target = streamedRef.current;
       let pos = revealPosRef.current;
+      // All text already visible
       if (pos >= target.length) {
         if (!isExplainingRef.current) {
           clearInterval(revealTimerRef.current!);
           revealTimerRef.current = null;
+          recordHistory(target);
         }
         return;
       }
-      // Skip any leading whitespace already at this position
+      // Skip any leading whitespace at current position
       while (pos < target.length && /\s/.test(target[pos])) pos++;
-      // Advance through one word (non-whitespace chars)
+      // Advance through one word (non-whitespace)
       while (pos < target.length && !/\s/.test(target[pos])) pos++;
       // Consume trailing whitespace so next tick starts at a clean word boundary
       while (pos < target.length && /\s/.test(target[pos])) pos++;
       revealPosRef.current = pos;
       setDisplayText(target.slice(0, pos));
+      // Animation just caught up to end of completed stream — record history once
       if (!isExplainingRef.current && pos >= target.length) {
         clearInterval(revealTimerRef.current!);
         revealTimerRef.current = null;
+        recordHistory(streamedRef.current);
       }
     }, 20);
 
@@ -390,18 +399,8 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
     } finally {
       isExplainingRef.current = false;
       setIsExplaining(false);
-      // Flush any remaining text immediately
-      const finalText = streamedRef.current;
-      setDisplayText(finalText);
-      revealPosRef.current = finalText.length;
-      if (revealTimerRef.current) { clearInterval(revealTimerRef.current); revealTimerRef.current = null; }
-      // Add to history
-      if (finalText && !finalText.startsWith("Failed") && !finalText.startsWith("Could not")) {
-        setExplainHistory(prev => {
-          const entry = { mode, text: finalText };
-          return [entry, ...prev.filter((_, i) => i < 4)];
-        });
-      }
+      // Let the reveal timer naturally finish the word-by-word animation and
+      // record history once it reaches the end of streamedRef.current
     }
   }, [current, isExplaining, deckId]);
 
