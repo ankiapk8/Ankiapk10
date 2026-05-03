@@ -539,6 +539,7 @@ export default function Decks() {
   const [libraryTab, setLibraryTab] = useState<"decks" | "qbanks">("decks");
   const [generateMode, setGenerateMode] = useState<"deck" | "qbank">("deck");
   const [masteryFilter, setMasteryFilter] = useState<MasteryFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "flashcards" | "qbanks">("all");
 
   const [deckTags, setDeckTagsState] = useState<Record<number, string[]>>(loadDeckTags);
   const [tagEditDeckId, setTagEditDeckId] = useState<number | null>(null);
@@ -1163,19 +1164,19 @@ export default function Decks() {
                 <SlidersHorizontal className="h-3 w-3" /> Type:
               </span>
               {([
-                { key: "decks", label: "All" },
+                { key: "all", label: "All" },
                 { key: "flashcards", label: "Flashcards" },
                 { key: "qbanks", label: "QBanks" },
               ] as const).map(({ key, label }) => (
                 <button
                   key={key}
-                  onClick={() => setLibraryTab(key === "decks" ? "decks" : "qbanks")}
+                  onClick={() => setTypeFilter(key)}
                   className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border transition-all ${
-                    key === "decks"
+                    typeFilter === key
                       ? "bg-foreground text-background border-foreground"
                       : key === "flashcards"
-                      ? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
-                      : "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30"
+                      ? "bg-card/60 text-indigo-700 dark:text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/10"
+                      : "bg-card/60 text-violet-700 dark:text-violet-300 border-violet-500/30 hover:bg-violet-500/10"
                   }`}
                 >
                   {label}
@@ -1337,23 +1338,12 @@ export default function Decks() {
               </TabsList>
 
               <TabsContent value="decks" className="mt-4">
-                {rootFlashcardDecks.length === 0 ? (
+                {filteredFlashcards.length === 0 ? (
                   <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
                     <div className="mx-auto h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4"><BookOpen className="h-5 w-5 text-primary" /></div>
                     <p className="font-medium">No flashcard decks yet</p>
                     <p className="text-sm text-muted-foreground mt-1 mb-4">Generate a deck of flashcards from your notes or PDFs.</p>
                     <Button className="gap-2" onClick={() => openGenerateSheet("deck")}><Sparkles className="h-4 w-4" /> Generate Deck</Button>
-                  </div>
-                ) : filteredFlashcards.length === 0 ? (
-                  <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
-                    <p className="font-medium">
-                      {activeTagFilter ? `No decks tagged "${activeTagFilter}"` : activeFolderFilter ? "No decks in this folder" : `No topics match "${search}"`}
-                    </p>
-                    <div className="flex items-center justify-center gap-2 mt-3">
-                      {(search || activeTagFilter || activeFolderFilter) && (
-                        <Button variant="ghost" onClick={() => { setSearch(""); setActiveTagFilter(null); setActiveFolderFilter(null); }}>Clear filters</Button>
-                      )}
-                    </div>
                   </div>
                 ) : (
                   <>
@@ -1389,7 +1379,7 @@ export default function Decks() {
               </TabsContent>
 
               <TabsContent value="qbanks" className="mt-4">
-                {rootQbankDecks.length === 0 ? (
+                {filteredQbanks.length === 0 ? (
                   <div className="text-center py-16 px-6 border-2 border-dashed border-violet-500/20 rounded-2xl bg-violet-500/5">
                     <div className="mx-auto h-12 w-12 rounded-xl bg-violet-500/10 flex items-center justify-center mb-4"><Stethoscope className="h-5 w-5 text-violet-500" /></div>
                     <p className="font-medium">No question banks yet</p>
