@@ -304,3 +304,50 @@ export function getHistoricalTopicBreakdown(
   const allResults = sessions.flatMap(s => s.results);
   return getTopicBreakdown(allResults);
 }
+
+// --- Weekly goal ---
+
+const WEEKLY_GOAL_KEY = "ankigen_weekly_goal";
+const DEFAULT_WEEKLY_GOAL = 50;
+
+export function getWeeklyGoal(): number {
+  try {
+    const raw = localStorage.getItem(WEEKLY_GOAL_KEY);
+    return raw ? Math.max(1, parseInt(raw, 10)) : DEFAULT_WEEKLY_GOAL;
+  } catch { return DEFAULT_WEEKLY_GOAL; }
+}
+
+export function setWeeklyGoal(n: number): void {
+  try { localStorage.setItem(WEEKLY_GOAL_KEY, String(Math.max(1, n))); } catch {}
+}
+
+export function getThisWeekCards(sessions: StudySession[]): number {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const mondayOffset = (dayOfWeek + 6) % 7;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - mondayOffset);
+  monday.setHours(0, 0, 0, 0);
+  return sessions
+    .filter(s => new Date(s.completedAt) >= monday)
+    .reduce((sum, s) => sum + s.total, 0);
+}
+
+// --- Study time sparkline (estimated 8 s/card) ---
+
+const AVG_SECONDS_PER_CARD = 8;
+
+export function getLast14DaysTotals(): { date: string; label: string; total: number; estimatedMinutes: number }[] {
+  const sessions = getSessions();
+  const result = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const label = i === 0 ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" });
+    const daySessions = sessions.filter(s => s.date === dateStr);
+    const total = daySessions.reduce((sum, s) => sum + s.total, 0);
+    result.push({ date: dateStr, label, total, estimatedMinutes: Math.round(total * AVG_SECONDS_PER_CARD / 60) });
+  }
+  return result;
+}
