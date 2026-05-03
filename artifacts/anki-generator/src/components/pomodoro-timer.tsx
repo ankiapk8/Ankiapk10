@@ -254,8 +254,8 @@ function SettingsSection({
           <button
             disabled={!dirty}
             onClick={() => { onChange(draft); onClose(); }}
-            className="flex-1 h-7 rounded-lg text-[11px] font-medium text-white transition-colors disabled:opacity-40"
-            style={{ backgroundColor: dirty ? "#10b981" : undefined, background: dirty ? undefined : "hsl(var(--muted))" }}
+            className={`flex-1 h-7 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-40 ${dirty ? "text-white" : "text-muted-foreground bg-muted"}`}
+            style={dirty ? { backgroundColor: "#10b981" } : {}}
           >Save</button>
         </div>
       </div>
@@ -333,8 +333,8 @@ export function PomodoroTimer() {
   const [started,    setStarted]    = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  const stateRef = useRef({ phaseIdx, soundOn: settings.soundOn, cycle, settings });
-  stateRef.current = { phaseIdx, soundOn: settings.soundOn, cycle, settings };
+  const stateRef = useRef({ phaseIdx, soundOn: settings.soundOn, cycle, settings, sessions });
+  stateRef.current = { phaseIdx, soundOn: settings.soundOn, cycle, settings, sessions };
 
   /* persist label */
   useEffect(() => {
@@ -349,12 +349,12 @@ export function PomodoroTimer() {
         if (prev === 61 && stateRef.current.soundOn) playChime("tick");
 
         if (prev <= 1) {
-          const { phaseIdx: pi, soundOn: so, cycle: cy, settings: st } = stateRef.current;
+          const { phaseIdx: pi, soundOn: so, cycle: cy } = stateRef.current;
 
           /* record completed focus session */
           if (cy[pi].isFocus) {
             const newSessions = [
-              ...loadSessions(),
+              ...stateRef.current.sessions,
               { ts: new Date().toISOString(), minutes: cy[pi].minutes },
             ];
             saveSessions(newSessions);
