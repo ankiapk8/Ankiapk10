@@ -1588,7 +1588,7 @@ export default function DeckDetail() {
           deckName={deck.name}
           deckKind={(deck as Deck & { kind?: string }).kind}
           savePoint={studyDueOnly ? null : activeSavePoint}
-          srsMode={studyDueOnly}
+          srsMode={true}
           onExit={() => { setStudyMode(false); setActiveSavePoint(null); setStudyDueOnly(false); }}
         />
       </div>

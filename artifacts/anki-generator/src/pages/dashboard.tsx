@@ -25,7 +25,7 @@ import {
   getLast8Weeks,
 } from "@/lib/study-stats";
 import { getDashboardPlannerDueTodayCount } from "@/lib/study-planner/topics";
-import { getTotalScheduledDueCount, getDueCountByDeckId } from "@/lib/srs";
+import { getTotalScheduledDueCount, getDueCountByDeckId, getReviewedCountByDeckId } from "@/lib/srs";
 import type { Qbank } from "@workspace/api-client-react";
 import { AppDownloads } from "@/components/app-downloads";
 import { FeaturesShowcase } from "@/components/features-showcase";
@@ -133,8 +133,12 @@ export default function Dashboard() {
   const recentDeckDueCounts = useMemo(() => {
     const map = new Map<number, number>();
     for (const d of recentDecks) {
-      const count = getDueCountByDeckId(d.id);
-      if (count > 0) map.set(d.id, count);
+      const reviewedCount = getReviewedCountByDeckId(d.id);
+      if (reviewedCount === 0) continue; // SRS not started for this deck — no badge
+      const reviewedDue = getDueCountByDeckId(d.id);
+      const unseenNew = Math.max(0, (d.cardCount ?? 0) - reviewedCount);
+      const total = reviewedDue + unseenNew;
+      if (total > 0) map.set(d.id, total);
     }
     return map;
   }, [recentDecks]);

@@ -177,11 +177,21 @@ export function getDueDeckIds(): number[] {
 }
 
 /**
+ * Returns the number of cards that have been reviewed at least once for a deck.
+ * Used alongside getDueCountByDeckId to compute unseen/new card counts on pages
+ * that only have the deck ID (e.g. dashboard), not the full card ID list.
+ */
+export function getReviewedCountByDeckId(deckId: number): number {
+  const map = getSrsMap();
+  return Object.values(map).filter(s => s.deckId === deckId && s.lastReviewedAt).length;
+}
+
+/**
  * Counts due cards for a deck by scanning the SRS map.
- * Only counts cards that have been reviewed at least once (have lastReviewedAt),
- * because the deck library doesn't provide card IDs — so unreviewed new cards
- * cannot be counted here. For complete due counts (including new cards), use
- * getDueCardIds(cardIds) from the deck detail page where card IDs are available.
+ * Only counts cards reviewed at least once (have lastReviewedAt) whose dueDate
+ * is today or earlier. For a full "cards needing attention" count that also
+ * includes new/unseen cards, combine with getReviewedCountByDeckId and
+ * the deck's total cardCount (see dashboard.tsx recentDeckDueCounts).
  */
 export function getDueCountByDeckId(deckId: number): number {
   const map = getSrsMap();
