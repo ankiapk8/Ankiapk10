@@ -23,7 +23,8 @@ import {
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
-  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network, CheckCircle2, CalendarClock, Zap
+  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network, CheckCircle2, CalendarClock, Zap,
+  Lightbulb, Activity, Copy, BookmarkPlus, StickyNote, Clock
 } from "lucide-react";
 import {
   Dialog,
@@ -263,24 +264,81 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
   const hasImage = !!(current as Card & { image?: string | null })?.image;
   const isCurrentCorrect = revealed && isMcq && mcqSelected === (current?.correctIndex ?? -1);
 
-  type ExplainMode = "full" | "revision" | "osce" | "brief";
-  const [explanation, setExplanation] = useState<string | null>(null);
+  type ExplainMode = "full" | "revision" | "osce" | "brief" | "mnemonic" | "clinical";
+
+  // ── Explain drawer state ──────────────────────────────────────────────────
+  const [displayText, setDisplayText] = useState<string | null>(null); // typed text shown in drawer
   const [explainMode, setExplainMode] = useState<ExplainMode | null>(null);
   const [isExplaining, setIsExplaining] = useState(false);
+  const isExplainingRef = useRef(false);
+
+  // Streaming animation refs
+  const streamedRef = useRef("");        // full text from stream
+  const revealPosRef = useRef(0);        // how many chars are currently shown
+  const revealTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // History: last 5 explanations for current card (reset on card change)
+  const [explainHistory, setExplainHistory] = useState<{ mode: ExplainMode; text: string }[]>([]);
+  const [historyIdx, setHistoryIdx] = useState<number | null>(null); // null = live, 0-4 = past entry
+
+  // Last-used mode (persisted per deck)
+  const [lastMode, setLastMode] = useState<ExplainMode | null>(
+    () => localStorage.getItem(`ankigen-last-mode-${deckId}`) as ExplainMode | null
+  );
+
+  // Copy / save-to-notes
+  const [copied, setCopied] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
+  const [showCardNotes, setShowCardNotes] = useState(false);
+
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const EXPLAIN_LABELS: Record<ExplainMode, string> = {
     full: "Full Explanation",
-    revision: "1-Page Revision Sheet",
+    revision: "Revision Sheet",
     osce: "OSCE Questions",
     brief: "Answer Breakdown",
+    mnemonic: "Mnemonic",
+    clinical: "Clinical Pearls",
   };
+
+  // Cleanup reveal timer on unmount
+  useEffect(() => {
+    return () => { if (revealTimerRef.current) clearInterval(revealTimerRef.current); };
+  }, []);
 
   const handleExplain = useCallback(async (mode: ExplainMode) => {
     if (!current || isExplaining) return;
-    setExplanation("");
+
+    // Stop any running reveal animation
+    if (revealTimerRef.current) { clearInterval(revealTimerRef.current); revealTimerRef.current = null; }
+
+    streamedRef.current = "";
+    revealPosRef.current = 0;
+    setDisplayText("");
     setExplainMode(mode);
+    setHistoryIdx(null);
     setIsExplaining(true);
+    isExplainingRef.current = true;
+
+    // Persist last-used mode
+    localStorage.setItem(`ankigen-last-mode-${deckId}`, mode);
+    setLastMode(mode);
+
+    // Start typewriter reveal timer: advances 10 chars every 20 ms (~500 chars/s)
+    revealTimerRef.current = setInterval(() => {
+      const target = streamedRef.current;
+      const next = Math.min(revealPosRef.current + 10, target.length);
+      if (next !== revealPosRef.current) {
+        revealPosRef.current = next;
+        setDisplayText(target.slice(0, next));
+      }
+      if (!isExplainingRef.current && revealPosRef.current >= target.length) {
+        clearInterval(revealTimerRef.current!);
+        revealTimerRef.current = null;
+      }
+    }, 20);
+
     try {
       const resp = await fetch(apiUrl("api/explain"), {
         method: "POST",
@@ -297,7 +355,9 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
       });
       if (!resp.ok || !resp.body) {
         const err = await resp.json().catch(() => ({}));
-        setExplanation(err.error ?? "Could not get an explanation.");
+        const errMsg = err.error ?? "Could not get an explanation.";
+        streamedRef.current = errMsg;
+        setDisplayText(errMsg);
         return;
       }
       const reader = resp.body.getReader();
@@ -307,14 +367,29 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
         const { done: streamDone, value } = await reader.read();
         if (streamDone) break;
         text += decoder.decode(value, { stream: true });
-        setExplanation(text);
+        streamedRef.current = text;
       }
     } catch {
-      setExplanation("Failed to get an explanation. Please try again.");
+      const errMsg = "Failed to get an explanation. Please try again.";
+      streamedRef.current = errMsg;
+      setDisplayText(errMsg);
     } finally {
+      isExplainingRef.current = false;
       setIsExplaining(false);
+      // Flush any remaining text immediately
+      const finalText = streamedRef.current;
+      setDisplayText(finalText);
+      revealPosRef.current = finalText.length;
+      if (revealTimerRef.current) { clearInterval(revealTimerRef.current); revealTimerRef.current = null; }
+      // Add to history
+      if (finalText && !finalText.startsWith("Failed") && !finalText.startsWith("Could not")) {
+        setExplainHistory(prev => {
+          const entry = { mode, text: finalText };
+          return [entry, ...prev.filter((_, i) => i < 4)];
+        });
+      }
     }
-  }, [current, isExplaining]);
+  }, [current, isExplaining, deckId]);
 
   // Auto-save progress whenever position or results change
   useEffect(() => {
@@ -404,8 +479,15 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
 
   const transition = useCallback((fn: () => void) => {
     setFlipping(true);
-    setExplanation(null);
+    setDisplayText(null);
     setExplainMode(null);
+    setExplainHistory([]);
+    setHistoryIdx(null);
+    setNoteSaved(false);
+    setShowCardNotes(false);
+    if (revealTimerRef.current) { clearInterval(revealTimerRef.current); revealTimerRef.current = null; }
+    streamedRef.current = "";
+    revealPosRef.current = 0;
     setTimeout(() => { fn(); setFlipping(false); }, 150);
   }, []);
 
@@ -938,155 +1020,290 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
         );
       })()}
 
-      {revealed && (
-        <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
-            <Sparkles className="h-3 w-3" /> AI Tools
-          </p>
-          <div className={`grid grid-cols-2 gap-2 ${isMcq ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
-            <button
-              onClick={() => handleExplain("full")}
-              disabled={isExplaining}
-              className="flex flex-col items-center gap-1.5 rounded-lg border border-border/60 bg-background hover:bg-primary/5 hover:border-primary/30 p-3 transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              <Brain className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-medium leading-tight text-foreground">Full Explanation</span>
-            </button>
-            <button
-              onClick={() => handleExplain("revision")}
-              disabled={isExplaining}
-              className="flex flex-col items-center gap-1.5 rounded-lg border border-border/60 bg-background hover:bg-primary/5 hover:border-primary/30 p-3 transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              <ClipboardList className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-medium leading-tight text-foreground">Revision Sheet</span>
-            </button>
-            <button
-              onClick={() => handleExplain("osce")}
-              disabled={isExplaining}
-              className="flex flex-col items-center gap-1.5 rounded-lg border border-border/60 bg-background hover:bg-primary/5 hover:border-primary/30 p-3 transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              <Stethoscope className="h-5 w-5 text-primary group-hover:scale-110 transition-transform" />
-              <span className="text-[11px] font-medium leading-tight text-foreground">OSCE Questions</span>
-            </button>
-            {isMcq && (
-              <button
-                onClick={() => handleExplain("brief")}
-                disabled={isExplaining}
-                className="flex flex-col items-center gap-1.5 rounded-lg border border-violet-500/40 bg-background hover:bg-violet-500/5 hover:border-violet-500/60 p-3 transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed group"
-              >
-                <ListChecks className="h-5 w-5 text-violet-500 group-hover:scale-110 transition-transform" />
-                <span className="text-[11px] font-medium leading-tight text-foreground">Answer Breakdown</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {revealed && (() => {
+        type AiBtn = { mode: ExplainMode; icon: React.ReactNode; label: string; accent?: string };
+        const aiButtons: AiBtn[] = [
+          { mode: "full",     icon: <Brain      className="h-5 w-5" />, label: "Full Explanation" },
+          { mode: "revision", icon: <ClipboardList className="h-5 w-5" />, label: "Revision Sheet" },
+          { mode: "osce",     icon: <Stethoscope className="h-5 w-5" />, label: "OSCE Questions" },
+          { mode: "mnemonic", icon: <Lightbulb  className="h-5 w-5" />, label: "Mnemonic",           accent: "amber" },
+          { mode: "clinical", icon: <Activity   className="h-5 w-5" />, label: "Clinical Pearls",    accent: "rose" },
+          ...(isMcq ? [{ mode: "brief" as ExplainMode, icon: <ListChecks className="h-5 w-5" />, label: "Answer Breakdown", accent: "violet" }] : []),
+        ];
 
-      <Drawer.Root
-        open={explanation !== null}
-        onOpenChange={(open) => {
-          if (!open) { setExplanation(null); setExplainMode(null); }
-        }}
-      >
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/40 z-40" />
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl bg-background shadow-2xl outline-none" style={{ maxHeight: "88vh" }}>
-            <div className="mx-auto mt-3 mb-1 h-1 w-10 rounded-full bg-muted-foreground/20 shrink-0" />
+        const cardNotesKey = `ankigen-card-notes-${current?.id ?? 0}`;
+        const cardNotesVal = localStorage.getItem(cardNotesKey) ?? "";
 
-            {/* Drawer header */}
-            <div className={`px-4 py-3 border-b flex items-center justify-between shrink-0 ${
-              explainMode === "brief"
-                ? "border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-r from-violet-500/5 to-transparent"
-                : "border-border/50"
-            }`}>
-              <div className="flex items-center gap-2.5">
-                <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
-                  explainMode === "brief"
-                    ? "bg-violet-500/15"
-                    : "bg-primary/10"
-                }`}>
-                  {explainMode === "full"     && <Brain       className="h-3.5 w-3.5 text-primary" />}
-                  {explainMode === "revision" && <ClipboardList className="h-3.5 w-3.5 text-primary" />}
-                  {explainMode === "osce"     && <Stethoscope className="h-3.5 w-3.5 text-primary" />}
-                  {explainMode === "brief"    && <ListChecks  className="h-3.5 w-3.5 text-violet-500" />}
-                </div>
-                <div>
-                  <p className={`font-semibold text-sm leading-none ${explainMode === "brief" ? "text-violet-700 dark:text-violet-300" : "text-foreground"}`}>
-                    {explainMode ? EXPLAIN_LABELS[explainMode] : "AI Explanation"}
-                  </p>
-                  {explainMode === "brief" && !isExplaining && (
-                    <p className="text-[10px] text-muted-foreground mt-0.5 leading-none">MCQ · AI-generated rationale</p>
-                  )}
-                </div>
-                {isExplaining && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-1">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Generating…
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-1">
-                {!isExplaining && explainMode !== "brief" && (["full", "revision", "osce"] as ExplainMode[]).map(m => (
+        return (
+          <div className="rounded-xl border border-border/40 bg-muted/20 p-3 space-y-3">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3" /> AI Tools
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {aiButtons.map(({ mode, icon, label, accent }) => {
+                const isLast = lastMode === mode;
+                const accentMap: Record<string, string> = {
+                  amber:  "border-amber-500/50 hover:border-amber-500/80 hover:bg-amber-500/5",
+                  rose:   "border-rose-500/50  hover:border-rose-500/80  hover:bg-rose-500/5",
+                  violet: "border-violet-500/50 hover:border-violet-500/80 hover:bg-violet-500/5",
+                };
+                const accentIcon: Record<string, string> = {
+                  amber: "text-amber-500", rose: "text-rose-500", violet: "text-violet-500",
+                };
+                const lastClass = isLast
+                  ? "ring-2 ring-primary/40 border-primary/60 bg-primary/5"
+                  : (accent ? accentMap[accent] : "border-border/60 hover:bg-primary/5 hover:border-primary/30");
+                const iconColor = accent ? accentIcon[accent] : "text-primary";
+                return (
                   <button
-                    key={m}
-                    onClick={() => handleExplain(m)}
-                    className={`h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors ${
-                      m === explainMode
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                    }`}
+                    key={mode}
+                    onClick={() => handleExplain(mode)}
+                    disabled={isExplaining}
+                    className={`relative flex flex-col items-center gap-1.5 rounded-lg border p-3 transition-all text-center disabled:opacity-50 disabled:cursor-not-allowed group bg-background ${lastClass}`}
                   >
-                    {m === "full" ? "Full" : m === "revision" ? "Revision" : "OSCE"}
+                    {isLast && (
+                      <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                    <span className={`${iconColor} group-hover:scale-110 transition-transform`}>{icon}</span>
+                    <span className="text-[11px] font-medium leading-tight text-foreground">{label}</span>
                   </button>
-                ))}
-                <button
-                  onClick={() => { setExplanation(null); setExplainMode(null); }}
-                  className="ml-1 h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+                );
+              })}
             </div>
 
-            <div className="px-5 py-5 overflow-y-auto flex-1">
-              {isExplaining && (!explanation || explanation.length === 0) ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
-                  <div className="relative">
-                    <div className={`h-10 w-10 rounded-full border-2 animate-spin ${
-                      explainMode === "brief"
-                        ? "border-violet-200 border-t-violet-500"
-                        : "border-primary/20 border-t-primary"
-                    }`} />
-                  </div>
-                  <p className="text-sm">Generating {explainMode ? EXPLAIN_LABELS[explainMode] : "explanation"}…</p>
-                </div>
-              ) : explainMode === "brief" ? (
-                <BriefBreakdownView text={explanation ?? ""} isStreaming={isExplaining} />
-              ) : (
-                <div className="prose prose-sm dark:prose-invert max-w-none
-                  prose-headings:font-semibold prose-headings:text-foreground
-                  prose-h1:text-xl prose-h1:mt-6 prose-h1:mb-3
-                  prose-h2:text-lg prose-h2:mt-5 prose-h2:mb-2 prose-h2:border-b prose-h2:border-border/40 prose-h2:pb-1
-                  prose-h3:text-base prose-h3:mt-4 prose-h3:mb-1.5
-                  prose-p:text-foreground prose-p:leading-relaxed prose-p:my-2
-                  prose-strong:text-foreground prose-strong:font-semibold
-                  prose-ul:my-2 prose-li:my-0.5
-                  prose-ol:my-2
-                  prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
-                  prose-blockquote:border-primary/40 prose-blockquote:text-muted-foreground
-                  prose-hr:border-border/40
-                ">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {explanation ?? ""}
-                  </ReactMarkdown>
-                  {isExplaining && (
-                    <span className="inline-block w-1.5 h-4 bg-primary/60 ml-0.5 animate-pulse rounded-sm align-middle" />
-                  )}
-                </div>
+            {/* Card notes section */}
+            <div className="border-t border-border/30 pt-2.5">
+              <button
+                onClick={() => setShowCardNotes(v => !v)}
+                className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors w-full"
+              >
+                <StickyNote className="h-3.5 w-3.5 shrink-0" />
+                <span>Card Notes</span>
+                {cardNotesVal && <span className="ml-auto text-[10px] text-primary">• saved</span>}
+                <ChevronDown className={`h-3 w-3 ml-auto transition-transform ${showCardNotes ? "rotate-180" : ""}`} />
+              </button>
+              {showCardNotes && (
+                <textarea
+                  className="mt-1.5 w-full h-20 rounded-lg border border-border/60 bg-background px-2.5 py-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-primary/40"
+                  placeholder="Personal notes for this card…"
+                  defaultValue={cardNotesVal}
+                  onBlur={(e) => {
+                    const val = e.target.value.trim();
+                    if (val) localStorage.setItem(cardNotesKey, val);
+                    else localStorage.removeItem(cardNotesKey);
+                  }}
+                />
               )}
             </div>
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+          </div>
+        );
+      })()}
+
+      {(() => {
+        // Derived content: live text or selected history entry
+        const activeMode  = historyIdx !== null ? explainHistory[historyIdx]?.mode  ?? explainMode : explainMode;
+        const activeText  = historyIdx !== null ? (explainHistory[historyIdx]?.text ?? "") : (displayText ?? "");
+        const modeIconMap: Record<string, React.ReactNode> = {
+          full:     <Brain       className="h-3.5 w-3.5 text-primary" />,
+          revision: <ClipboardList className="h-3.5 w-3.5 text-primary" />,
+          osce:     <Stethoscope className="h-3.5 w-3.5 text-primary" />,
+          mnemonic: <Lightbulb  className="h-3.5 w-3.5 text-amber-500" />,
+          clinical: <Activity   className="h-3.5 w-3.5 text-rose-500" />,
+          brief:    <ListChecks  className="h-3.5 w-3.5 text-violet-500" />,
+        };
+        const isViolet = activeMode === "brief";
+        const isAmber  = activeMode === "mnemonic";
+        const isRose   = activeMode === "clinical";
+
+        const handleCopy = () => {
+          if (!activeText) return;
+          navigator.clipboard.writeText(activeText).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          });
+        };
+        const handleSaveNote = () => {
+          if (!activeText || !current) return;
+          const key = `ankigen-card-notes-${current.id}`;
+          const existing = localStorage.getItem(key) ?? "";
+          const stamp = new Date().toLocaleString();
+          const appended = existing
+            ? `${existing}\n\n--- ${activeMode ? EXPLAIN_LABELS[activeMode] : "AI"} · ${stamp} ---\n${activeText}`
+            : `--- ${activeMode ? EXPLAIN_LABELS[activeMode] : "AI"} · ${stamp} ---\n${activeText}`;
+          localStorage.setItem(key, appended);
+          setNoteSaved(true);
+          setTimeout(() => setNoteSaved(false), 2500);
+        };
+
+        return (
+          <Drawer.Root
+            open={displayText !== null}
+            onOpenChange={(open) => {
+              if (!open) {
+                setDisplayText(null);
+                setExplainMode(null);
+                setExplainHistory([]);
+                setHistoryIdx(null);
+              }
+            }}
+          >
+            <Drawer.Portal>
+              <Drawer.Overlay className="fixed inset-0 bg-black/40 z-40" />
+              <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl bg-background shadow-2xl outline-none" style={{ maxHeight: "88vh" }}>
+                <div className="mx-auto mt-3 mb-1 h-1 w-10 rounded-full bg-muted-foreground/20 shrink-0" />
+
+                {/* Drawer header */}
+                <div className={`px-4 py-3 border-b flex items-center justify-between shrink-0 ${
+                  isViolet ? "border-violet-200/60 dark:border-violet-800/40 bg-gradient-to-r from-violet-500/5 to-transparent"
+                  : isAmber ? "border-amber-200/60 dark:border-amber-800/40 bg-gradient-to-r from-amber-500/5 to-transparent"
+                  : isRose  ? "border-rose-200/60 dark:border-rose-800/40 bg-gradient-to-r from-rose-500/5 to-transparent"
+                  : "border-border/50"
+                }`}>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
+                      isViolet ? "bg-violet-500/15" : isAmber ? "bg-amber-500/15" : isRose ? "bg-rose-500/15" : "bg-primary/10"
+                    }`}>
+                      {activeMode && modeIconMap[activeMode]}
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`font-semibold text-sm leading-none truncate ${
+                        isViolet ? "text-violet-700 dark:text-violet-300"
+                        : isAmber ? "text-amber-700 dark:text-amber-300"
+                        : isRose  ? "text-rose-700 dark:text-rose-300"
+                        : "text-foreground"
+                      }`}>
+                        {activeMode ? EXPLAIN_LABELS[activeMode] : "AI Explanation"}
+                      </p>
+                      {historyIdx !== null && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5 leading-none flex items-center gap-1">
+                          <Clock className="h-2.5 w-2.5" /> History entry {historyIdx + 1}
+                        </p>
+                      )}
+                    </div>
+                    {isExplaining && historyIdx === null && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground ml-1 shrink-0">
+                        <Loader2 className="h-3 w-3 animate-spin" /> Generating…
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Header actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {!isExplaining && activeText && (
+                      <>
+                        <button
+                          onClick={handleCopy}
+                          title="Copy to clipboard"
+                          className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+                        </button>
+                        <button
+                          onClick={handleSaveNote}
+                          title="Save to card notes"
+                          className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                        >
+                          {noteSaved ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <BookmarkPlus className="h-3.5 w-3.5" />}
+                        </button>
+                      </>
+                    )}
+                    {/* Mode switcher chips */}
+                    {!isExplaining && (["full", "revision", "osce", "mnemonic", "clinical"] as ExplainMode[])
+                      .filter(m => !(m === "brief"))
+                      .map(m => (
+                        <button
+                          key={m}
+                          onClick={() => { setHistoryIdx(null); handleExplain(m); }}
+                          className={`hidden sm:flex h-7 px-2.5 rounded-md text-[11px] font-medium transition-colors ${
+                            m === activeMode && historyIdx === null
+                              ? "bg-primary/10 text-primary"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {m === "full" ? "Full" : m === "revision" ? "Rev" : m === "osce" ? "OSCE" : m === "mnemonic" ? "Mnem" : "Clinical"}
+                        </button>
+                      ))
+                    }
+                    <button
+                      onClick={() => { setDisplayText(null); setExplainMode(null); setExplainHistory([]); setHistoryIdx(null); }}
+                      className="ml-1 h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* History strip — last 5 entries for this card */}
+                {explainHistory.length > 0 && (
+                  <div className="px-4 py-2 flex items-center gap-1.5 overflow-x-auto shrink-0 border-b border-border/30">
+                    <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                    <button
+                      onClick={() => setHistoryIdx(null)}
+                      className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all ${
+                        historyIdx === null
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border/50 text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      Live
+                    </button>
+                    {explainHistory.map((h, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setHistoryIdx(i)}
+                        className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all ${
+                          historyIdx === i
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border/50 text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {EXPLAIN_LABELS[h.mode]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Drawer body */}
+                <div className="px-5 py-5 overflow-y-auto flex-1">
+                  {isExplaining && historyIdx === null && (!activeText || activeText.length === 0) ? (
+                    <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
+                      <div className={`h-10 w-10 rounded-full border-2 animate-spin ${
+                        isViolet ? "border-violet-200 border-t-violet-500"
+                        : isAmber ? "border-amber-200 border-t-amber-500"
+                        : isRose  ? "border-rose-200 border-t-rose-500"
+                        : "border-primary/20 border-t-primary"
+                      }`} />
+                      <p className="text-sm">Generating {activeMode ? EXPLAIN_LABELS[activeMode] : "explanation"}…</p>
+                    </div>
+                  ) : activeMode === "brief" ? (
+                    <BriefBreakdownView text={activeText} isStreaming={isExplaining && historyIdx === null} />
+                  ) : (
+                    <div className="prose prose-sm dark:prose-invert max-w-none
+                      prose-headings:font-semibold prose-headings:text-foreground
+                      prose-h1:text-xl prose-h1:mt-6 prose-h1:mb-3
+                      prose-h2:text-lg prose-h2:mt-5 prose-h2:mb-2 prose-h2:border-b prose-h2:border-border/40 prose-h2:pb-1
+                      prose-h3:text-base prose-h3:mt-4 prose-h3:mb-1.5
+                      prose-p:text-foreground prose-p:leading-relaxed prose-p:my-2
+                      prose-strong:text-foreground prose-strong:font-semibold
+                      prose-ul:my-2 prose-li:my-0.5 prose-ol:my-2
+                      prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs
+                      prose-blockquote:border-primary/40 prose-blockquote:text-muted-foreground
+                      prose-hr:border-border/40
+                    ">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {activeText}
+                      </ReactMarkdown>
+                      {isExplaining && historyIdx === null && (
+                        <span className="inline-block w-1.5 h-4 bg-primary/60 ml-0.5 animate-pulse rounded-sm align-middle" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Drawer.Content>
+            </Drawer.Portal>
+          </Drawer.Root>
+        );
+      })()}
     </div>
     </>
   );

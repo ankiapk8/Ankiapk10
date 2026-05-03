@@ -6,7 +6,7 @@ const router: IRouter = Router();
 
 const explainRateLimiter = createRateLimiter(20, 60_000);
 
-type ExplainMode = "full" | "revision" | "osce" | "brief";
+type ExplainMode = "full" | "revision" | "osce" | "brief" | "mnemonic" | "clinical";
 
 async function getOpenAIClient() {
   if (
@@ -126,6 +126,40 @@ Explanation given: ${back}`,
     };
   }
 
+  if (mode === "mnemonic") {
+    return {
+      maxTokens: 1200,
+      system: `You are a master medical educator specialising in memory techniques.
+Create a memorable mnemonic or story for the given medical topic.
+
+FORMAT:
+1. **The Mnemonic** — a catchy acronym, rhyme, or phrase (make it vivid and weird — weird = memorable)
+2. **Breakdown** — what each letter/element stands for, with a 1-sentence explanation
+3. **Memory Hook** — a brief vivid story or visual scene that ties it all together
+4. **Clinical link** — one sentence connecting the mnemonic back to patient care
+
+Use **bold** for the mnemonic itself. Keep it punchy — aim for under 300 words.`,
+      user: `Create a mnemonic for: ${topic}`,
+    };
+  }
+
+  if (mode === "clinical") {
+    return {
+      maxTokens: 2500,
+      system: `You are a senior clinician. Explain the real-world clinical application of this medical concept in a way that bridges textbook knowledge to bedside practice.
+
+COVER:
+1. **When you see this** — typical patient presentation; red flags that make you think of it
+2. **What you actually do** — step-by-step clinical decision-making and investigations
+3. **Pitfalls & near-misses** — common mistakes and how to avoid them
+4. **Guideline snapshot** — key current guidance (mention the source if known)
+5. **Clinical vignette** — a brief realistic case (3–4 sentences)
+
+Use **bold** for key clinical action points. Be practical, not theoretical. Aim for 350–500 words.`,
+      user: `Clinical correlation for: ${topic}`,
+    };
+  }
+
   // osce
   return {
     maxTokens: 8000,
@@ -165,7 +199,7 @@ router.post("/explain", async (req, res): Promise<void> => {
     return;
   }
 
-  const validModes: ExplainMode[] = ["full", "revision", "osce", "brief"];
+  const validModes: ExplainMode[] = ["full", "revision", "osce", "brief", "mnemonic", "clinical"];
   const resolvedMode: ExplainMode = validModes.includes(mode as ExplainMode) ? (mode as ExplainMode) : "full";
 
   const { system: systemPrompt, user: userPrompt, maxTokens } = buildPrompts(resolvedMode, front, back, choices, correctIndex);
