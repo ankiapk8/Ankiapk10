@@ -12,6 +12,7 @@ import { UpdateBanner } from "@/components/update-banner";
 import { WhatsNewBanner } from "@/components/whats-new-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { SplashScreen } from "@/components/splash-screen";
+import { OfflineQueueProvider } from "@/providers/offline-queue-provider";
 
 import Dashboard from "@/pages/dashboard";
 import Generate from "@/pages/generate";
@@ -77,6 +78,7 @@ function AppRouter() {
 
 function AppContent() {
   return (
+    <OfflineQueueProvider>
     <SplashScreen>
       <>
         <OfflineBanner />
@@ -87,6 +89,7 @@ function AppContent() {
         <Toaster />
       </>
     </SplashScreen>
+    </OfflineQueueProvider>
   );
 }
 
