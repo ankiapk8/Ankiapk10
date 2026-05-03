@@ -222,19 +222,33 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 * idx, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             whileHover={{ y: -3, transition: { duration: 0.15 } }}
+            className="h-full"
           >
-            <Card className="border-border/50 shadow-sm h-full hover:shadow-md transition-shadow overflow-hidden relative">
-              <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(circle at 15% 50%, rgba(${glowRgb},0.1) 0%, transparent 65%)` }} />
-              <CardContent className="p-4 flex flex-col gap-3 relative">
-                <div className={`h-9 w-9 rounded-xl ${bgClass} flex items-center justify-center`}>
+            <div
+              className="rounded-xl border bg-card/70 backdrop-blur-sm shadow-sm h-full hover:shadow-md transition-all overflow-hidden relative"
+              style={{ boxShadow: `inset 0 0 0 1px rgba(${glowRgb},0.12)` }}
+            >
+              {/* Shimmer sweep on mount */}
+              <motion.div
+                aria-hidden
+                className="absolute inset-0 pointer-events-none"
+                style={{ background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%)" }}
+                initial={{ x: "-120%" }}
+                animate={{ x: "160%" }}
+                transition={{ delay: 0.3 + idx * 0.1, duration: 0.7, ease: "easeOut" }}
+              />
+              {/* Radial glow */}
+              <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(circle at 15% 50%, rgba(${glowRgb},0.10) 0%, transparent 65%)` }} />
+              <div className="p-4 flex flex-col gap-3 relative">
+                <div className={`h-9 w-9 rounded-xl ${bgClass} flex items-center justify-center`} style={{ boxShadow: `0 0 10px rgba(${glowRgb},0.25)` }}>
                   <Icon className="h-4 w-4" style={{ color: hexColor }} />
                 </div>
                 <div>
                   {isLoading ? <Skeleton className="h-7 w-14" /> : <p className="text-2xl font-bold tracking-tight">{value}</p>}
                   <p className="text-xs text-muted-foreground font-medium mt-0.5">{label}</p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </motion.div>
         ))}
       </div>

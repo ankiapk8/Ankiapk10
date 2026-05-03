@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronLeft, Camera, CalendarIcon, Flag, FlagOff } from "lucide-react";
+import { ChevronLeft, Camera, CalendarIcon, Flag, FlagOff, CheckCircle2, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   type SubjectGroup, type Topic,
   computeSchedule, isoDate, PARENT_DOT_COLORS, STATUS_COLORS, PRIORITY_COLORS,
   CUSTOM_DOT_COLORS,
   writeStudyActivity, getDateOverrides,
+  getDailyCheckState, toggleDailyCheck,
 } from "@/lib/study-planner/topics";
 import { useStudyTopicsContext } from "@/context/study-topics-context";
 
@@ -24,7 +25,6 @@ const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-// Dot color that works for both hardcoded (PARENT_DOT_COLORS) and custom (CUSTOM_DOT_COLORS)
 function getDotColor(parentLabel: string): string {
   return PARENT_DOT_COLORS[parentLabel] ?? CUSTOM_DOT_COLORS["blue"] ?? "bg-gray-400";
 }
@@ -45,12 +45,13 @@ export function CalendarView({
 }: Props) {
   const { upsertTopics } = useStudyTopicsContext();
   const calRef = useRef<HTMLDivElement>(null);
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const todayStr = isoDate(new Date());
+  const [selectedDay, setSelectedDay] = useState<string | null>(todayStr);
   const [visibleMonth, setVisibleMonth] = useState(0);
   const [selectMode, setSelectMode] = useState<"start" | "end" | null>(null);
   const [overridesTick, setOverridesTick] = useState(0);
+  const [checkedItems, setCheckedItems] = useState<Set<string>>(() => getDailyCheckState());
 
-  // Listen for override changes so byDay refreshes
   useEffect(() => {
     const handler = () => setOverridesTick(t => t + 1);
     window.addEventListener("sp-overrides-updated", handler);
@@ -83,7 +84,6 @@ export function CalendarView({
   const startStr = isoDate(startDate);
   const endStr   = isoDate(endDate);
 
-  // Build list of months to render (always show at least the start date's month)
   const months = useMemo(() => {
     const list: Date[] = [];
     const s = startOfMonth(startDate);
@@ -129,8 +129,8 @@ export function CalendarView({
     link.click();
   };
 
-  const todayStr = isoDate(new Date());
   const selectedItems = selectedDay ? (byDay[selectedDay] ?? []) : [];
+  const todayItems = byDay[todayStr] ?? [];
 
   const cycleStatus = (item: typeof scheduled[0]) => {
     const statuses = ["Not Started","In Progress","Done","Revised"] as const;
@@ -141,6 +141,11 @@ export function CalendarView({
     const newStatus = statuses[idx];
     upsertTopics(item.storageKey, topics.map(x => x.id === t.id ? { ...x, status: newStatus } : x));
     if (newStatus === "Done" || newStatus === "Revised") writeStudyActivity();
+  };
+
+  const handleToggleCheck = (topicId: string) => {
+    const next = toggleDailyCheck(topicId);
+    setCheckedItems(new Set(next));
   };
 
   const handleDayClick = (dateStr: string) => {
@@ -157,8 +162,66 @@ export function CalendarView({
     }
   };
 
+  const todayCheckedCount = todayItems.filter(item => checkedItems.has(item.topic.id)).length;
+
   return (
     <div className="space-y-3">
+      {/* Today's checklist panel — always visible if today has items */}
+      {todayItems.length > 0 && (
+        <div className="rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/20 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="h-6 w-6 rounded-md bg-amber-500/20 flex items-center justify-center">
+                <CalendarIcon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <span className="text-sm font-semibold text-amber-900 dark:text-amber-200">Today's Topics</span>
+              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded-full">
+                {todayCheckedCount}/{todayItems.length}
+              </span>
+            </div>
+            {todayCheckedCount === todayItems.length && todayItems.length > 0 && (
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" /> All done!
+              </span>
+            )}
+          </div>
+          {/* Progress bar */}
+          <div className="h-1.5 w-full bg-amber-200/60 dark:bg-amber-900/40 rounded-full overflow-hidden mb-3">
+            <div
+              className="h-full bg-amber-500 rounded-full transition-all duration-500"
+              style={{ width: `${todayItems.length > 0 ? (todayCheckedCount / todayItems.length) * 100 : 0}%` }}
+            />
+          </div>
+          <div className="space-y-1.5">
+            {todayItems.map((item, i) => {
+              const live = (topicsMap[item.storageKey] ?? []).find(t => t.id === item.topic.id) ?? item.topic;
+              const isChecked = checkedItems.has(item.topic.id);
+              return (
+                <div key={i} className={`flex items-center gap-2.5 rounded-lg p-2 transition-all ${isChecked ? "opacity-60 bg-emerald-50/60 dark:bg-emerald-950/20" : "bg-white/70 dark:bg-black/20 border border-amber-100/60 dark:border-amber-900/30"}`}>
+                  <button onClick={() => handleToggleCheck(item.topic.id)} className="shrink-0 text-amber-600 dark:text-amber-400 hover:scale-110 transition-transform">
+                    {isChecked
+                      ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      : <Circle className="h-4 w-4" />
+                    }
+                  </button>
+                  <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${getDotColor(item.parentLabel)}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold truncate ${isChecked ? "line-through text-muted-foreground" : ""}`}>{live.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{item.subjectLabel}</p>
+                  </div>
+                  <button
+                    onClick={() => cycleStatus(item)}
+                    className={`shrink-0 px-1.5 py-0.5 rounded-md text-[10px] font-medium transition-colors ${STATUS_COLORS[live.status]}`}
+                  >
+                    {live.status}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap">
         <Button variant="outline" size="sm" onClick={scrollToToday} className="h-8 text-xs gap-1">
@@ -268,6 +331,7 @@ export function CalendarView({
                   const isEnd      = dateStr === endStr;
                   const isInRange  = dateStr > startStr && dateStr < endStr;
                   const isSelecting = !!selectMode;
+                  const dayChecked = isToday ? dayItems.filter(i => checkedItems.has(i.topic.id)).length : 0;
 
                   return (
                     <button
@@ -278,7 +342,7 @@ export function CalendarView({
                         ${isStart    ? "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30 z-10" :
                           isEnd      ? "ring-2 ring-red-500 bg-red-50 dark:bg-red-950/30 z-10" :
                           isSelected ? "bg-primary/15 border border-primary/40" :
-                          isToday    ? "bg-primary/8 border border-primary/20" :
+                          isToday    ? "bg-amber-50 dark:bg-amber-950/20 border border-amber-300/50 dark:border-amber-700/40" :
                           isInRange  ? "bg-blue-50/60 dark:bg-blue-950/10" :
                           "hover:bg-accent"}
                         ${isSelecting ? "cursor-crosshair" : "cursor-pointer"}
@@ -287,16 +351,20 @@ export function CalendarView({
                       <span className={`font-medium text-[11px] leading-none ${
                         isStart    ? "text-green-700 dark:text-green-400 font-bold" :
                         isEnd      ? "text-red-700 dark:text-red-400 font-bold" :
-                        isToday    ? "text-primary font-bold" :
+                        isToday    ? "text-amber-700 dark:text-amber-400 font-bold" :
                         isSelected ? "text-primary" :
                         "text-foreground/70"
                       }`}>
                         {day}
                       </span>
-                      {/* Start/end flags */}
                       {isStart && <span className="text-[7px] text-green-600 font-bold leading-none mt-0.5">START</span>}
                       {isEnd   && <span className="text-[7px] text-red-600 font-bold leading-none mt-0.5">END</span>}
-                      {dayItems.length > 0 && !isStart && !isEnd && (
+                      {isToday && dayItems.length > 0 && (
+                        <span className="text-[7px] text-amber-600 dark:text-amber-400 font-bold leading-none mt-0.5">
+                          {dayChecked}/{dayItems.length}
+                        </span>
+                      )}
+                      {dayItems.length > 0 && !isStart && !isEnd && !isToday && (
                         <div className="flex flex-wrap gap-0.5 mt-0.5 justify-center">
                           {dayItems.slice(0, 3).map((item, di) => (
                             <div key={di} className={`w-1.5 h-1.5 rounded-full ${getDotColor(item.parentLabel)}`} />
@@ -323,7 +391,7 @@ export function CalendarView({
       </div>
 
       {/* Day detail panel */}
-      {selectedDay && !selectMode && (
+      {selectedDay && selectedDay !== todayStr && !selectMode && (
         <div className="rounded-xl border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">{selectedDay}</h3>

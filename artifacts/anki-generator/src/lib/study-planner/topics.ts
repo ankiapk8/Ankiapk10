@@ -491,6 +491,133 @@ export function shiftTopicsToDate(topicIds: string[], targetDate: Date): void {
   saveDateOverrides(overrides);
 }
 
+// ─── Daily checklist state ────────────────────────────────────────────────────
+
+const DAILY_CHECK_PREFIX = "sp-daily-check-";
+
+export function getDailyCheckState(): Set<string> {
+  try {
+    const raw = lsGet(DAILY_CHECK_PREFIX + isoDate(new Date()));
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw) as string[]);
+  } catch { return new Set(); }
+}
+
+export function toggleDailyCheck(topicId: string): Set<string> {
+  try {
+    const key = DAILY_CHECK_PREFIX + isoDate(new Date());
+    const current = getDailyCheckState();
+    if (current.has(topicId)) current.delete(topicId); else current.add(topicId);
+    lsSet(key, JSON.stringify(Array.from(current)));
+    return current;
+  } catch { return new Set(); }
+}
+
+// ─── Today's scheduled topic count (for dashboard banner) ────────────────────
+
+export function getTodayScheduledCount(
+  groups: SubjectGroup[],
+  topicsMap: Record<string, Topic[]>,
+  startDate: Date,
+  endDate: Date,
+  spacing: number,
+  weightByDifficulty: boolean,
+): number {
+  const today = isoDate(new Date());
+  const overrides = getDateOverrides();
+  const scheduled = computeSchedule(groups, topicsMap, startDate, endDate, spacing, weightByDifficulty);
+  return scheduled.filter(item => {
+    const override = overrides[item.topic.id];
+    return (override ?? isoDate(item.firstDate)) === today;
+  }).length;
+}
+
+export function getDashboardPlannerDueTodayCount(): number {
+  try {
+    const allGroups: SubjectGroup[] = [...ALL_SUBJECT_GROUPS];
+    try {
+      const cg = JSON.parse(lsGet("sp-custom-groups") ?? "[]") as CustomSubjectGroup[];
+      for (const g of cg) {
+        for (const s of g.subjects) {
+          allGroups.push({ parentLabel: g.label, subjectLabel: s.label, storageKey: s.storageKey });
+        }
+      }
+    } catch { /* ignore */ }
+    const topicsMap: Record<string, Topic[]> = {};
+    for (const g of allGroups) {
+      try {
+        const raw = lsGet(`sp-topics-${g.storageKey}`);
+        if (raw) topicsMap[g.storageKey] = JSON.parse(raw) as Topic[];
+      } catch { /* ignore */ }
+    }
+    const start = getScheduleStartDate();
+    const end = getScheduleEndDate(start);
+    const spacing = getSpacingDays();
+    const weight = getWeightByDifficulty();
+    return getTodayScheduledCount(allGroups, topicsMap, start, end, spacing, weight);
+  } catch { return 0; }
+}
+
+// ─── Redistribute overdue items evenly across remaining days ─────────────────
+
+export function redistributeOverdueItems(items: ScheduledItem[], endDate: Date): void {
+  if (items.length === 0) return;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const endStr = isoDate(endDate);
+  const remaining: string[] = [];
+  const cur = new Date(today);
+  while (isoDate(cur) <= endStr) { remaining.push(isoDate(cur)); cur.setDate(cur.getDate() + 1); }
+  const overrides = getDateOverrides();
+  const step = remaining.length > 1 ? Math.max(1, Math.floor(remaining.length / items.length)) : 1;
+  items.forEach((item, idx) => {
+    overrides[item.topic.id] = remaining[Math.min(idx * step, remaining.length - 1)];
+  });
+  saveDateOverrides(overrides);
+}
+
+// ─── Burndown chart data ──────────────────────────────────────────────────────
+
+export interface BurndownPoint {
+  date: string;
+  label: string;
+  planned: number;
+  isToday: boolean;
+  isFuture: boolean;
+}
+
+export function getBurndownData(
+  totalTopics: number,
+  startDate: Date,
+  endDate: Date,
+): BurndownPoint[] {
+  if (totalTopics === 0) return [];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayStr = isoDate(today);
+  const startMs = startDate.getTime();
+  const endMs = endDate.getTime();
+  const totalMs = endMs - startMs;
+  if (totalMs <= 0) return [];
+  const totalDays = Math.round(totalMs / 86400000);
+  const step = Math.max(1, Math.floor(totalDays / 18));
+  const points: BurndownPoint[] = [];
+  const cursor = new Date(startDate); cursor.setHours(0, 0, 0, 0);
+  const endStr = isoDate(endDate);
+  while (isoDate(cursor) <= endStr) {
+    const elapsed = Math.max(0, cursor.getTime() - startMs);
+    const planned = Math.min(100, Math.round((elapsed / totalMs) * 100));
+    const dateStr = isoDate(cursor);
+    const label = cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    points.push({ date: dateStr, label, planned, isToday: dateStr === todayStr, isFuture: cursor > today });
+    cursor.setDate(cursor.getDate() + step);
+  }
+  if (points[points.length - 1]?.date !== endStr) {
+    const ed = new Date(endDate); ed.setHours(0, 0, 0, 0);
+    points.push({ date: endStr, label: new Date(endStr + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }), planned: 100, isToday: endStr === todayStr, isFuture: ed > today });
+  }
+  return points;
+}
+
 // ─── Missed Plan Detection ────────────────────────────────────────────────────
 
 export function getShiftDismissedDate(): string | null { return lsGet("sp-shift-dismissed-date"); }

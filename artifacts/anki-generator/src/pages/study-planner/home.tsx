@@ -1,11 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { AmbientOrbs } from "@/components/ambient-orbs";
 import {
   BookOpen, Settings, BarChart3, Flame, Download, RefreshCw,
-  ChevronDown, ChevronUp, X, AlertTriangle, ArrowRight, FolderPlus,
-  Target, CalendarDays,
+  ChevronDown, X, AlertTriangle, ArrowRight, FolderPlus,
+  Target, CalendarDays, TrendingDown, TrendingUp, CalendarCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,10 +23,15 @@ import {
   getLastBackupAt, formatMinutes,
   customGroupsToSubjectGroups, CUSTOM_COLOR_STYLES,
   getOverdueItems, shiftTopicsToDate, getShiftDismissedDate, setShiftDismissedDate,
+  redistributeOverdueItems, getBurndownData, getTodayScheduledCount,
   type Status, type ScheduledItem,
 } from "@/lib/study-planner/topics";
 import { CalendarView } from "@/components/study-planner/calendar-view";
 import { ShiftDialog } from "@/components/study-planner/shift-dialog";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, ReferenceLine, Area, AreaChart,
+} from "recharts";
 
 function lsGet(k: string) { try { return localStorage.getItem(k); } catch { return null; } }
 
@@ -43,15 +48,42 @@ function Accordion({ title, icon, defaultOpen = false, badge, children }: {
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
-      <button onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-accent/30 transition-colors">
+    <div className="rounded-xl border border-border/50 bg-card/70 backdrop-blur-sm overflow-hidden shadow-sm">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`w-full flex items-center gap-2.5 px-4 py-3 text-left transition-all relative overflow-hidden group ${open ? "bg-gradient-to-r from-muted/60 to-muted/20 border-b border-border/40" : "hover:bg-muted/30"}`}
+      >
+        {/* Shimmer on hover */}
+        <span
+          aria-hidden
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-300"
+          style={{ background: "linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.06) 50%, transparent 70%)" }}
+        />
         {icon}
-        <span className="font-semibold text-sm flex-1">{title}</span>
+        <span className="font-semibold text-sm flex-1 relative">{title}</span>
         {badge}
-        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        <motion.span
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ type: "spring", stiffness: 360, damping: 28 }}
+          className="relative"
+        >
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        </motion.span>
       </button>
-      {open && <div className="px-4 pb-4 pt-1 border-t">{children}</div>}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="content"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 pt-2">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -320,15 +352,23 @@ export default function SPHome() {
             <div className="space-y-4">
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  { label: "Topics", value: totalTopics, color: "text-primary" },
-                  { label: "High Priority", value: highPriority, color: "text-red-500" },
-                  { label: "Completed", value: completed, color: "text-green-600" },
-                  { label: "Time Left", value: formatMinutes(timeRemainingMins) || "0m", color: "text-blue-500" },
-                ].map(s => (
-                  <div key={s.label} className="rounded-lg border bg-background p-2 text-center">
-                    <div className={`text-lg font-bold tabular-nums ${s.color}`}>{s.value}</div>
-                    <div className="text-[9px] text-muted-foreground leading-tight">{s.label}</div>
-                  </div>
+                  { label: "Topics",       value: totalTopics,                          hexColor: "#818cf8", rgb: "129,140,248" },
+                  { label: "High Priority",value: highPriority,                         hexColor: "#f87171", rgb: "248,113,113" },
+                  { label: "Completed",    value: completed,                            hexColor: "#34d399", rgb: "52,211,153"  },
+                  { label: "Time Left",    value: formatMinutes(timeRemainingMins)||"0m",hexColor: "#38bdf8", rgb: "56,189,248"  },
+                ].map((s, idx) => (
+                  <motion.div
+                    key={s.label}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.06 * idx, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    className="rounded-lg border bg-card/70 backdrop-blur-sm p-2 text-center relative overflow-hidden"
+                    style={{ boxShadow: `inset 0 0 0 1px rgba(${s.rgb},0.15), 0 0 8px rgba(${s.rgb},0.05)` }}
+                  >
+                    <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(circle at 50% 0%, rgba(${s.rgb},0.12) 0%, transparent 70%)` }} />
+                    <div className="relative text-lg font-bold tabular-nums" style={{ color: s.hexColor }}>{s.value}</div>
+                    <div className="relative text-[9px] text-muted-foreground leading-tight">{s.label}</div>
+                  </motion.div>
                 ))}
               </div>
 
@@ -539,35 +579,59 @@ export default function SPHome() {
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {/* Hardcoded subjects */}
-            {hardcodedStats.map(s => {
+            {hardcodedStats.map((s, idx) => {
               const styles = CUSTOM_COLOR_STYLES[s.color] ?? CUSTOM_COLOR_STYLES.blue;
               return (
-                <button key={s.label} onClick={() => nav(s.path)}
-                  className={`rounded-xl border p-3 text-left hover:shadow-sm transition-all ${styles.card}`}>
+                <motion.button
+                  key={s.label}
+                  onClick={() => nav(s.path)}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.04 * idx, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                  whileHover={{ y: -2, scale: 1.01, transition: { duration: 0.15 } }}
+                  className={`rounded-xl border p-3 text-left shadow-sm hover:shadow-md transition-shadow ${styles.card}`}
+                >
                   <div className="text-xl mb-1">{s.emoji}</div>
                   <div className={`text-sm font-semibold ${styles.text}`}>{s.label}</div>
                   {s.description && (
                     <div className="text-[10px] text-muted-foreground mt-0.5 leading-tight line-clamp-2">{s.description}</div>
                   )}
                   <div className="text-xs text-muted-foreground mt-1">{s.topics.length} topics · {s.pct}%</div>
-                  <div className="h-1 w-full bg-white/50 dark:bg-black/20 rounded-full mt-2 overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${styles.bar}`} style={{ width: `${s.pct}%` }} />
+                  <div className="h-1.5 w-full bg-white/50 dark:bg-black/20 rounded-full mt-2 overflow-hidden">
+                    <motion.div
+                      className={`h-full rounded-full ${styles.bar}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${s.pct}%` }}
+                      transition={{ delay: 0.15 + 0.04 * idx, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    />
                   </div>
-                </button>
+                </motion.button>
               );
             })}
 
             {/* Custom subjects */}
-            {customStats.map(g => (
-              <button key={g.id} onClick={() => nav(g.navPath)}
-                className={`rounded-xl border p-3 text-left hover:shadow-sm transition-all ${g.styles.card}`}>
+            {customStats.map((g, idx) => (
+              <motion.button
+                key={g.id}
+                onClick={() => nav(g.navPath)}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.04 * (hardcodedStats.length + idx), duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                whileHover={{ y: -2, scale: 1.01, transition: { duration: 0.15 } }}
+                className={`rounded-xl border p-3 text-left shadow-sm hover:shadow-md transition-shadow ${g.styles.card}`}
+              >
                 <div className="text-xl mb-1">{g.emoji}</div>
                 <div className={`text-sm font-semibold ${g.styles.text}`}>{g.label}</div>
                 <div className="text-xs text-muted-foreground">{g.topics.length} topics · {g.pct}%</div>
-                <div className="h-1 w-full bg-white/50 dark:bg-black/20 rounded-full mt-2 overflow-hidden">
-                  <div className={`h-full rounded-full transition-all ${g.styles.bar}`} style={{ width: `${g.pct}%` }} />
+                <div className="h-1.5 w-full bg-white/50 dark:bg-black/20 rounded-full mt-2 overflow-hidden">
+                  <motion.div
+                    className={`h-full rounded-full ${g.styles.bar}`}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${g.pct}%` }}
+                    transition={{ delay: 0.15 + 0.04 * (hardcodedStats.length + idx), duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                  />
                 </div>
-              </button>
+              </motion.button>
             ))}
 
             {/* Add subject shortcut */}
