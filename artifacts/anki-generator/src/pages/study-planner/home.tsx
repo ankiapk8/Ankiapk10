@@ -386,7 +386,7 @@ ${monthsHtml}</body></html>`;
             </span>
           )}
           <span className="text-xs text-muted-foreground hidden sm:block">{displayName}</span>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => nav("/settings")}>
+          <Button variant="ghost" size="icon" data-no-press className="h-8 w-8" onClick={() => nav("/settings")}>
             <Settings className="h-4 w-4" />
           </Button>
         </div>
