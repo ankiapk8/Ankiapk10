@@ -264,9 +264,8 @@ export function CardPreviewPanel({
                           <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => startEdit(idx)}
-                              disabled={isImage}
                               title="Edit card"
-                              className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                              className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                             >
                               <Edit2 className="h-3 w-3" />
                             </button>

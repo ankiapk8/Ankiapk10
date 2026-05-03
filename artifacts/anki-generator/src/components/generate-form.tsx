@@ -428,6 +428,16 @@ export function GenerateForm({
     setAutoGeneratePending(true);
   };
 
+  const handleDiscard = () => {
+    setInlinePreview(null);
+    setManualGeneratingLog([]);
+    setFiles(prev => prev.map(f =>
+      f.status === "done"
+        ? { ...f, status: "ready", generatedCount: undefined, generatedDeckId: undefined, stagedCards: undefined, generatingLog: [], generatingPercent: 0, generatingMessage: undefined, liveCardCount: undefined }
+        : f
+    ));
+  };
+
   useEffect(() => {
     if (!autoGeneratePending || isGeneratingAll) return;
     setAutoGeneratePending(false);
@@ -700,7 +710,7 @@ export function GenerateForm({
               accentColor="emerald"
               onSave={inlinePreview.onSave}
               onRegenerate={handleRegenerate}
-              onDiscard={() => setInlinePreview(null)}
+              onDiscard={handleDiscard}
             />
           </motion.div>
         ) : (
