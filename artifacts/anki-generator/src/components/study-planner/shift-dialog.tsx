@@ -8,9 +8,10 @@ interface Props {
   items: ScheduledItem[];
   onShift: (items: ScheduledItem[], targetDate: Date) => void;
   onDismiss: () => void;
+  onRedistribute?: (items: ScheduledItem[]) => void;
 }
 
-export function ShiftDialog({ items, onShift, onDismiss }: Props) {
+export function ShiftDialog({ items, onShift, onDismiss, onRedistribute }: Props) {
   const [choice, setChoice] = useState<"today" | "tomorrow" | "custom">("today");
   const [customDate, setCustomDate] = useState(() => {
     const d = new Date();
@@ -97,6 +98,15 @@ export function ShiftDialog({ items, onShift, onDismiss }: Props) {
               Shift {items.length} topic{items.length !== 1 ? "s" : ""}
             </Button>
           </div>
+
+          {onRedistribute && (
+            <button
+              onClick={() => onRedistribute(items)}
+              className="w-full text-center text-[11px] text-muted-foreground hover:text-foreground py-1 transition-colors underline-offset-2 hover:underline"
+            >
+              Redistribute evenly across remaining schedule days
+            </button>
+          )}
         </div>
       </div>
     </div>

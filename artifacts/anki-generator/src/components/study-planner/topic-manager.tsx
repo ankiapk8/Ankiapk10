@@ -193,17 +193,52 @@ export function TopicManager({ storageKey, subjectLabel, parentLabel, accentClas
   return (
     <div className="space-y-4">
       {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Total", value: topics.length, color: "text-primary" },
-          { label: "Not Started", value: notStarted, color: "text-gray-500" },
-          { label: "High Priority", value: highPriority, color: "text-red-500" },
-        ].map(s => (
-          <div key={s.label} className="rounded-lg border bg-card p-2 text-center">
-            <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
-            <div className="text-[10px] text-muted-foreground">{s.label}</div>
-          </div>
-        ))}
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Total", value: topics.length, color: "text-primary" },
+            { label: "Not Started", value: notStarted, color: "text-gray-500" },
+            { label: "High Priority", value: highPriority, color: "text-red-500" },
+          ].map(s => (
+            <div key={s.label} className="rounded-lg border bg-card p-2 text-center">
+              <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
+              <div className="text-[10px] text-muted-foreground">{s.label}</div>
+            </div>
+          ))}
+        </div>
+        {topics.length > 0 && (() => {
+          const done = topics.filter(t => t.status === "Done").length;
+          const revised = topics.filter(t => t.status === "Revised").length;
+          const inProgress = topics.filter(t => t.status === "In Progress").length;
+          const masteryPct = Math.round(((done + revised) / topics.length) * 100);
+          return (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-muted-foreground font-medium">Mastery</span>
+                <span className={`text-[10px] font-bold ${masteryPct >= 80 ? "text-emerald-600" : masteryPct >= 40 ? "text-amber-500" : "text-red-500"}`}>
+                  {masteryPct}%
+                </span>
+              </div>
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
+                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(done / topics.length) * 100}%` }} title={`Done: ${done}`} />
+                <div className="h-full bg-green-400 transition-all" style={{ width: `${(revised / topics.length) * 100}%` }} title={`Revised: ${revised}`} />
+                <div className="h-full bg-amber-400 transition-all" style={{ width: `${(inProgress / topics.length) * 100}%` }} title={`In Progress: ${inProgress}`} />
+              </div>
+              <div className="flex gap-3 mt-1 flex-wrap">
+                {[
+                  { label: "Done", val: done, cls: "bg-emerald-500" },
+                  { label: "Revised", val: revised, cls: "bg-green-400" },
+                  { label: "In Progress", val: inProgress, cls: "bg-amber-400" },
+                ].filter(x => x.val > 0).map(x => (
+                  <span key={x.label} className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                    <span className={`w-1.5 h-1.5 rounded-full ${x.cls}`} />
+                    {x.label} ({x.val})
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {totalMinutes > 0 && (

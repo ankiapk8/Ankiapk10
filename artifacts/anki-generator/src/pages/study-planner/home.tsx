@@ -5,7 +5,7 @@ import { AmbientOrbs } from "@/components/ambient-orbs";
 import {
   BookOpen, Settings, BarChart3, Flame, Download, RefreshCw,
   ChevronDown, X, AlertTriangle, ArrowRight, FolderPlus,
-  Target, CalendarDays, TrendingDown, TrendingUp, CalendarCheck,
+  Target, CalendarDays, TrendingDown, TrendingUp, Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ import {
   getLastBackupAt, formatMinutes,
   customGroupsToSubjectGroups, CUSTOM_COLOR_STYLES,
   getOverdueItems, shiftTopicsToDate, getShiftDismissedDate, setShiftDismissedDate,
-  redistributeOverdueItems, getBurndownData, getTodayScheduledCount,
+  redistributeOverdueItems, getBurndownData, getTodayScheduledCount, computeSchedule,
   type Status, type ScheduledItem,
 } from "@/lib/study-planner/topics";
 import { CalendarView } from "@/components/study-planner/calendar-view";
@@ -142,6 +142,11 @@ export default function SPHome() {
   const streak = useMemo(() => computeStreak(), [activityTick]);
   const activityLog = useMemo(() => getStudyActivityLog(), [activityTick]);
   const displayName = lsGet("sp-settings-display-name") || "Student";
+  const completionPct = totalTopics ? Math.round((completed / totalTopics) * 100) : 0;
+  const burndownData = useMemo(() => getBurndownData(totalTopics, startDate, endDate), [totalTopics, startDate, endDate]);
+  const lastPastBurndownPoint = useMemo(() => [...burndownData].reverse().find(pt => !pt.isFuture), [burndownData]);
+  const onTrack = completionPct >= (lastPastBurndownPoint?.planned ?? 0);
+  const todayCount = useMemo(() => getTodayScheduledCount(allGroups, topicsMap, startDate, endDate, spacing, weightByDiff), [allGroups, topicsMap, startDate, endDate, spacing, weightByDiff]);
 
   const showBackupReminder = useMemo(() => {
     if (backupDismissed || totalTopics === 0) return false;
@@ -221,6 +226,57 @@ export default function SPHome() {
     ...customStats.map(s => ({ emoji: s.emoji, label: s.label, path: s.navPath, topics: s.topics, pct: s.pct, byStatus: { "Not Started": s.topics.filter(t => t.status === "Not Started").length, "In Progress": s.topics.filter(t => t.status === "In Progress").length, "Done": s.topics.filter(t => t.status === "Done").length, "Revised": s.topics.filter(t => t.status === "Revised").length } as Record<Status, number>, timeLeft: s.topics.filter(t => t.status === "Not Started" || t.status === "In Progress").reduce((acc, t) => acc + (t.estimatedMinutes ?? 0), 0), colorText: s.styles.text })),
   ], [hardcodedStats, customStats]);
 
+  const handleExportPDF = () => {
+    const items = computeSchedule(allGroups, topicsMap, startDate, endDate, spacing, weightByDiff);
+    if (!items.length) {
+      alert("No scheduled topics. Add topics and set a schedule start/end date first.");
+      return;
+    }
+    const sorted = [...items].sort((a, b) => a.firstDate.getTime() - b.firstDate.getTime());
+    const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const statusColor: Record<string, string> = {
+      "Not Started": "#94a3b8", "In Progress": "#f59e0b", "Done": "#10b981", "Revised": "#22c55e",
+    };
+    const priorityColor: Record<string, string> = {
+      "High": "#ef4444", "Medium": "#f59e0b", "Low": "#3b82f6",
+    };
+    const rows = sorted.map(it => `
+      <tr>
+        <td>${it.topic.name.replace(/</g, "&lt;")}</td>
+        <td>${it.parentLabel.replace(/</g, "&lt;")} / ${it.subjectLabel.replace(/</g, "&lt;")}</td>
+        <td>${fmtDate(it.firstDate)}</td>
+        <td>${fmtDate(it.secondDate)}</td>
+        <td><span style="color:${priorityColor[it.topic.priority] ?? "#888"};font-weight:600">${it.topic.priority}</span></td>
+        <td><span style="color:${statusColor[it.topic.status] ?? "#888"};font-weight:600">${it.topic.status}</span></td>
+        ${it.topic.estimatedMinutes ? `<td>${it.topic.estimatedMinutes}m</td>` : "<td>—</td>"}
+      </tr>`).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+<title>Study Timetable</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#111}
+  h1{font-size:18px;font-weight:700;margin:0 0 4px}
+  .meta{font-size:10px;color:#666;margin:0 0 14px}
+  table{width:100%;border-collapse:collapse}
+  th{background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;border-bottom:2px solid #e5e7eb}
+  td{padding:4px 8px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:10px}
+  tr:nth-child(even){background:#fafafa}
+  @media print{body{margin:0}@page{margin:1.5cm}}
+</style></head>
+<body>
+<h1>Study Timetable</h1>
+<p class="meta">Generated ${new Date().toLocaleDateString()} &nbsp;·&nbsp; ${items.length} topics &nbsp;·&nbsp; ${fmtDate(startDate)} – ${fmtDate(endDate)}</p>
+<table>
+  <thead><tr><th>Topic</th><th>Subject</th><th>First Study</th><th>Review Date</th><th>Priority</th><th>Status</th><th>Est. Time</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) { alert("Please allow pop-ups to export the printable timetable."); return; }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 400);
+  };
+
   const handleExportCSV = async () => {
     setExportProgress(true);
     const csv = generateAllSubjectsCSV(allGroups, topicsMap, endDate, spacing, weightByDiff);
@@ -268,6 +324,11 @@ export default function SPHome() {
             setShiftDismissedDate(isoDate(new Date()));
             setShowShiftDialog(false);
           }}
+          onRedistribute={(items) => {
+            redistributeOverdueItems(items, endDate);
+            setCalendarKey(k => k + 1);
+            setShowShiftDialog(false);
+          }}
         />
       )}
 
@@ -295,6 +356,11 @@ export default function SPHome() {
           </span>
         </motion.div>
         <div className="flex items-center gap-2">
+          {todayCount > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700/60 shrink-0">
+              {todayCount} due today
+            </span>
+          )}
           <span className="text-xs text-muted-foreground hidden sm:block">{displayName}</span>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => nav("/settings")}>
             <Settings className="h-4 w-4" />
@@ -371,6 +437,54 @@ export default function SPHome() {
                   </motion.div>
                 ))}
               </div>
+
+              {/* Burndown / Schedule progress chart */}
+              {burndownData.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold">Schedule Progress</span>
+                    <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${onTrack ? "text-green-600" : "text-amber-500"}`}>
+                      {onTrack ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                      {onTrack ? "On Track" : "Behind Schedule"}
+                    </span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={90}>
+                    <AreaChart data={burndownData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                      <defs>
+                        <linearGradient id="burnPlanGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#818cf8" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
+                      <XAxis dataKey="label" tick={{ fontSize: 8 }} interval="preserveStartEnd" stroke="transparent" />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 8 }} tickFormatter={(v: number) => `${v}%`} stroke="transparent" />
+                      <Tooltip
+                        formatter={(value: number) => [`${value}%`, "Expected"]}
+                        contentStyle={{ fontSize: 10, borderRadius: 8, padding: "4px 8px" }}
+                      />
+                      <Area type="monotone" dataKey="planned" stroke="#818cf8" fill="url(#burnPlanGrad)" strokeWidth={1.5} dot={false} />
+                      <ReferenceLine
+                        y={completionPct}
+                        stroke="#34d399"
+                        strokeWidth={2}
+                        strokeDasharray="4 2"
+                        label={{ value: `${completionPct}% done`, position: "insideTopRight", fontSize: 8, fill: "#34d399" }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-4 rounded" style={{ background: "rgba(129,140,248,0.5)", border: "1px solid #818cf8" }} />
+                      <span className="text-[9px] text-muted-foreground">Expected</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-green-500" />
+                      <span className="text-[9px] text-muted-foreground">Actual ({completionPct}%)</span>
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -511,12 +625,16 @@ export default function SPHome() {
             </p>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={handleExportCSV} disabled={exportProgress}>
-                {exportProgress ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : "Download Combined CSV"}
+                {exportProgress ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : "Combined CSV"}
               </Button>
               <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={handleExportZip} disabled={exportProgress}>
-                {exportProgress ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : "Download as ZIP"}
+                {exportProgress ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : "ZIP (per subject)"}
               </Button>
             </div>
+            <Button variant="outline" size="sm" className="w-full text-xs gap-1.5" onClick={handleExportPDF}>
+              <Printer className="h-3.5 w-3.5" />
+              Print / Save as PDF Timetable
+            </Button>
             {/* CSV columns */}
             <div className="border-t pt-2">
               <p className="text-[10px] text-muted-foreground font-medium mb-1.5">CSV columns (Notion-ready):</p>

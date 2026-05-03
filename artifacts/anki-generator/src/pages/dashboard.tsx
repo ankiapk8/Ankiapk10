@@ -10,7 +10,7 @@ import {
   Layers, FileText, Sparkles, ChevronRight, PlusCircle,
   Clock, Flame, Brain, CheckCircle2, BookOpen, Stethoscope, CalendarClock,
   LayoutDashboard, Target, TrendingUp, TrendingDown, Compass, Timer,
-  Trophy, Play,
+  Trophy, Play, X,
 } from "lucide-react";
 import {
   getSessions,
@@ -24,6 +24,7 @@ import {
   getLast14DaysTotals,
   getLast8Weeks,
 } from "@/lib/study-stats";
+import { getDashboardPlannerDueTodayCount } from "@/lib/study-planner/topics";
 import { getTotalScheduledDueCount } from "@/lib/srs";
 import type { Qbank } from "@workspace/api-client-react";
 import { AppDownloads } from "@/components/app-downloads";
@@ -45,6 +46,9 @@ function masteryColor(pct: number | null): { chip: string; dot: string } {
 export default function Dashboard() {
   const { data: decks, isLoading } = useListDecks();
   const { data: qbanks } = useListQbanks();
+
+  const [plannerBannerDismissed, setPlannerBannerDismissed] = useState(false);
+  const plannerDueToday = useMemo(() => getDashboardPlannerDueTodayCount(), []);
 
   const sessions = useMemo(() => getSessions(), []);
   const streak = useMemo(() => getStudyStreak(sessions), [sessions]);
@@ -207,6 +211,36 @@ export default function Dashboard() {
         />
         {import.meta.env.DEV && <div className="mt-2"><ModelBadge /></div>}
       </div>
+
+      {/* Planner due-today banner */}
+      <AnimatePresence>
+        {!plannerBannerDismissed && plannerDueToday > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -8, height: 0 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className="flex items-center gap-3 rounded-xl border border-amber-300/60 bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-700/50 px-3 py-2.5 overflow-hidden"
+          >
+            <CalendarClock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <p className="text-xs text-amber-800 dark:text-amber-300 flex-1">
+              <strong>{plannerDueToday} topic{plannerDueToday !== 1 ? "s" : ""}</strong> scheduled in your Study Planner today.
+            </p>
+            <Link href="/study-planner">
+              <Button size="sm" variant="outline" className="h-7 text-xs shrink-0 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/30">
+                Go to Planner
+              </Button>
+            </Link>
+            <button
+              onClick={() => setPlannerBannerDismissed(true)}
+              className="text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 transition-colors shrink-0"
+              aria-label="Dismiss"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Top stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
