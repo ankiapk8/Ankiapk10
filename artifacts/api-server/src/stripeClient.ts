@@ -1,6 +1,27 @@
 import Stripe from 'stripe';
 import { StripeSync } from 'stripe-replit-sync';
 
+interface ConnectorSettings {
+  secret_key?: unknown;
+  webhook_secret?: unknown;
+}
+
+interface ConnectorItem {
+  settings?: ConnectorSettings;
+}
+
+interface ConnectorResponse {
+  items?: ConnectorItem[];
+}
+
+function isConnectorResponse(value: unknown): value is ConnectorResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    (!('items' in value) || Array.isArray((value as ConnectorResponse).items))
+  );
+}
+
 async function getStripeCredentials(): Promise<{ secretKey: string; webhookSecret?: string }> {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
@@ -28,19 +49,27 @@ async function getStripeCredentials(): Promise<{ secretKey: string; webhookSecre
     throw new Error(`Failed to fetch Stripe credentials: ${resp.status} ${resp.statusText}`);
   }
 
-  const data = await resp.json() as any;
-  const settings = data.items?.[0]?.settings;
+  const raw: unknown = await resp.json();
 
-  if (!settings?.secret_key) {
+  if (!isConnectorResponse(raw)) {
+    throw new Error('Unexpected response format from Replit connector API.');
+  }
+
+  const settings = raw.items?.[0]?.settings;
+  const secretKey = settings?.secret_key;
+
+  if (typeof secretKey !== 'string' || !secretKey) {
     throw new Error(
       'Stripe integration not connected or missing secret key. ' +
       'Connect Stripe via the Integrations tab first.'
     );
   }
 
+  const webhookSecret = settings?.webhook_secret;
+
   return {
-    secretKey: settings.secret_key,
-    webhookSecret: settings.webhook_secret,
+    secretKey,
+    webhookSecret: typeof webhookSecret === 'string' && webhookSecret ? webhookSecret : undefined,
   };
 }
 
