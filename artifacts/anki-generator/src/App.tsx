@@ -13,6 +13,7 @@ import { WhatsNewBanner } from "@/components/whats-new-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { SplashScreen } from "@/components/splash-screen";
 import { OfflineQueueProvider } from "@/providers/offline-queue-provider";
+import { PwaInstallProvider } from "@/providers/pwa-install-provider";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
 import Dashboard from "@/pages/dashboard";
@@ -79,6 +80,7 @@ function AppRouter() {
 
 function AppContent() {
   return (
+    <PwaInstallProvider>
     <OfflineQueueProvider>
     <SplashScreen>
       <>
@@ -92,6 +94,7 @@ function AppContent() {
       </>
     </SplashScreen>
     </OfflineQueueProvider>
+    </PwaInstallProvider>
   );
 }
 
