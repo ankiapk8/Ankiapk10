@@ -260,11 +260,11 @@ export function CalendarView({
       {/* Range legend */}
       <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30" />
+          <span className="inline-block w-3 h-3 rounded-sm ring-2 ring-orange-500 bg-orange-50 dark:bg-orange-950/30" />
           Start {startStr}
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-3 h-3 rounded-sm ring-2 ring-red-500 bg-red-50 dark:bg-red-950/30" />
+          <span className="inline-block w-3 h-3 rounded-sm ring-2 ring-orange-700 bg-orange-950/30" />
           End {endStr}
         </span>
       </div>
@@ -339,8 +339,8 @@ export function CalendarView({
                       onClick={() => handleDayClick(dateStr)}
                       title={isSelecting ? `Set as ${selectMode} date: ${dateStr}` : dateStr}
                       className={`relative aspect-square rounded-lg flex flex-col items-center justify-start pt-1 transition-colors text-xs
-                        ${isStart    ? "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30 z-10" :
-                          isEnd      ? "ring-2 ring-red-500 bg-red-50 dark:bg-red-950/30 z-10" :
+                        ${isStart    ? "ring-2 ring-orange-500 bg-orange-50 dark:bg-orange-950/30 z-10" :
+                          isEnd      ? "ring-2 ring-orange-700 bg-orange-950/30 z-10" :
                           isSelected ? "bg-primary/15 border border-primary/40" :
                           isToday    ? "bg-orange-50 dark:bg-orange-950/20 border border-orange-300/50 dark:border-orange-700/40" :
                           isInRange  ? "bg-orange-50/60 dark:bg-orange-950/10" :
@@ -349,16 +349,16 @@ export function CalendarView({
                       `}
                     >
                       <span className={`font-medium text-[11px] leading-none ${
-                        isStart    ? "text-green-700 dark:text-green-400 font-bold" :
-                        isEnd      ? "text-red-700 dark:text-red-400 font-bold" :
+                        isStart    ? "text-orange-700 dark:text-orange-400 font-bold" :
+                        isEnd      ? "text-orange-900 dark:text-orange-200 font-bold" :
                         isToday    ? "text-orange-700 dark:text-orange-400 font-bold" :
                         isSelected ? "text-primary" :
                         "text-foreground/70"
                       }`}>
                         {day}
                       </span>
-                      {isStart && <span className="text-[7px] text-green-600 font-bold leading-none mt-0.5">START</span>}
-                      {isEnd   && <span className="text-[7px] text-red-600 font-bold leading-none mt-0.5">END</span>}
+                      {isStart && <span className="text-[7px] text-orange-600 dark:text-orange-400 font-bold leading-none mt-0.5">START</span>}
+                      {isEnd   && <span className="text-[7px] text-orange-800 dark:text-orange-200 font-bold leading-none mt-0.5">END</span>}
                       {isToday && dayItems.length > 0 && (
                         <span className="text-[7px] text-orange-600 dark:text-orange-400 font-bold leading-none mt-0.5">
                           {dayChecked}/{dayItems.length}
