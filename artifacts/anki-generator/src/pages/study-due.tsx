@@ -91,18 +91,20 @@ export default function StudyDue() {
   }, [isLoading, dueDeckIds, cardQueries, deckNameMap]);
 
   const [queue, setQueue] = useState<DueCard[] | null>(null);
+  const initialTotalRef = useRef(0);
   const queueInitialized = useRef(false);
 
   useEffect(() => {
     if (!isLoading && candidateCards.length > 0 && !queueInitialized.current) {
       queueInitialized.current = true;
+      initialTotalRef.current = candidateCards.length;
       setQueue([...candidateCards]);
     }
   }, [isLoading, candidateCards]);
 
   const current = queue?.[0] ?? null;
-  const total = queue?.length ?? candidateCards.length;
-  const reviewed = (queue !== null ? (total - queue.length) : 0);
+  const initialTotal = initialTotalRef.current;
+  const reviewed = initialTotal > 0 ? initialTotal - (queue?.length ?? initialTotal) : 0;
 
   const rateCard = useCallback((rating: SrsRating) => {
     if (!current) return;
@@ -126,7 +128,14 @@ export default function StudyDue() {
 
   useEffect(() => {
     if (done && sessionStats.total > 0) {
-      saveSession({ total: sessionStats.total, known: sessionStats.known });
+      saveSession({
+        deckId: 0,
+        deckName: "Due Review",
+        total: sessionStats.total,
+        known: sessionStats.known,
+        unknown: sessionStats.total - sessionStats.known,
+        completedAt: new Date().toISOString(),
+      });
     }
   }, [done, sessionStats]);
 
@@ -197,8 +206,6 @@ export default function StudyDue() {
   }
 
   if (!current) return null;
-
-  const initialTotal = (queue?.length ?? 0) + reviewed;
 
   return (
     <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
