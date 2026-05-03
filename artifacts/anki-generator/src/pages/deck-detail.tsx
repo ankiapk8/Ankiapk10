@@ -291,6 +291,9 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
   const [noteSaved, setNoteSaved] = useState(false);
   const [showCardNotes, setShowCardNotes] = useState(false);
 
+  // Touch-swipe for history navigation in drawer
+  const swipeStartXRef = useRef(0);
+
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const EXPLAIN_LABELS: Record<ExplainMode, string> = {
@@ -325,15 +328,26 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
     localStorage.setItem(`ankigen-last-mode-${deckId}`, mode);
     setLastMode(mode);
 
-    // Start typewriter reveal timer: advances 10 chars every 20 ms (~500 chars/s)
+    // Word-by-word reveal: advances one word (+ trailing whitespace) every 20ms
     revealTimerRef.current = setInterval(() => {
       const target = streamedRef.current;
-      const next = Math.min(revealPosRef.current + 10, target.length);
-      if (next !== revealPosRef.current) {
-        revealPosRef.current = next;
-        setDisplayText(target.slice(0, next));
+      let pos = revealPosRef.current;
+      if (pos >= target.length) {
+        if (!isExplainingRef.current) {
+          clearInterval(revealTimerRef.current!);
+          revealTimerRef.current = null;
+        }
+        return;
       }
-      if (!isExplainingRef.current && revealPosRef.current >= target.length) {
+      // Skip any leading whitespace already at this position
+      while (pos < target.length && /\s/.test(target[pos])) pos++;
+      // Advance through one word (non-whitespace chars)
+      while (pos < target.length && !/\s/.test(target[pos])) pos++;
+      // Consume trailing whitespace so next tick starts at a clean word boundary
+      while (pos < target.length && /\s/.test(target[pos])) pos++;
+      revealPosRef.current = pos;
+      setDisplayText(target.slice(0, pos));
+      if (!isExplainingRef.current && pos >= target.length) {
         clearInterval(revealTimerRef.current!);
         revealTimerRef.current = null;
       }
@@ -1142,14 +1156,34 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
               if (!open) {
                 setDisplayText(null);
                 setExplainMode(null);
-                setExplainHistory([]);
+                // historyIdx reset but history entries preserved until card changes
                 setHistoryIdx(null);
               }
             }}
           >
             <Drawer.Portal>
               <Drawer.Overlay className="fixed inset-0 bg-black/40 z-40" />
-              <Drawer.Content className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl bg-background shadow-2xl outline-none" style={{ maxHeight: "88vh" }}>
+              <Drawer.Content
+                className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl bg-background shadow-2xl outline-none"
+                style={{ maxHeight: "88vh" }}
+                onTouchStart={(e) => { swipeStartXRef.current = e.touches[0].clientX; }}
+                onTouchEnd={(e) => {
+                  if (explainHistory.length === 0) return;
+                  const dx = e.changedTouches[0].clientX - swipeStartXRef.current;
+                  if (Math.abs(dx) < 60) return;
+                  if (dx < 0) {
+                    // Swipe left → go to older history entry
+                    setHistoryIdx(prev =>
+                      prev === null ? 0 : Math.min(prev + 1, explainHistory.length - 1)
+                    );
+                  } else {
+                    // Swipe right → go to newer entry / back to live
+                    setHistoryIdx(prev =>
+                      prev === null || prev === 0 ? null : prev - 1
+                    );
+                  }
+                }}
+              >
                 <div className="mx-auto mt-3 mb-1 h-1 w-10 rounded-full bg-muted-foreground/20 shrink-0" />
 
                 {/* Drawer header */}
@@ -1233,33 +1267,61 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
                   </div>
                 </div>
 
-                {/* History strip — last 5 entries for this card */}
+                {/* History strip — last 5 entries; prev/next buttons + swipe gesture */}
                 {explainHistory.length > 0 && (
-                  <div className="px-4 py-2 flex items-center gap-1.5 overflow-x-auto shrink-0 border-b border-border/30">
-                    <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <div className="px-3 py-1.5 flex items-center gap-1 shrink-0 border-b border-border/30">
+                    <Clock className="h-3 w-3 text-muted-foreground shrink-0 mr-0.5" />
+
+                    {/* ← Prev (older) */}
                     <button
-                      onClick={() => setHistoryIdx(null)}
-                      className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all ${
-                        historyIdx === null
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-border/50 text-muted-foreground hover:bg-muted"
-                      }`}
+                      onClick={() => setHistoryIdx(prev =>
+                        prev === null ? 0 : Math.min(prev + 1, explainHistory.length - 1)
+                      )}
+                      disabled={historyIdx === explainHistory.length - 1}
+                      className="h-6 w-6 flex items-center justify-center rounded shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 transition-colors"
+                      title="Older entry"
                     >
-                      Live
+                      <ChevronLeft className="h-3.5 w-3.5" />
                     </button>
-                    {explainHistory.map((h, i) => (
+
+                    {/* Scrollable chip row */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto flex-1 min-w-0">
                       <button
-                        key={i}
-                        onClick={() => setHistoryIdx(i)}
+                        onClick={() => setHistoryIdx(null)}
                         className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all ${
-                          historyIdx === i
+                          historyIdx === null
                             ? "bg-primary text-primary-foreground border-primary"
                             : "border-border/50 text-muted-foreground hover:bg-muted"
                         }`}
                       >
-                        {EXPLAIN_LABELS[h.mode]}
+                        Live
                       </button>
-                    ))}
+                      {explainHistory.map((h, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setHistoryIdx(i)}
+                          className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all ${
+                            historyIdx === i
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "border-border/50 text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {EXPLAIN_LABELS[h.mode]}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* → Next (newer / back to live) */}
+                    <button
+                      onClick={() => setHistoryIdx(prev =>
+                        prev === null || prev === 0 ? null : prev - 1
+                      )}
+                      disabled={historyIdx === null}
+                      className="h-6 w-6 flex items-center justify-center rounded shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 transition-colors"
+                      title="Newer entry"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 )}
 
