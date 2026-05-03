@@ -17,6 +17,7 @@ import {
 import {
   saveSession,
   saveQBankSession,
+  getQBankSessions,
   markSeen,
   getFlaggedIds,
   toggleFlagged,
@@ -71,7 +72,7 @@ type Answer = {
 type SessionConfig = {
   filterMode: FilterMode;
   timed: boolean;
-  timeLimitMinutes: number;
+  secondsPerQuestion: number;
 };
 
 const cardVariants = {
@@ -82,6 +83,13 @@ const cardVariants = {
 
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.07, delayChildren: 0.1 } } };
 const fadeUp = { hidden: { y: 22, opacity: 0 }, show: { y: 0, opacity: 1, transition: { type: "spring" as const, stiffness: 300, damping: 26 } } };
+
+const filterLabel: Record<FilterMode, string> = {
+  all: "All Questions",
+  unseen: "Unseen Only",
+  wrong: "Wrong Answers",
+  flagged: "Flagged",
+};
 
 // ─── Pre-session Config Screen ─────────────────────────────────────────────
 
@@ -96,9 +104,11 @@ function PreSessionConfig({
   qbankName: string;
   onStart: (config: SessionConfig, filtered: Question[]) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<"setup" | "history">("setup");
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [timed, setTimed] = useState(false);
-  const [timeLimitMinutes, setTimeLimitMinutes] = useState(Math.max(10, questions.length));
+  const [secondsPerQuestion, setSecondsPerQuestion] = useState(30);
+  const pastSessions = useMemo(() => getQBankSessions(qbankId), [qbankId]);
 
   const { seenIds, wrongIds, flaggedIds } = useMemo(() => ({
     seenIds: getSeenIds(qbankId),
@@ -144,21 +154,87 @@ function PreSessionConfig({
       transition={{ duration: 0.3 }}
     >
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50 px-4 py-3 flex items-center gap-3">
-        <Link href={`/qbanks/${qbankId}`}>
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div className="flex items-center gap-2 min-w-0">
-          <Stethoscope className="h-4 w-4 text-violet-500 shrink-0" />
-          <span className="font-semibold text-sm truncate">{qbankName}</span>
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/50">
+        <div className="px-4 py-3 flex items-center gap-3">
+          <Link href={`/qbanks/${qbankId}`}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </Link>
+          <div className="flex items-center gap-2 min-w-0">
+            <Stethoscope className="h-4 w-4 text-violet-500 shrink-0" />
+            <span className="font-semibold text-sm truncate">{qbankName}</span>
+          </div>
+          <Badge className="ml-auto shrink-0 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20">
+            {activeTab === "setup" ? <><Filter className="h-3 w-3 mr-1" />Setup</> : <><Clock className="h-3 w-3 mr-1" />History</>}
+          </Badge>
         </div>
-        <Badge className="ml-auto shrink-0 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20">
-          <Filter className="h-3 w-3 mr-1" /> Setup
-        </Badge>
+        <div className="px-4 pb-2.5 flex gap-1.5">
+          {(["setup", "history"] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === tab
+                  ? "bg-violet-500 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              }`}
+            >
+              {tab === "setup" ? "Setup" : `History${pastSessions.length > 0 ? ` (${pastSessions.length})` : ""}`}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {activeTab === "history" ? (
+        <div className="flex-1 px-4 py-6 max-w-lg mx-auto w-full">
+          {pastSessions.length === 0 ? (
+            <div className="text-center py-16">
+              <Clock className="mx-auto h-10 w-10 text-muted-foreground opacity-30 mb-3" />
+              <p className="font-medium text-muted-foreground">No sessions yet</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Complete a practice session to see it here.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {pastSessions.map(session => {
+                const correct = session.results.filter(r => r.correct).length;
+                const total = session.results.length;
+                const pct = total > 0 ? correct / total : 0;
+                const grade = getGrade(pct);
+                const date = new Date(session.completedAt);
+                return (
+                  <div key={session.id} className="rounded-xl border border-border/50 bg-card/60 p-3.5 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`text-xl font-bold font-serif ${grade.color}`}>{Math.round(pct * 100)}%</span>
+                          <span className="text-xs text-muted-foreground">{correct}/{total} correct</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-xs text-muted-foreground">{filterLabel[session.filterMode]}</span>
+                          {session.timed && session.totalSeconds > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+                              <Clock className="h-3 w-3" />{formatTime(session.totalSeconds)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-medium">{date.toLocaleDateString()}</p>
+                        <p className="text-xs text-muted-foreground/70">{date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+                        <span className={`inline-block text-[10px] font-bold mt-0.5 px-1.5 py-0.5 rounded ${grade.color}`}>{grade.label}</span>
+                      </div>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                      <div className={`h-full rounded-full ${grade.bg}`} style={{ width: `${Math.round(pct * 100)}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="flex-1 px-4 py-6 max-w-lg mx-auto w-full space-y-6">
         {/* Title */}
         <div className="text-center space-y-1.5 pt-2">
@@ -235,25 +311,25 @@ function PreSessionConfig({
                 className="overflow-hidden"
               >
                 <div className="pt-2 border-t border-border/40">
-                  <Label className="text-xs text-muted-foreground mb-2 block">Total time (minutes)</Label>
+                  <Label className="text-xs text-muted-foreground mb-2 block">Seconds per question</Label>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                      onClick={() => setTimeLimitMinutes(m => Math.max(1, m - 5))}
+                      onClick={() => setSecondsPerQuestion(s => Math.max(10, s - 5))}
                     >−</Button>
                     <div className="flex-1 text-center">
-                      <span className="text-2xl font-bold font-serif text-amber-600 dark:text-amber-400">{timeLimitMinutes}</span>
-                      <span className="text-sm text-muted-foreground ml-1">min</span>
+                      <span className="text-2xl font-bold font-serif text-amber-600 dark:text-amber-400">{secondsPerQuestion}</span>
+                      <span className="text-sm text-muted-foreground ml-1">sec</span>
                     </div>
                     <Button
                       variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                      onClick={() => setTimeLimitMinutes(m => Math.min(180, m + 5))}
+                      onClick={() => setSecondsPerQuestion(s => Math.min(180, s + 5))}
                     >+</Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2 text-center">
-                    ≈ {timeLimitMinutes > 0 && filteredQuestions.length > 0
-                      ? Math.round((timeLimitMinutes * 60) / Math.max(filteredQuestions.length, 1))
-                      : "?"} seconds per question
+                    ≈ {filteredQuestions.length > 0
+                      ? formatTime(secondsPerQuestion * filteredQuestions.length)
+                      : "?"} total for {filteredQuestions.length} question{filteredQuestions.length !== 1 ? "s" : ""}
                   </p>
                 </div>
               </motion.div>
@@ -270,13 +346,14 @@ function PreSessionConfig({
         <Button
           className="w-full h-13 text-base font-semibold bg-violet-600 hover:bg-violet-700 text-white gap-2.5 shadow-lg shadow-violet-500/20"
           disabled={!canStart}
-          onClick={() => onStart({ filterMode, timed, timeLimitMinutes }, filteredQuestions)}
+          onClick={() => onStart({ filterMode, timed, secondsPerQuestion }, filteredQuestions)}
         >
           <Play className="h-5 w-5" />
           Start{timed ? " Timed Exam" : " Practice"} · {filteredQuestions.length} Q{filteredQuestions.length !== 1 ? "s" : ""}
-          {timed && <span className="text-violet-200">· {timeLimitMinutes}m</span>}
+          {timed && <span className="text-violet-200">· {secondsPerQuestion}s/Q</span>}
         </Button>
       </div>
+      )}
     </motion.div>
   );
 }
@@ -340,12 +417,7 @@ function ResultsView({
     }
   }, []);
 
-  const filterLabel: Record<FilterMode, string> = {
-    all: "All Questions",
-    unseen: "Unseen Only",
-    wrong: "Wrong Answers",
-    flagged: "Flagged",
-  };
+  const [showAll, setShowAll] = useState(false);
 
   return (
     <motion.div
@@ -496,20 +568,23 @@ function ResultsView({
                 const q = questions[ans.questionIndex];
                 if (!q) return null;
                 const choices = q.choices ?? [];
+                const timedOut = ans.selectedIndex === -1;
                 return (
-                  <motion.div key={i} variants={fadeUp} className="rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-500/5 p-3.5">
+                  <motion.div key={i} variants={fadeUp} className={`rounded-xl border p-3.5 ${timedOut ? "border-amber-200 dark:border-amber-800/50 bg-amber-500/5" : "border-rose-200 dark:border-rose-800/50 bg-rose-500/5"}`}>
                     <div className="flex items-start gap-3">
-                      <div className="h-5 w-5 rounded-full bg-rose-500 flex items-center justify-center shrink-0 mt-0.5">
-                        <X className="h-3 w-3 text-white stroke-[3]" />
+                      <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${timedOut ? "bg-amber-500" : "bg-rose-500"}`}>
+                        {timedOut ? <Clock className="h-3 w-3 text-white" /> : <X className="h-3 w-3 text-white stroke-[3]" />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">{q.front}</p>
                         <div className="flex flex-col gap-1 mt-1.5">
-                          {choices[ans.selectedIndex] && (
+                          {timedOut ? (
+                            <span className="text-xs text-amber-600 dark:text-amber-400">Time expired — no answer given</span>
+                          ) : choices[ans.selectedIndex] ? (
                             <span className="text-xs text-rose-600 dark:text-rose-400">
                               Your answer: {LETTER[ans.selectedIndex]}. {choices[ans.selectedIndex]}
                             </span>
-                          )}
+                          ) : null}
                           {choices[(q.correctIndex ?? 0)] && (
                             <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
                               Correct: {LETTER[q.correctIndex ?? 0]}. {choices[q.correctIndex ?? 0]}
@@ -520,7 +595,7 @@ function ResultsView({
                           )}
                         </div>
                       </div>
-                      <span className="shrink-0 text-xs font-bold px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-400">
+                      <span className={`shrink-0 text-xs font-bold px-1.5 py-0.5 rounded ${timedOut ? "bg-amber-500/15 text-amber-700 dark:text-amber-400" : "bg-rose-500/15 text-rose-700 dark:text-rose-400"}`}>
                         Q{i + 1}
                       </span>
                     </div>
@@ -530,6 +605,83 @@ function ResultsView({
               </AnimatePresence>
             </motion.div>
           )}
+
+          {/* All-questions breakdown */}
+          <motion.div variants={fadeUp} className="space-y-2">
+            <button
+              onClick={() => setShowAll(o => !o)}
+              className="w-full flex items-center gap-2 py-1 group"
+            >
+              <div className="h-px flex-1 bg-border/50" />
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 group-hover:text-foreground transition-colors">
+                All Questions ({answers.length})
+                <ChevronRight className={`h-3 w-3 transition-transform ${showAll ? "rotate-90" : ""}`} />
+              </span>
+              <div className="h-px flex-1 bg-border/50" />
+            </button>
+            <AnimatePresence initial={false}>
+              {showAll && answers.map((ans, i) => {
+                const q = questions[ans.questionIndex];
+                if (!q) return null;
+                const choices = q.choices ?? [];
+                const timedOut = ans.selectedIndex === -1;
+                return (
+                  <motion.div key={i} variants={fadeUp} className={`rounded-xl border p-3.5 ${
+                    ans.correct
+                      ? "border-emerald-200 dark:border-emerald-800/50 bg-emerald-500/5"
+                      : timedOut
+                      ? "border-amber-200 dark:border-amber-800/50 bg-amber-500/5"
+                      : "border-rose-200 dark:border-rose-800/50 bg-rose-500/5"
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${ans.correct ? "bg-emerald-500" : timedOut ? "bg-amber-500" : "bg-rose-500"}`}>
+                        {ans.correct
+                          ? <Check className="h-3 w-3 text-white stroke-[3]" />
+                          : timedOut
+                          ? <Clock className="h-3 w-3 text-white" />
+                          : <X className="h-3 w-3 text-white stroke-[3]" />}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">{q.front}</p>
+                        <div className="flex flex-col gap-1 mt-1.5">
+                          {ans.correct ? (
+                            <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                              {LETTER[q.correctIndex ?? 0]}. {choices[q.correctIndex ?? 0]}
+                            </span>
+                          ) : timedOut ? (
+                            <>
+                              <span className="text-xs text-amber-600 dark:text-amber-400">Time expired</span>
+                              <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                                Correct: {LETTER[q.correctIndex ?? 0]}. {choices[q.correctIndex ?? 0]}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              {choices[ans.selectedIndex] && (
+                                <span className="text-xs text-rose-600 dark:text-rose-400">
+                                  Your answer: {LETTER[ans.selectedIndex]}. {choices[ans.selectedIndex]}
+                                </span>
+                              )}
+                              <span className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                                Correct: {LETTER[q.correctIndex ?? 0]}. {choices[q.correctIndex ?? 0]}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`shrink-0 text-xs font-bold px-1.5 py-0.5 rounded ${
+                        ans.correct ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                        : timedOut ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                        : "bg-rose-500/15 text-rose-700 dark:text-rose-400"
+                      }`}>
+                        Q{ans.questionIndex + 1}
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
         </motion.div>
       </div>
     </motion.div>
@@ -543,7 +695,7 @@ function PracticeSession({
   qbankName,
   qbankId,
   timed,
-  timeLimitSeconds,
+  secondsPerQuestion,
   initialFlaggedIds,
   onDone,
 }: {
@@ -551,7 +703,7 @@ function PracticeSession({
   qbankName: string;
   qbankId: number;
   timed: boolean;
-  timeLimitSeconds: number;
+  secondsPerQuestion: number;
   initialFlaggedIds: Set<number>;
   onDone: (answers: Answer[], totalSeconds: number) => void;
 }) {
@@ -562,11 +714,11 @@ function PracticeSession({
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [wrongFlash, setWrongFlash] = useState(false);
   const [flaggedIds, setFlaggedIds] = useState<Set<number>>(new Set(initialFlaggedIds));
-  const [timerSeconds, setTimerSeconds] = useState(timeLimitSeconds);
+  const [questionTimeLeft, setQuestionTimeLeft] = useState(secondsPerQuestion);
   const [sessionStartTime] = useState(Date.now());
   const questionStartRef = useRef(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const expiredRef = useRef(false);
+  const timedOutRef = useRef(false);
 
   // Mirror mutable state into refs so the timer expiry callback always
   // reads the latest values without stale-closure issues.
@@ -584,9 +736,10 @@ function PracticeSession({
   const correctSoFar = answers.filter(a => a.correct).length;
   const wrongSoFar = answers.filter(a => !a.correct).length;
   const isCurrentCorrect = revealed && (answers[index]?.correct === true);
+  const isTimedOut = revealed && answers[index]?.selectedIndex === -1;
   const isFlagged = current ? flaggedIds.has(current.id) : false;
 
-  const timerPct = timeLimitSeconds > 0 ? timerSeconds / timeLimitSeconds : 1;
+  const timerPct = secondsPerQuestion > 0 ? questionTimeLeft / secondsPerQuestion : 1;
   const timerColor = timerPct > 0.5 ? "text-emerald-600 dark:text-emerald-400" : timerPct > 0.25 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400";
 
   // Keep refs in sync with latest state/props
@@ -601,44 +754,52 @@ function PracticeSession({
     questionStartRef.current = Date.now();
   }, [index]);
 
-  // Countdown timer — just decrements, no side-effects
+  // Reset per-question timer on each new question
   useEffect(() => {
     if (!timed) return;
-    timerRef.current = setInterval(() => {
-      setTimerSeconds(s => (s > 0 ? s - 1 : 0));
-    }, 1000);
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [timed]);
+    setQuestionTimeLeft(secondsPerQuestion);
+    timedOutRef.current = false;
+  }, [index, timed, secondsPerQuestion]);
 
-  // Handle timer expiry — runs once when timerSeconds reaches 0
+  // Per-question countdown — only ticks while the question is unrevealed
   useEffect(() => {
-    if (!timed || timerSeconds !== 0) return;
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    if (expiredRef.current) return;
-    expiredRef.current = true;
-
-    const currentSelected = selectedRef.current;
-    const currentAnswers = answersRef.current;
-    const currentIndex = indexRef.current;
-    const currentRevealed = revealedRef.current;
-    const q = questions[currentIndex];
-    const elapsed = Math.round((Date.now() - sessionStartTime) / 1000);
-
-    let finalAnswers = [...currentAnswers];
-
-    // Auto-commit the in-progress question if the user had selected an answer
-    // but hadn't confirmed it yet when time ran out.
-    if (!currentRevealed && currentSelected !== null && currentAnswers.length === currentIndex) {
-      finalAnswers.push({
-        questionIndex: currentIndex,
-        selectedIndex: currentSelected,
-        correct: currentSelected === (q?.correctIndex ?? 0),
-        timeSeconds: Math.round((Date.now() - questionStartRef.current) / 1000),
+    if (!timed || revealed || questionTimeLeft <= 0) return;
+    timerRef.current = setInterval(() => {
+      setQuestionTimeLeft(t => {
+        if (t <= 1) { clearInterval(timerRef.current!); timerRef.current = null; return 0; }
+        return t - 1;
       });
-    }
+    }, 1000);
+    return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; } };
+  }, [timed, revealed, index]);
 
-    onDoneRef.current(finalAnswers, elapsed);
-  }, [timed, timerSeconds, questions, sessionStartTime]);
+  // Handle per-question timeout — mark wrong (selectedIndex -1) then auto-advance
+  useEffect(() => {
+    if (!timed || questionTimeLeft !== 0) return;
+    if (timedOutRef.current) return;
+    timedOutRef.current = true;
+    const nextAnswers = [...answersRef.current, {
+      questionIndex: indexRef.current,
+      selectedIndex: -1,
+      correct: false,
+      timeSeconds: secondsPerQuestion,
+    }];
+    answersRef.current = nextAnswers;
+    setAnswers(nextAnswers);
+    setRevealed(true);
+    const advanceTimer = setTimeout(() => {
+      if (indexRef.current + 1 >= questions.length) {
+        const elapsed = Math.round((Date.now() - sessionStartTime) / 1000);
+        onDoneRef.current(answersRef.current, elapsed);
+      } else {
+        setDirection(1);
+        setIndex(i => i + 1);
+        setSelected(null);
+        setRevealed(false);
+      }
+    }, 1800);
+    return () => clearTimeout(advanceTimer);
+  }, [timed, questionTimeLeft]);
 
   const handleSelect = useCallback((i: number) => {
     if (revealed) return;
@@ -724,7 +885,7 @@ function PracticeSession({
           {timed && (
             <div className={`flex items-center gap-1 font-mono text-sm font-bold shrink-0 ${timerColor}`}>
               <Clock className="h-3.5 w-3.5" />
-              {formatTime(timerSeconds)}
+              {formatTime(questionTimeLeft)}
             </div>
           )}
           <div className="flex items-center gap-1.5 shrink-0">
@@ -834,22 +995,26 @@ function PracticeSession({
                   className={`absolute inset-0 rounded-2xl border p-5 flex items-center justify-center gap-4 ${
                     isCurrentCorrect
                       ? "bg-emerald-500/10 border-emerald-400/60 dark:bg-emerald-950/20"
+                      : isTimedOut
+                      ? "bg-amber-500/10 border-amber-400/60 dark:bg-amber-950/20"
                       : "bg-rose-500/10 border-rose-400/60 dark:bg-rose-950/20"
                   }`}
                   style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                 >
                   <div className={`h-12 w-12 rounded-full flex items-center justify-center shrink-0 shadow-lg ${
-                    isCurrentCorrect ? "bg-emerald-500 shadow-emerald-500/30" : "bg-rose-500 shadow-rose-500/30"
+                    isCurrentCorrect ? "bg-emerald-500 shadow-emerald-500/30" : isTimedOut ? "bg-amber-500 shadow-amber-500/30" : "bg-rose-500 shadow-rose-500/30"
                   }`}>
                     {isCurrentCorrect
                       ? <Check className="h-6 w-6 text-white stroke-[3]" />
+                      : isTimedOut
+                      ? <Clock className="h-6 w-6 text-white" />
                       : <X className="h-6 w-6 text-white stroke-[3]" />}
                   </div>
                   <div className="min-w-0">
                     <p className={`font-bold text-xl font-serif leading-tight ${
-                      isCurrentCorrect ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"
+                      isCurrentCorrect ? "text-emerald-700 dark:text-emerald-300" : isTimedOut ? "text-amber-700 dark:text-amber-300" : "text-rose-700 dark:text-rose-300"
                     }`}>
-                      {isCurrentCorrect ? "Correct!" : "Incorrect"}
+                      {isCurrentCorrect ? "Correct!" : isTimedOut ? "Time's up!" : "Incorrect"}
                     </p>
                     <p className="text-sm text-muted-foreground mt-0.5 leading-snug line-clamp-2">
                       {LETTER[correctIndex]}. {choices[correctIndex]}
@@ -984,6 +1149,8 @@ function PracticeSession({
               <div className={`flex items-center gap-2 px-4 py-3 rounded-xl flex-1 ${
                 answers[answers.length - 1]?.correct
                   ? "bg-emerald-500/12 border border-emerald-300/50 dark:border-emerald-700/50"
+                  : answers[answers.length - 1]?.selectedIndex === -1
+                  ? "bg-amber-500/10 border border-amber-300/50 dark:border-amber-700/50"
                   : "bg-rose-500/10 border border-rose-300/50 dark:border-rose-700/50"
               }`}>
                 {answers[answers.length - 1]?.correct ? (
@@ -992,6 +1159,13 @@ function PracticeSession({
                       <Check className="h-3.5 w-3.5 text-white stroke-[3]" />
                     </div>
                     <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Correct!</span>
+                  </>
+                ) : answers[answers.length - 1]?.selectedIndex === -1 ? (
+                  <>
+                    <div className="h-6 w-6 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
+                      <Clock className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">Time's up!</span>
                   </>
                 ) : (
                   <>
@@ -1003,7 +1177,7 @@ function PracticeSession({
                 )}
               </div>
               <div className="flex gap-2">
-                {index > 0 && (
+                {index > 0 && !timed && (
                   <Button variant="outline" size="icon" className="h-12 w-12" onClick={handlePrev}>
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
@@ -1049,7 +1223,7 @@ export default function PracticeQbank() {
 
   type Phase = "config" | "practice" | "results";
   const [phase, setPhase] = useState<Phase>("config");
-  const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ filterMode: "all", timed: false, timeLimitMinutes: 20 });
+  const [sessionConfig, setSessionConfig] = useState<SessionConfig>({ filterMode: "all", timed: false, secondsPerQuestion: 30 });
   const [activeQuestions, setActiveQuestions] = useState<Question[]>([]);
   const [finalAnswers, setFinalAnswers] = useState<Answer[]>([]);
   const [finalTotalSeconds, setFinalTotalSeconds] = useState(0);
@@ -1084,7 +1258,7 @@ export default function PracticeQbank() {
         totalSeconds,
         filterMode: sessionConfig.filterMode,
         timed: sessionConfig.timed,
-        timeLimitSeconds: sessionConfig.timed ? sessionConfig.timeLimitMinutes * 60 : undefined,
+        timeLimitSeconds: sessionConfig.timed ? sessionConfig.secondsPerQuestion : undefined,
       });
 
       saveSession({
@@ -1181,7 +1355,7 @@ export default function PracticeQbank() {
         qbankName={qbankName}
         qbankId={id}
         timed={sessionConfig.timed}
-        timeLimitSeconds={sessionConfig.timed ? sessionConfig.timeLimitMinutes * 60 : 0}
+        secondsPerQuestion={sessionConfig.timed ? sessionConfig.secondsPerQuestion : 30}
         initialFlaggedIds={getFlaggedIds(id)}
         onDone={handleDone}
       />
