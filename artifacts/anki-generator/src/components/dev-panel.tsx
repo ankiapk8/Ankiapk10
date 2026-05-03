@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Crown, ChevronDown, ChevronUp, RotateCcw, Lock,
+  Crown, ChevronDown, ChevronUp, RotateCcw, Lock, Unlock,
   FlaskConical, X, RefreshCw, CheckCircle2, XCircle,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/+$/, "") ?? "";
 const LS_KEY = "dev-pro-override";
@@ -80,29 +80,45 @@ async function resetQuota(): Promise<void> {
   await fetch(`${API_BASE}/api/dev/reset-quota`, { method: "POST", credentials: "include" });
 }
 
+interface DevSubStatus {
+  isPro: boolean;
+  devOverride?: boolean;
+  simulated?: boolean;
+}
+
+async function fetchSubStatus(): Promise<DevSubStatus> {
+  try {
+    const res = await fetch(`${API_BASE}/api/subscription/status`, { credentials: "include" });
+    if (!res.ok) return { isPro: false };
+    return res.json();
+  } catch {
+    return { isPro: false };
+  }
+}
+
 export function DevPlanBadge() {
-  const [state, setState] = useState<{ isPro: boolean | null; simulated: boolean }>({
-    isPro: null,
-    simulated: false,
+  const { data, isLoading } = useQuery<DevSubStatus>({
+    queryKey: ["subscription/status"],
+    queryFn: fetchSubStatus,
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 10,
+    retry: 1,
   });
-
-  useEffect(() => {
-    const read = () => {
-      const stored = localStorage.getItem(LS_KEY);
-      const sim = localStorage.getItem(LS_SIM_KEY) === "true";
-      if (stored === "true") setState({ isPro: true, simulated: sim });
-      else if (stored === "false") setState({ isPro: false, simulated: false });
-      else setState({ isPro: null, simulated: false });
-    };
-    read();
-    window.addEventListener("dev-plan-changed", read);
-    return () => window.removeEventListener("dev-plan-changed", read);
-  }, []);
-
-  if (state.isPro === null) return null;
 
   function openPanel() {
     window.dispatchEvent(new Event("dev-panel-open"));
+  }
+
+  const isPro = data?.isPro ?? false;
+  const isSimulated = data?.simulated ?? false;
+  const hasOverride = data?.devOverride ?? false;
+
+  function badgeLabel() {
+    if (isLoading) return "DEV …";
+    if (isPro && isSimulated) return "SIMULATED PRO";
+    if (isPro && hasOverride) return "OVERRIDE PRO";
+    if (isPro) return "REAL PRO";
+    return "DEV FREE";
   }
 
   return (
@@ -111,13 +127,15 @@ export function DevPlanBadge() {
       onClick={openPanel}
       title="Click to open Dev Mode panel"
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-wide border cursor-pointer transition-opacity hover:opacity-80 ${
-        state.isPro
-          ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300/50"
+        isPro
+          ? isSimulated
+            ? "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border-violet-300/50"
+            : "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300/50"
           : "bg-muted text-muted-foreground border-border"
       }`}
     >
-      {state.isPro ? <Crown className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
-      {state.isPro ? (state.simulated ? "SIMULATED PRO" : "DEV PRO") : "DEV FREE"}
+      {isPro ? <Unlock className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
+      {badgeLabel()}
     </button>
   );
 }
