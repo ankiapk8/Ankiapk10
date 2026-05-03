@@ -217,11 +217,19 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
   srsMode?: boolean;
 }) {
   const isQbank = deckKind === "qbank";
+  const { toast } = useToast();
+
   const buildInitialDeck = () => {
     if (savePoint) {
       const byId = new Map(cards.map(c => [c.id, c]));
       const ordered = savePoint.cardIds.map(id => byId.get(id)).filter(Boolean) as Card[];
       return ordered.length === cards.length ? ordered : cards;
+    }
+    if (srsMode && cards.length > 0) {
+      const dueIds = new Set(getDueCardIds(cards.map(c => c.id)));
+      const due = cards.filter(c => dueIds.has(c.id));
+      const notDue = cards.filter(c => !dueIds.has(c.id));
+      return [...due, ...notDue];
     }
     return cards;
   };
@@ -532,6 +540,14 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
     const state = existing ?? getDefaultSrsState(current.id, deckId);
     const next = computeNextState(state, rating);
     saveSrsState(next);
+    const days = next.interval;
+    const reviewLabel =
+      days <= 0 ? "today" :
+      days === 1 ? "tomorrow" :
+      days < 7 ? `in ${days} days` :
+      days < 30 ? `in ${Math.round(days / 7)} week${Math.round(days / 7) !== 1 ? "s" : ""}` :
+      `in ${Math.round(days / 30)} month${Math.round(days / 30) !== 1 ? "s" : ""}`;
+    toast({ description: `⏱ Next review ${reviewLabel}`, duration: 1800 });
     if (rating >= 3) {
       setKnown(prev => new Set([...prev, current.id]));
       setUnknown(prev => { const s = new Set(prev); s.delete(current.id); return s; });
@@ -540,7 +556,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
       setKnown(prev => { const s = new Set(prev); s.delete(current.id); return s; });
     }
     goNext();
-  }, [current, deckId, goNext]);
+  }, [current, deckId, goNext, toast]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

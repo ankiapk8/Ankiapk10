@@ -25,7 +25,7 @@ import {
   getLast8Weeks,
 } from "@/lib/study-stats";
 import { getDashboardPlannerDueTodayCount } from "@/lib/study-planner/topics";
-import { getTotalScheduledDueCount } from "@/lib/srs";
+import { getTotalScheduledDueCount, getDueCountByDeckId } from "@/lib/srs";
 import type { Qbank } from "@workspace/api-client-react";
 import { AppDownloads } from "@/components/app-downloads";
 import { FeaturesShowcase } from "@/components/features-showcase";
@@ -129,6 +129,15 @@ export default function Dashboard() {
   const recentDecks = [...(decks ?? [])].filter((d: { kind?: string }) => (d.kind ?? "deck") !== "qbank").sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   ).slice(0, 5);
+
+  const recentDeckDueCounts = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const d of recentDecks) {
+      const count = getDueCountByDeckId(d.id);
+      if (count > 0) map.set(d.id, count);
+    }
+    return map;
+  }, [recentDecks]);
 
   const deckStatsList = [...deckStats.entries()]
     .map(([id, s]) => ({ id, ...s, pct: s.total > 0 ? Math.round((s.known / s.total) * 100) : 0 }))
@@ -933,6 +942,11 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {(recentDeckDueCounts.get(deck.id) ?? 0) > 0 && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                          {recentDeckDueCounts.get(deck.id)} due
+                        </span>
+                      )}
                       <span className="text-sm font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-md">
                         {deck.cardCount} {deck.cardCount === 1 ? "card" : "cards"}
                       </span>
