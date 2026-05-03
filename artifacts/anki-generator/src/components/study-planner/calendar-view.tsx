@@ -235,7 +235,7 @@ export function CalendarView({
               onClick={() => setSelectMode(m => m === "start" ? null : "start")}
               className="h-8 text-xs gap-1"
             >
-              <Flag className="h-3.5 w-3.5 text-green-500" />
+              <Flag className="h-3.5 w-3.5 text-orange-500" />
               {selectMode === "start" ? "Click a date..." : "Set Start"}
             </Button>
             <Button
@@ -244,7 +244,7 @@ export function CalendarView({
               onClick={() => setSelectMode(m => m === "end" ? null : "end")}
               className="h-8 text-xs gap-1"
             >
-              <FlagOff className="h-3.5 w-3.5 text-red-500" />
+              <FlagOff className="h-3.5 w-3.5 text-orange-700" />
               {selectMode === "end" ? "Click a date..." : "Set End"}
             </Button>
           </>

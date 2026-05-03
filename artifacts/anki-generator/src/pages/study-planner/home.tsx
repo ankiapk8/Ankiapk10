@@ -383,7 +383,7 @@ ${monthsHtml}</body></html>`;
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
           <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
-            <BookOpen className="h-6 w-6 text-blue-600 shrink-0" />
+            <BookOpen className="h-6 w-6 text-orange-600 shrink-0" />
             Final Year Study Planner
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -601,8 +601,8 @@ ${monthsHtml}</body></html>`;
                     <ComposedChart data={burndownData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
                       <defs>
                         <linearGradient id="burnPlanGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#818cf8" stopOpacity={0.0} />
+                          <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#f97316" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border) / 0.5)" />
@@ -612,7 +612,7 @@ ${monthsHtml}</body></html>`;
                         formatter={(value: number, name: string) => [`${value}%`, name === "planned" ? "Expected" : "Actual (checked)"]}
                         contentStyle={{ fontSize: 10, borderRadius: 8, padding: "4px 8px" }}
                       />
-                      <Area type="monotone" dataKey="planned" stroke="#818cf8" fill="url(#burnPlanGrad)" strokeWidth={1.5} dot={false} name="planned" />
+                      <Area type="monotone" dataKey="planned" stroke="#f97316" fill="url(#burnPlanGrad)" strokeWidth={1.5} dot={false} name="planned" />
                       <Line type="monotone" dataKey="actual" stroke="#34d399" strokeWidth={2} dot={false} connectNulls={false} name="actual" />
                     </ComposedChart>
                   </ResponsiveContainer>

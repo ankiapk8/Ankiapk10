@@ -126,7 +126,8 @@ export function SmartScheduleModal({ open, onOpenChange, onScheduleChange }: Pro
     if (availableDecks.length > 0 && selectedDeckIds.size === 0) {
       setSelectedDeckIds(new Set(availableDecks.map(d => d.id)));
     }
-  }, [availableDecks.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableDecks]);
 
   useEffect(() => {
     if (!open) return;
