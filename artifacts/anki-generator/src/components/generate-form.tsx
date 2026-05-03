@@ -186,7 +186,12 @@ export function GenerateForm({
     if (prefilledText || prefilledDeckName || prefilledCustomPrompt) {
       if (prefilledText) setManualText(prev => prev || prefilledText);
       if (prefilledDeckName) setManualDeckName(prev => prev || prefilledDeckName);
-      if (prefilledCustomPrompt) setManualCustomPrompt(prev => prev || prefilledCustomPrompt);
+      if (prefilledCustomPrompt) {
+        // Seed both the shared prompt (applies to all file entries in file-upload flow)
+        // and the manual text prompt, so History re-run restores settings for either mode.
+        setSharedCustomPrompt(prev => prev || prefilledCustomPrompt);
+        setManualCustomPrompt(prev => prev || prefilledCustomPrompt);
+      }
     }
   }, [prefilledText, prefilledDeckName, prefilledCustomPrompt]);
 
