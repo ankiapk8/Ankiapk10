@@ -224,7 +224,6 @@ export default function SPHome() {
     <div className="sp-root relative min-h-screen bg-background pb-24">
       <AmbientOrbs color="hsl(38 95% 60% / 0.10)" />
 
-      {/* Shift dialog */}
       {showShiftDialog && (
         <ShiftDialog
           items={overdueItems}
@@ -240,7 +239,6 @@ export default function SPHome() {
         />
       )}
 
-      {/* Header */}
       <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border/50 px-4 py-3 flex items-center justify-between">
         <motion.div
           className="flex items-center gap-2.5"
@@ -273,7 +271,6 @@ export default function SPHome() {
       </div>
 
       <div className="max-w-2xl mx-auto p-4 space-y-4">
-        {/* Backup reminder */}
         {showBackupReminder && (
           <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2">
             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
@@ -288,14 +285,12 @@ export default function SPHome() {
           </div>
         )}
 
-        {/* Dashboard */}
         <Accordion title="Dashboard" defaultOpen icon={<BarChart3 className="h-4 w-4 text-primary" />}
           badge={streak > 0 ? (
             <span className="flex items-center gap-0.5 text-xs font-semibold text-orange-500 mr-1">
               🔥 {streak} days
             </span>
           ) : undefined}>
-          {/* Schedule controls */}
           <div className="grid grid-cols-2 gap-3 mb-4 pt-2">
             <div className="space-y-1">
               <Label className="text-xs">Start Date</Label>
@@ -337,7 +332,6 @@ export default function SPHome() {
                 ))}
               </div>
 
-              {/* 8-week heatmap */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-semibold">8-Week Activity</span>
@@ -373,7 +367,6 @@ export default function SPHome() {
                 </div>
               </div>
 
-              {/* Overall progress */}
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-semibold">Overall Progress</span>
@@ -403,7 +396,6 @@ export default function SPHome() {
                 </div>
               </div>
 
-              {/* Priority breakdown */}
               {(() => {
                 const highC = allTopics.filter(t => t.priority === "High").length;
                 const medC  = allTopics.filter(t => t.priority === "Medium").length;

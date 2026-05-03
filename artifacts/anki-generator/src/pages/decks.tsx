@@ -55,13 +55,11 @@ import type { Qbank } from "@workspace/api-client-react";
 import { getDueCountByDeckId } from "@/lib/srs";
 import { getSessions, getDeckStats } from "@/lib/study-stats";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 type DeckWithParent = Deck & { parentId?: number | null };
 type SortOption = "name" | "created" | "cards" | "lastStudied" | "mastery";
 type MasteryFilter = "all" | "mastered" | "needs-review";
 type LibFolder = { id: string; name: string; deckIds: number[] };
 
-// ─── Tag palette ──────────────────────────────────────────────────────────────
 const TAG_PALETTE = [
   { bg: "bg-red-500/15",    text: "text-red-700 dark:text-red-400",       border: "border-red-500/30"    },
   { bg: "bg-orange-500/15", text: "text-orange-700 dark:text-orange-400", border: "border-orange-500/30" },
@@ -83,7 +81,6 @@ function getTagColor(tag: string) {
   return TAG_PALETTE[h % TAG_PALETTE.length];
 }
 
-// ─── Storage helpers ──────────────────────────────────────────────────────────
 const DECK_TAGS_KEY = "ankigen_deck_tags";
 const FOLDERS_KEY   = "ankigen_folders";
 
@@ -100,7 +97,6 @@ function persistFolders(f: LibFolder[]) {
   localStorage.setItem(FOLDERS_KEY, JSON.stringify(f));
 }
 
-// ─── Tree helpers ─────────────────────────────────────────────────────────────
 function getAllDescendants(deckId: number, childrenMap: Map<number, DeckWithParent[]>): DeckWithParent[] {
   const direct = childrenMap.get(deckId) ?? [];
   return [...direct, ...direct.flatMap(d => getAllDescendants(d.id, childrenMap))];
@@ -120,7 +116,6 @@ function useDebouncedValue<T>(value: T, delay = 180) {
   return debounced;
 }
 
-// ─── QbankRow ─────────────────────────────────────────────────────────────────
 type QbankRowProps = {
   qbank: Qbank;
   depth: number;
@@ -249,7 +244,6 @@ function QbankRow({
   );
 }
 
-// ─── DeckRow ──────────────────────────────────────────────────────────────────
 type DeckRowProps = {
   deck: DeckWithParent;
   depth: number;
@@ -495,7 +489,6 @@ function DeckRow({
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
 export default function Decks() {
   const { data: decks, isLoading } = useListDecks();
   const { data: qbanks, isLoading: isLoadingQbanks } = useListQbanks();
@@ -504,7 +497,6 @@ export default function Decks() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // ── URL share params ───────────────────────────────────────────────────────
   const [generateSheetOpen, setGenerateSheetOpen] = useState(false);
   const [sharedText, setSharedText] = useState<string | undefined>(undefined);
   const [sharedTitle, setSharedTitle] = useState<string | undefined>(undefined);
@@ -526,7 +518,6 @@ export default function Decks() {
     }
   }, [search_]);
 
-  // ── Core state ─────────────────────────────────────────────────────────────
   const [deckFormOpen, setDeckFormOpen] = useState(false);
   const [deckFormMode, setDeckFormMode] = useState<DeckFormMode>({ type: "new-topic" });
   const [search, setSearch] = useState("");
@@ -549,7 +540,6 @@ export default function Decks() {
   const [generateMode, setGenerateMode] = useState<"deck" | "qbank">("deck");
   const [masteryFilter, setMasteryFilter] = useState<MasteryFilter>("all");
 
-  // ── Task 13: tags ──────────────────────────────────────────────────────────
   const [deckTags, setDeckTagsState] = useState<Record<number, string[]>>(loadDeckTags);
   const [tagEditDeckId, setTagEditDeckId] = useState<number | null>(null);
   const [tagInput, setTagInput] = useState("");
@@ -583,7 +573,6 @@ export default function Decks() {
 
   const [activeTagFilter, setActiveTagFilter] = useState<string | null>(null);
 
-  // ── Task 13: sort ──────────────────────────────────────────────────────────
   const [sortBy, setSortBy] = useState<SortOption>("name");
 
   const { lastStudiedMap, masteryMap } = useMemo(() => {
@@ -599,7 +588,6 @@ export default function Decks() {
     return { lastStudiedMap: lsMap, masteryMap: mMap };
   }, []);
 
-  // ── Task 13: folders ───────────────────────────────────────────────────────
   const [folders, setFoldersState] = useState<LibFolder[]>(loadFolders);
   const [showFoldersSidebar, setShowFoldersSidebar] = useState(false);
   const [activeFolderFilter, setActiveFolderFilter] = useState<string | null>(null);
@@ -646,7 +634,6 @@ export default function Decks() {
     return folders.find(f => f.deckIds.includes(deckId))?.id ?? null;
   };
 
-  // ── Collapse init ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!decks || initializedRef.current) return;
     const all = decks as DeckWithParent[];
@@ -661,7 +648,6 @@ export default function Decks() {
     if ((decks as DeckWithParent[] | undefined)?.length === 0 && (qbanks?.length ?? 0) > 0) setLibraryTab("qbanks");
   }, [(decks as DeckWithParent[] | undefined)?.length, qbanks?.length]);
 
-  // ── Deck tree memos ────────────────────────────────────────────────────────
   const totalCards = (decks as DeckWithParent[] | undefined)?.reduce((sum, d) => sum + d.cardCount, 0) ?? 0;
 
   const { rootDecks, rootFlashcardDecks, deckChildrenMap, flashcardChildrenCount, flashcardTotalCards } = useMemo(() => {
@@ -691,7 +677,6 @@ export default function Decks() {
     return { rootQbankDecks: root, qbankChildrenMap: byParent, qbankChildrenCount: all.filter(q => q.parentId).length, qbankTotalMcqs: all.reduce((s, q) => s + q.questionCount, 0) };
   }, [qbanks]);
 
-  // ── Search + filter + sort ─────────────────────────────────────────────────
   const sortDecks = useCallback((list: DeckWithParent[]) => {
     return [...list].sort((a, b) => {
       switch (sortBy) {
@@ -752,7 +737,6 @@ export default function Decks() {
 
   const filteredQbanks = useMemo(() => filterQbanksBySearch(rootQbankDecks), [rootQbankDecks, filterQbanksBySearch]);
 
-  // ── Bulk actions ───────────────────────────────────────────────────────────
   const allSelectableIds = useMemo(() => ((decks as DeckWithParent[] | undefined) ?? []).map(d => d.id), [decks]);
   const openDeckForm = (mode: DeckFormMode) => { setDeckFormMode(mode); setDeckFormOpen(true); };
   const openGenerateSheet = (mode: "deck" | "qbank") => { setGenerateMode(mode); setGenerateSheetOpen(true); };
@@ -961,12 +945,10 @@ export default function Decks() {
     mastery: "Mastery %",
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
       <div className="relative space-y-6 animate-in fade-in duration-500 pb-32">
       <AmbientOrbs color="hsl(239 84% 68% / 0.10)" className="rounded-3xl" />
 
-      {/* Header */}
       <div className="relative flex items-start justify-between flex-wrap gap-4">
         <PageHeader
           icon={Library} iconColor="#818cf8" iconGlow="hsl(239 84% 68% / 0.5)"
@@ -979,7 +961,6 @@ export default function Decks() {
         <div className="flex items-center gap-2">
           {!selectMode ? (
             <>
-              {/* Folders toggle */}
               {(allDecksCount > 0) && (
                 <Button
                   variant={showFoldersSidebar ? "secondary" : "outline"}
@@ -1111,7 +1092,6 @@ export default function Decks() {
         </div>
       </div>
 
-      {/* Stats mini-bar */}
       {allDecksCount > 0 && libraryTab === "decks" && (
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm p-3.5 shadow-sm">
@@ -1145,10 +1125,8 @@ export default function Decks() {
         </div>
       )}
 
-      {/* Search + sort/filter bar */}
       {(allDecksCount > 0 || (qbanks?.length ?? 0) > 0) && (
         <div className="space-y-2.5">
-          {/* Search row */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -1164,7 +1142,6 @@ export default function Decks() {
                 </button>
               )}
             </div>
-            {/* Sort dropdown */}
             {libraryTab === "decks" && (
               <Select value={sortBy} onValueChange={v => setSortBy(v as SortOption)}>
                 <SelectTrigger className="h-11 w-auto min-w-[9rem] rounded-xl bg-card/60 backdrop-blur-sm border-border/60 shadow-sm gap-1.5">
@@ -1180,29 +1157,55 @@ export default function Decks() {
             )}
           </div>
 
-          {/* Filter chips */}
-          {libraryTab === "decks" && allTags.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <SlidersHorizontal className="h-3 w-3" /> Filter:
+          {libraryTab === "decks" && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <SlidersHorizontal className="h-3 w-3" /> Type:
               </span>
-              <button
-                onClick={() => setActiveTagFilter(null)}
-                className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border transition-all ${!activeTagFilter ? "bg-foreground text-background border-foreground" : "bg-card/60 text-muted-foreground border-border/60 hover:border-border"}`}
-              >
-                All
-              </button>
-              {allTags.map(tag => {
-                const c = getTagColor(tag);
-                const active = activeTagFilter === tag;
-                return (
-                  <button key={tag}
-                    onClick={() => setActiveTagFilter(active ? null : tag)}
-                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border transition-all ${active ? `${c.bg} ${c.text} ${c.border} ring-1 ring-offset-1 ring-current` : `bg-card/60 ${c.text} ${c.border} hover:${c.bg}`}`}>
-                    <Tag className="h-2.5 w-2.5 shrink-0" />{tag}
+              {([
+                { key: "decks", label: "All" },
+                { key: "flashcards", label: "Flashcards" },
+                { key: "qbanks", label: "QBanks" },
+              ] as const).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setLibraryTab(key === "decks" ? "decks" : "qbanks")}
+                  className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border transition-all ${
+                    key === "decks"
+                      ? "bg-foreground text-background border-foreground"
+                      : key === "flashcards"
+                      ? "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
+                      : "bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <div className="mx-1 h-4 w-px bg-border" />
+              {allTags.length > 0 && (
+                <>
+                  <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Tag className="h-3 w-3" /> Tags:
+                  </span>
+                  <button
+                    onClick={() => setActiveTagFilter(null)}
+                    className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border transition-all ${!activeTagFilter ? "bg-foreground text-background border-foreground" : "bg-card/60 text-muted-foreground border-border/60 hover:border-border"}`}
+                  >
+                    All
                   </button>
-                );
-              })}
+                  {allTags.map(tag => {
+                    const c = getTagColor(tag);
+                    const active = activeTagFilter === tag;
+                    return (
+                      <button key={tag}
+                        onClick={() => setActiveTagFilter(active ? null : tag)}
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border transition-all ${active ? `${c.bg} ${c.text} ${c.border} ring-1 ring-offset-1 ring-current` : `bg-card/60 ${c.text} ${c.border} hover:${c.bg}`}`}>
+                        <Tag className="h-2.5 w-2.5 shrink-0" />{tag}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
               <div className="ml-2 flex items-center gap-1">
                 {([
                   { key: "all", label: "All" },
@@ -1246,7 +1249,6 @@ export default function Decks() {
       ) : (
         <div className={showFoldersSidebar ? "flex gap-4 items-start" : ""}>
 
-          {/* ── Folders sidebar ── */}
           <AnimatePresence>
             {showFoldersSidebar && (
               <motion.aside
@@ -1259,7 +1261,6 @@ export default function Decks() {
                 style={{ minWidth: 0 }}
               >
                 <div className="rounded-xl border border-border/60 bg-card/60 backdrop-blur-sm shadow-sm overflow-hidden" style={{ width: 220 }}>
-                  {/* Sidebar header */}
                   <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/50">
                     <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                       <Folder className="h-3.5 w-3.5 text-amber-500" /> Folders
@@ -1270,7 +1271,6 @@ export default function Decks() {
                     </Button>
                   </div>
 
-                  {/* All decks option */}
                   <div className="px-2 py-1.5 space-y-0.5">
                     <button
                       onClick={() => setActiveFolderFilter(null)}
@@ -1325,7 +1325,6 @@ export default function Decks() {
             )}
           </AnimatePresence>
 
-          {/* ── Main deck list ── */}
           <div className="flex-1 min-w-0">
             <Tabs value={libraryTab} onValueChange={(v) => setLibraryTab(v as "decks" | "qbanks")} className="w-full">
               <TabsList className="w-full sm:w-auto h-10 p-1 rounded-xl bg-muted/40 border border-border/50 backdrop-blur-sm">
@@ -1337,7 +1336,6 @@ export default function Decks() {
                 </TabsTrigger>
               </TabsList>
 
-              {/* ── Decks tab ── */}
               <TabsContent value="decks" className="mt-4">
                 {rootFlashcardDecks.length === 0 ? (
                   <div className="text-center py-16 px-6 border-2 border-dashed border-border/60 rounded-2xl bg-card/60">
@@ -1390,7 +1388,6 @@ export default function Decks() {
                 )}
               </TabsContent>
 
-              {/* ── QBanks tab ── */}
               <TabsContent value="qbanks" className="mt-4">
                 {rootQbankDecks.length === 0 ? (
                   <div className="text-center py-16 px-6 border-2 border-dashed border-violet-500/20 rounded-2xl bg-violet-500/5">
@@ -1438,7 +1435,6 @@ export default function Decks() {
         </div>
       )}
 
-      {/* Sheets / forms */}
       <GenerateSheet
         open={generateSheetOpen} mode={generateMode}
         onOpenChange={(o) => { setGenerateSheetOpen(o); if (!o) { setSharedText(undefined); setSharedTitle(undefined); } }}
@@ -1447,7 +1443,6 @@ export default function Decks() {
       />
       <DeckFormSheet open={deckFormOpen} onOpenChange={setDeckFormOpen} mode={deckFormMode} />
 
-      {/* ── Sticky bulk action bar ── */}
       {selectMode && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-200">
           <div className="flex items-center gap-2 bg-card/95 backdrop-blur-md border border-border shadow-2xl rounded-2xl px-4 py-2.5">
@@ -1460,7 +1455,6 @@ export default function Decks() {
               </span>
             </div>
             <div className="h-5 w-px bg-border" />
-            {/* Bulk tag assign */}
             {selectedIds.size > 0 && (
               <Button variant="outline" size="sm" className="gap-1.5 h-8 text-primary border-primary/30 hover:bg-primary/5"
                 onClick={() => { setBulkTagInput(""); setBulkTagOpen(true); }}>
@@ -1503,7 +1497,6 @@ export default function Decks() {
         </div>
       )}
 
-      {/* ── Tag edit dialog ── */}
       <Dialog open={tagEditDeckId !== null} onOpenChange={open => { if (!open) setTagEditDeckId(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -1566,7 +1559,6 @@ export default function Decks() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Bulk tag assign dialog ── */}
       <Dialog open={bulkTagOpen} onOpenChange={setBulkTagOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -1602,7 +1594,6 @@ export default function Decks() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Folder create/rename dialog ── */}
       <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
         <DialogContent className="sm:max-w-xs">
           <DialogHeader>
@@ -1630,7 +1621,6 @@ export default function Decks() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Merge dialog ── */}
       <Dialog open={mergeOpen} onOpenChange={setMergeOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

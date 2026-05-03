@@ -136,7 +136,7 @@ export default function History() {
           ].map(({ label, value, icon: Icon, color, glow }, idx) => (
             <motion.div
               key={label}
-              className="rounded-xl border border-border/40 bg-card/70 p-3.5 relative overflow-hidden"
+              className="rounded-xl border border-border/40 bg-card/70 p-3.5 relative overflow-hidden backdrop-blur-sm"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
@@ -177,7 +177,7 @@ export default function History() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.04, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
               >
-              <Card className="border-border/50 bg-card/70 hover:border-sky-500/25 hover:shadow-sm transition-all">
+              <Card className="border-border/50 bg-card/70 backdrop-blur-sm hover:border-sky-500/25 hover:shadow-sm transition-all">
                 <CardContent className="p-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
