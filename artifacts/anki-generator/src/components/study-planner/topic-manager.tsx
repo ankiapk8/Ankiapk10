@@ -21,6 +21,7 @@ import {
   generateId, formatMinutes, writeStudyActivity, generateSubjectCSV, downloadCSV,
   getScheduleStartDate, getScheduleEndDate, getSpacingDays,
 } from "@/lib/study-planner/topics";
+import { getQBankSessions, getHistoricalTopicBreakdown } from "@/lib/study-stats";
 
 const STATUS_CYCLE: Status[] = ["Not Started", "In Progress", "Done", "Revised"];
 const PRIORITY_CYCLE: Priority[] = ["High", "Medium", "Low"];
@@ -84,6 +85,17 @@ export function TopicManager({ storageKey, subjectLabel, parentLabel, accentClas
   const [bulkPriority, setBulkPriority] = useState<Priority | "">("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+
+  // QBank performance data for this subject
+  const qbankMastery = useMemo(() => {
+    const sessions = getQBankSessions();
+    if (!sessions.length) return null;
+    const breakdown = getHistoricalTopicBreakdown(sessions);
+    const subjectLower = subjectLabel.toLowerCase();
+    const match = breakdown.find(b => b.topic.toLowerCase() === subjectLower)
+      ?? breakdown.find(b => subjectLower.includes(b.topic.toLowerCase()) || b.topic.toLowerCase().includes(subjectLower));
+    return match ? { pct: Math.round(match.pct * 100), correct: match.correct, total: match.total } : null;
+  }, [subjectLabel]);
 
   const filtered = useMemo(() => {
     return topics.filter(t => {
@@ -210,32 +222,55 @@ export function TopicManager({ storageKey, subjectLabel, parentLabel, accentClas
           const done = topics.filter(t => t.status === "Done").length;
           const revised = topics.filter(t => t.status === "Revised").length;
           const inProgress = topics.filter(t => t.status === "In Progress").length;
-          const masteryPct = Math.round(((done + revised) / topics.length) * 100);
+          const completionPct = Math.round(((done + revised) / topics.length) * 100);
           return (
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] text-muted-foreground font-medium">Mastery</span>
-                <span className={`text-[10px] font-bold ${masteryPct >= 80 ? "text-emerald-600" : masteryPct >= 40 ? "text-amber-500" : "text-red-500"}`}>
-                  {masteryPct}%
-                </span>
-              </div>
-              <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
-                <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(done / topics.length) * 100}%` }} title={`Done: ${done}`} />
-                <div className="h-full bg-green-400 transition-all" style={{ width: `${(revised / topics.length) * 100}%` }} title={`Revised: ${revised}`} />
-                <div className="h-full bg-amber-400 transition-all" style={{ width: `${(inProgress / topics.length) * 100}%` }} title={`In Progress: ${inProgress}`} />
-              </div>
-              <div className="flex gap-3 mt-1 flex-wrap">
-                {[
-                  { label: "Done", val: done, cls: "bg-emerald-500" },
-                  { label: "Revised", val: revised, cls: "bg-green-400" },
-                  { label: "In Progress", val: inProgress, cls: "bg-amber-400" },
-                ].filter(x => x.val > 0).map(x => (
-                  <span key={x.label} className="flex items-center gap-1 text-[9px] text-muted-foreground">
-                    <span className={`w-1.5 h-1.5 rounded-full ${x.cls}`} />
-                    {x.label} ({x.val})
+            <div className="space-y-2">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] text-muted-foreground font-medium">Completion</span>
+                  <span className={`text-[10px] font-bold ${completionPct >= 80 ? "text-emerald-600" : completionPct >= 40 ? "text-amber-500" : "text-red-500"}`}>
+                    {completionPct}%
                   </span>
-                ))}
+                </div>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
+                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${(done / topics.length) * 100}%` }} title={`Done: ${done}`} />
+                  <div className="h-full bg-green-400 transition-all" style={{ width: `${(revised / topics.length) * 100}%` }} title={`Revised: ${revised}`} />
+                  <div className="h-full bg-amber-400 transition-all" style={{ width: `${(inProgress / topics.length) * 100}%` }} title={`In Progress: ${inProgress}`} />
+                </div>
+                <div className="flex gap-3 mt-1 flex-wrap">
+                  {[
+                    { label: "Done", val: done, cls: "bg-emerald-500" },
+                    { label: "Revised", val: revised, cls: "bg-green-400" },
+                    { label: "In Progress", val: inProgress, cls: "bg-amber-400" },
+                  ].filter(x => x.val > 0).map(x => (
+                    <span key={x.label} className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                      <span className={`w-1.5 h-1.5 rounded-full ${x.cls}`} />
+                      {x.label} ({x.val})
+                    </span>
+                  ))}
+                </div>
               </div>
+
+              {qbankMastery !== null && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] text-muted-foreground font-medium">
+                      QBank Mastery
+                      <span className="ml-1 text-[9px] text-muted-foreground/60">({qbankMastery.correct}/{qbankMastery.total} correct)</span>
+                    </span>
+                    <span className={`text-[10px] font-bold ${qbankMastery.pct >= 70 ? "text-emerald-600" : qbankMastery.pct >= 50 ? "text-amber-500" : "text-red-500"}`}>
+                      {qbankMastery.pct}%
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${qbankMastery.pct >= 70 ? "bg-emerald-500" : qbankMastery.pct >= 50 ? "bg-amber-400" : "bg-red-400"}`}
+                      style={{ width: `${qbankMastery.pct}%` }}
+                    />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">Based on QBank questions tagged "{subjectLabel}"</p>
+                </div>
+              )}
             </div>
           );
         })()}

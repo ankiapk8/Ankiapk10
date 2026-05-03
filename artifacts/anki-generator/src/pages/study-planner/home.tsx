@@ -29,8 +29,8 @@ import {
 import { CalendarView } from "@/components/study-planner/calendar-view";
 import { ShiftDialog } from "@/components/study-planner/shift-dialog";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, Area, AreaChart,
+  XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Area, Line, ComposedChart,
 } from "recharts";
 
 function lsGet(k: string) { try { return localStorage.getItem(k); } catch { return null; } }
@@ -145,7 +145,10 @@ export default function SPHome() {
   const completionPct = totalTopics ? Math.round((completed / totalTopics) * 100) : 0;
   const burndownData = useMemo(() => getBurndownData(totalTopics, startDate, endDate), [totalTopics, startDate, endDate]);
   const lastPastBurndownPoint = useMemo(() => [...burndownData].reverse().find(pt => !pt.isFuture), [burndownData]);
-  const onTrack = completionPct >= (lastPastBurndownPoint?.planned ?? 0);
+  const lastActualPoint = useMemo(() => [...burndownData].reverse().find(pt => pt.actual !== undefined), [burndownData]);
+  const onTrack = lastActualPoint
+    ? (lastActualPoint.actual ?? 0) >= lastActualPoint.planned
+    : completionPct >= (lastPastBurndownPoint?.planned ?? 0);
   const todayCount = useMemo(() => getTodayScheduledCount(allGroups, topicsMap, startDate, endDate, spacing, weightByDiff), [allGroups, topicsMap, startDate, endDate, spacing, weightByDiff]);
 
   const showBackupReminder = useMemo(() => {
@@ -232,43 +235,87 @@ export default function SPHome() {
       alert("No scheduled topics. Add topics and set a schedule start/end date first.");
       return;
     }
-    const sorted = [...items].sort((a, b) => a.firstDate.getTime() - b.firstDate.getTime());
-    const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const statusColor: Record<string, string> = {
-      "Not Started": "#94a3b8", "In Progress": "#f59e0b", "Done": "#10b981", "Revised": "#22c55e",
-    };
-    const priorityColor: Record<string, string> = {
+    const byDate = new Map<string, typeof items>();
+    for (const item of items) {
+      const d = isoDate(item.firstDate);
+      if (!byDate.has(d)) byDate.set(d, []);
+      byDate.get(d)!.push(item);
+    }
+    const priorityBorder: Record<string, string> = {
       "High": "#ef4444", "Medium": "#f59e0b", "Low": "#3b82f6",
     };
-    const rows = sorted.map(it => `
-      <tr>
-        <td>${it.topic.name.replace(/</g, "&lt;")}</td>
-        <td>${it.parentLabel.replace(/</g, "&lt;")} / ${it.subjectLabel.replace(/</g, "&lt;")}</td>
-        <td>${fmtDate(it.firstDate)}</td>
-        <td>${fmtDate(it.secondDate)}</td>
-        <td><span style="color:${priorityColor[it.topic.priority] ?? "#888"};font-weight:600">${it.topic.priority}</span></td>
-        <td><span style="color:${statusColor[it.topic.status] ?? "#888"};font-weight:600">${it.topic.status}</span></td>
-        ${it.topic.estimatedMinutes ? `<td>${it.topic.estimatedMinutes}m</td>` : "<td>—</td>"}
-      </tr>`).join("");
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
-<title>Study Timetable</title>
+    const statusBg: Record<string, string> = {
+      "Not Started": "#f1f5f9", "In Progress": "#fef9c3", "Done": "#dcfce7", "Revised": "#d1fae5",
+    };
+    const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const todayStr = isoDate(new Date());
+    let monthsHtml = "";
+    const monthCursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const endLimit = new Date(endDate.getFullYear(), endDate.getMonth() + 1, 0);
+    while (monthCursor <= endLimit) {
+      const year = monthCursor.getFullYear();
+      const month = monthCursor.getMonth();
+      const monthName = monthCursor.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+      const firstDow = new Date(year, month, 1).getDay();
+      const totalDays = new Date(year, month + 1, 0).getDate();
+      let cells = "";
+      let dayOfWeekCounter = firstDow;
+      cells += `<tr>`;
+      for (let pad = 0; pad < firstDow; pad++) cells += `<td class="empty"></td>`;
+      for (let d = 1; d <= totalDays; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        const dayItems = byDate.get(dateStr) ?? [];
+        const pills = dayItems.map(it =>
+          `<div class="pill" style="background:${statusBg[it.topic.status] ?? "#f1f5f9"};border-left:3px solid ${priorityBorder[it.topic.priority] ?? "#888"}">${it.topic.name.replace(/</g, "&lt;").substring(0, 22)}</div>`
+        ).join("");
+        cells += `<td class="${dateStr === todayStr ? "today" : ""}"><span class="daynum">${d}</span>${pills}</td>`;
+        dayOfWeekCounter++;
+        if (dayOfWeekCounter % 7 === 0 && d < totalDays) cells += `</tr><tr>`;
+      }
+      const endPad = 6 - ((firstDow + totalDays - 1) % 7);
+      for (let pad = 0; pad < endPad; pad++) cells += `<td class="empty"></td>`;
+      cells += `</tr>`;
+      monthsHtml += `
+        <div class="month">
+          <h2>${monthName}</h2>
+          <table>
+            <thead><tr>${DAYS_SHORT.map(d => `<th>${d}</th>`).join("")}</tr></thead>
+            <tbody>${cells}</tbody>
+          </table>
+        </div>`;
+      monthCursor.setMonth(monthCursor.getMonth() + 1);
+    }
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Study Timetable</title>
 <style>
-  body{font-family:Arial,sans-serif;font-size:11px;margin:20px;color:#111}
-  h1{font-size:18px;font-weight:700;margin:0 0 4px}
-  .meta{font-size:10px;color:#666;margin:0 0 14px}
-  table{width:100%;border-collapse:collapse}
-  th{background:#f3f4f6;padding:6px 8px;text-align:left;font-size:10px;font-weight:700;border-bottom:2px solid #e5e7eb}
-  td{padding:4px 8px;border-bottom:1px solid #f0f0f0;vertical-align:top;font-size:10px}
-  tr:nth-child(even){background:#fafafa}
-  @media print{body{margin:0}@page{margin:1.5cm}}
+  body{font-family:Arial,sans-serif;font-size:10px;margin:16px;color:#111}
+  h1{font-size:16px;font-weight:700;margin:0 0 3px}
+  .meta{font-size:9px;color:#666;margin:0 0 16px}
+  .month{margin-bottom:20px;page-break-inside:avoid}
+  h2{font-size:12px;font-weight:700;margin:0 0 5px;color:#333}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  th{background:#f3f4f6;padding:3px 2px;text-align:center;font-size:8px;font-weight:700;color:#666;border:1px solid #e5e7eb}
+  td{padding:2px;border:1px solid #e5e7eb;vertical-align:top;min-height:52px;font-size:8px}
+  td.empty{background:#fafafa}
+  td.today{background:#eff6ff}
+  .daynum{display:block;font-weight:700;color:#374151;font-size:9px;margin-bottom:1px}
+  .pill{padding:1px 3px;margin-top:1px;border-radius:2px;font-size:7px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#333}
+  .legend{display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:4px;font-size:8px;color:#555}
+  .legend-dot{width:10px;height:10px;border-radius:2px}
+  @media print{body{margin:0}@page{margin:1cm;size:A4 landscape}}
 </style></head>
 <body>
 <h1>Study Timetable</h1>
-<p class="meta">Generated ${new Date().toLocaleDateString()} &nbsp;·&nbsp; ${items.length} topics &nbsp;·&nbsp; ${fmtDate(startDate)} – ${fmtDate(endDate)}</p>
-<table>
-  <thead><tr><th>Topic</th><th>Subject</th><th>First Study</th><th>Review Date</th><th>Priority</th><th>Status</th><th>Est. Time</th></tr></thead>
-  <tbody>${rows}</tbody>
-</table>
+<p class="meta">Generated ${new Date().toLocaleDateString()} · ${items.length} topics · ${startDate.toLocaleDateString()} – ${endDate.toLocaleDateString()}</p>
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#f1f5f9;border-left:3px solid #ef4444"></div>High priority</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f1f5f9;border-left:3px solid #f59e0b"></div>Medium priority</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f1f5f9;border-left:3px solid #3b82f6"></div>Low priority</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#dcfce7"></div>Done</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#fef9c3"></div>In Progress</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#eff6ff"></div>Today</div>
+</div>
+${monthsHtml}
 </body></html>`;
     const w = window.open("", "_blank");
     if (!w) { alert("Please allow pop-ups to export the printable timetable."); return; }
@@ -448,8 +495,8 @@ export default function SPHome() {
                       {onTrack ? "On Track" : "Behind Schedule"}
                     </span>
                   </div>
-                  <ResponsiveContainer width="100%" height={90}>
-                    <AreaChart data={burndownData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
+                  <ResponsiveContainer width="100%" height={100}>
+                    <ComposedChart data={burndownData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
                       <defs>
                         <linearGradient id="burnPlanGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#818cf8" stopOpacity={0.3} />
@@ -460,18 +507,12 @@ export default function SPHome() {
                       <XAxis dataKey="label" tick={{ fontSize: 8 }} interval="preserveStartEnd" stroke="transparent" />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 8 }} tickFormatter={(v: number) => `${v}%`} stroke="transparent" />
                       <Tooltip
-                        formatter={(value: number) => [`${value}%`, "Expected"]}
+                        formatter={(value: number, name: string) => [`${value}%`, name === "planned" ? "Expected" : "Actual (checked)"]}
                         contentStyle={{ fontSize: 10, borderRadius: 8, padding: "4px 8px" }}
                       />
-                      <Area type="monotone" dataKey="planned" stroke="#818cf8" fill="url(#burnPlanGrad)" strokeWidth={1.5} dot={false} />
-                      <ReferenceLine
-                        y={completionPct}
-                        stroke="#34d399"
-                        strokeWidth={2}
-                        strokeDasharray="4 2"
-                        label={{ value: `${completionPct}% done`, position: "insideTopRight", fontSize: 8, fill: "#34d399" }}
-                      />
-                    </AreaChart>
+                      <Area type="monotone" dataKey="planned" stroke="#818cf8" fill="url(#burnPlanGrad)" strokeWidth={1.5} dot={false} name="planned" />
+                      <Line type="monotone" dataKey="actual" stroke="#34d399" strokeWidth={2} dot={false} connectNulls={false} name="actual" />
+                    </ComposedChart>
                   </ResponsiveContainer>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="flex items-center gap-1">
@@ -479,8 +520,8 @@ export default function SPHome() {
                       <span className="text-[9px] text-muted-foreground">Expected</span>
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-green-500" />
-                      <span className="text-[9px] text-muted-foreground">Actual ({completionPct}%)</span>
+                      <span className="inline-block h-0.5 w-4 border-t-2 border-green-500" />
+                      <span className="text-[9px] text-muted-foreground">Actual (daily checklist)</span>
                     </span>
                   </div>
                 </div>

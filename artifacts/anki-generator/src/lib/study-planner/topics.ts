@@ -582,8 +582,17 @@ export interface BurndownPoint {
   date: string;
   label: string;
   planned: number;
+  actual?: number; // cumulative % of topics checked via daily checklist by this date
   isToday: boolean;
   isFuture: boolean;
+}
+
+function getCheckedOnDate(dateStr: string): Set<string> {
+  try {
+    const raw = lsGet(DAILY_CHECK_PREFIX + dateStr);
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw) as string[]);
+  } catch { return new Set(); }
 }
 
 export function getBurndownData(
@@ -598,6 +607,18 @@ export function getBurndownData(
   const endMs = endDate.getTime();
   const totalMs = endMs - startMs;
   if (totalMs <= 0) return [];
+
+  // Build cumulative unique topic IDs checked per day (start → today)
+  const checkedByDate = new Map<string, number>(); // date → cumulative unique count
+  const cumulativeIds = new Set<string>();
+  const dayCursor = new Date(startDate); dayCursor.setHours(0, 0, 0, 0);
+  while (dayCursor <= today) {
+    const ds = isoDate(dayCursor);
+    getCheckedOnDate(ds).forEach(id => cumulativeIds.add(id));
+    checkedByDate.set(ds, cumulativeIds.size);
+    dayCursor.setDate(dayCursor.getDate() + 1);
+  }
+
   const totalDays = Math.round(totalMs / 86400000);
   const step = Math.max(1, Math.floor(totalDays / 18));
   const points: BurndownPoint[] = [];
@@ -608,12 +629,22 @@ export function getBurndownData(
     const planned = Math.min(100, Math.round((elapsed / totalMs) * 100));
     const dateStr = isoDate(cursor);
     const label = cursor.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    points.push({ date: dateStr, label, planned, isToday: dateStr === todayStr, isFuture: cursor > today });
+    const isFuture = cursor > today;
+    const checkedCount = checkedByDate.get(dateStr);
+    const actual = !isFuture && checkedCount !== undefined
+      ? Math.min(100, Math.round((checkedCount / totalTopics) * 100))
+      : undefined;
+    points.push({ date: dateStr, label, planned, actual, isToday: dateStr === todayStr, isFuture });
     cursor.setDate(cursor.getDate() + step);
   }
   if (points[points.length - 1]?.date !== endStr) {
     const ed = new Date(endDate); ed.setHours(0, 0, 0, 0);
-    points.push({ date: endStr, label: new Date(endStr + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }), planned: 100, isToday: endStr === todayStr, isFuture: ed > today });
+    const isFuture = ed > today;
+    const checkedCount = checkedByDate.get(endStr);
+    const actual = !isFuture && checkedCount !== undefined
+      ? Math.min(100, Math.round((checkedCount / totalTopics) * 100))
+      : undefined;
+    points.push({ date: endStr, label: new Date(endStr + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" }), planned: 100, actual, isToday: endStr === todayStr, isFuture });
   }
   return points;
 }
@@ -640,6 +671,8 @@ export function getOverdueItems(
     if (d1 >= today) return false;
     const live = (topicsMap[item.storageKey] ?? []).find(t => t.id === item.topic.id);
     const status = live?.status ?? item.topic.status;
-    return status === "Not Started" || status === "In Progress";
+    if (status === "Done" || status === "Revised") return false;
+    // Topic is overdue only if it was NOT checked in the daily checklist on its scheduled date
+    return !getCheckedOnDate(d1).has(item.topic.id);
   });
 }
