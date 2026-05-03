@@ -299,6 +299,7 @@ export function GenerateForm({
     customPrompt?: string,
     pageTexts?: string[],
     pageImageRegions?: ImageRegion[][],
+  usePreview = false,
   ): Promise<{ count: number; deckId?: number; stagedCards?: StagedCard[] }> =>
     new Promise((resolve, reject) => {
       const trimmedPrompt = (customPrompt ?? "").trim();
@@ -312,7 +313,7 @@ export function GenerateForm({
         pageTexts: pageTexts && pageTexts.length > 0 ? pageTexts : undefined,
         pageImageRegions: pageImageRegions && pageImageRegions.length > 0 ? pageImageRegions : undefined,
         customPrompt: trimmedPrompt || undefined,
-        preview: true,
+        ...(usePreview ? { preview: true } : {}),
       });
 
       const controller = new AbortController();
@@ -421,6 +422,9 @@ export function GenerateForm({
       ...readyFiles.map(f => ({ id: f.id, text: f.text, deckName: f.deckName, cardCount: f.cardCount, pageImages: f.pageImages, pageTexts: f.pageTexts, pageImageRegions: f.pageImageRegions, deckType: f.deckType, visualCardCount: f.visualCardCount, customPrompt: fileEffectivePrompt(f) })),
       ...(hasManual ? [{ id: undefined, text: manualText, deckName: manualDeckName, cardCount: manualCardCount, pageImages: [] as string[], pageTexts: [] as string[], pageImageRegions: [] as ImageRegion[][], deckType: "text" as DeckType, visualCardCount: "" as number | "", customPrompt: manualEffectivePrompt() }] : []),
     ];
+    // Only use pre-commit review flow for single-target runs; multi-file runs
+    // persist to DB normally so no data is lost if anything goes wrong.
+    const usePreview = targets.length === 1;
 
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
@@ -439,7 +443,7 @@ export function GenerateForm({
 
       if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…", generatingStartedAt: Date.now() });
       try {
-        const { count, deckId: doneId, stagedCards } = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts, t.pageImageRegions);
+        const { count, deckId: doneId, stagedCards } = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts, t.pageImageRegions, usePreview);
         if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count, generatedDeckId: doneId, stagedCards });
         ok++;
         totalCards += count;

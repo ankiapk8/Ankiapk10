@@ -61,6 +61,7 @@ export function CardReviewModal({
   const [idx, setIdx] = useState(0);
   const [edits, setEdits] = useState<Record<number, EditState>>({});
   const [saving, setSaving] = useState(false);
+  const [pendingDiscard, setPendingDiscard] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -188,7 +189,10 @@ export function CardReviewModal({
   const dirtyCount = cards.filter(c => edits[c.id]?.dirty).length;
 
   return (
-    <Dialog open={isOpen} onOpenChange={v => { if (!v) onClose(); }}>
+    <Dialog open={isOpen} onOpenChange={v => {
+      if (!v && onCommit) { setPendingDiscard(true); return; }
+      if (!v) onClose();
+    }}>
       <DialogContent className="max-w-lg w-full p-0 overflow-hidden gap-0">
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-border/50 bg-gradient-to-r from-emerald-500/5 to-primary/5">
           <DialogTitle className="flex items-center gap-2 text-base font-serif">
@@ -318,50 +322,77 @@ export function CardReviewModal({
         {/* Navigation + footer */}
         {!loading && cards.length > 0 && (
           <div className="flex items-center gap-2 px-5 py-3 border-t border-border/50 bg-muted/20">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 w-8 p-0"
-              onClick={() => setIdx(i => Math.max(0, i - 1))}
-              disabled={idx === 0}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 w-8 p-0"
-              onClick={() => setIdx(i => Math.min(cards.length - 1, i + 1))}
-              disabled={idx === cards.length - 1}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <div className="flex-1" />
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 text-xs"
-              onClick={onClose}
-            >
-              <X className="h-3.5 w-3.5" />
-              Close
-            </Button>
-            <Button
-              size="sm"
-              className="h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90"
-              onClick={handleSaveAll}
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-              {saving
-                ? "Saving…"
-                : onCommit
-                  ? "Looks good, save all"
-                  : dirtyCount > 0
-                    ? `Save ${dirtyCount} edit${dirtyCount !== 1 ? "s" : ""} & close`
-                    : "Done"
-              }
-            </Button>
+            {pendingDiscard ? (
+              <>
+                <span className="text-[11px] text-destructive font-medium flex-1">Discard generated cards?</span>
+                <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => setPendingDiscard(false)}>
+                  Keep reviewing
+                </Button>
+                <Button size="sm" variant="destructive" className="h-7 text-[11px]" onClick={() => { setPendingDiscard(false); onClose(); }}>
+                  Discard
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setIdx(i => Math.max(0, i - 1))}
+                  disabled={idx === 0}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 w-8 p-0"
+                  onClick={() => setIdx(i => Math.min(cards.length - 1, i + 1))}
+                  disabled={idx === cards.length - 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <div className="flex-1" />
+                {onCommit ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 gap-1.5 text-xs text-muted-foreground"
+                    onClick={() => setPendingDiscard(true)}
+                    disabled={saving}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Discard
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1.5 text-xs"
+                    onClick={onClose}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Close
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90"
+                  onClick={handleSaveAll}
+                  disabled={saving}
+                >
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  {saving
+                    ? "Saving…"
+                    : onCommit
+                      ? "Looks good, save all"
+                      : dirtyCount > 0
+                        ? `Save ${dirtyCount} edit${dirtyCount !== 1 ? "s" : ""} & close`
+                        : "Done"
+                  }
+                </Button>
+              </>
+            )}
           </div>
         )}
       </DialogContent>

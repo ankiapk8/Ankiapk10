@@ -1093,7 +1093,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
           image: c.image.startsWith("data:") ? c.image : `data:image/jpeg;base64,${c.image}`,
           pageNumber: c.pageNumber ?? null,
         })),
-      ].slice(0, 80);
+      ];
       await recordRun("success", previewCards.length);
       sseEmit(res, {
         type: "done",
