@@ -1,6 +1,6 @@
 import { getStripeSync, getUncachableStripeClient } from './stripeClient';
 import { db, usersTable } from '@workspace/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { logger } from './lib/logger';
 
 async function handleCheckoutSessionCompleted(session: Record<string, unknown>): Promise<void> {
@@ -14,6 +14,35 @@ async function handleCheckoutSessionCompleted(session: Record<string, unknown>):
       .set({ stripeCustomerId: customerId })
       .where(eq(usersTable.id, userId));
     logger.info({ userId, customerId }, 'Linked Stripe customer ID from webhook');
+  }
+}
+
+async function handleSubscriptionUpsert(subscription: Record<string, unknown>): Promise<void> {
+  const customerId = subscription.customer as string | undefined;
+  const subscriptionId = subscription.id as string | undefined;
+  const status = subscription.status as string | undefined;
+  if (!customerId || !subscriptionId) return;
+
+  const isActive = status === 'active' || status === 'trialing';
+
+  try {
+    const result = await db.execute(
+      sql`SELECT id FROM public.users WHERE stripe_customer_id = ${customerId} LIMIT 1`
+    );
+    const row = result.rows[0] as { id?: string } | undefined;
+    if (!row?.id) {
+      logger.warn({ customerId }, 'No user found for Stripe customer — cannot update subscription ID');
+      return;
+    }
+    const userId = row.id;
+
+    await db.update(usersTable)
+      .set({ stripeSubscriptionId: isActive ? subscriptionId : null })
+      .where(eq(usersTable.id, userId));
+
+    logger.info({ userId, subscriptionId, status, isActive }, 'Updated stripeSubscriptionId on user');
+  } catch (err) {
+    logger.error({ err, customerId, subscriptionId }, 'Failed to update stripeSubscriptionId');
   }
 }
 
@@ -38,9 +67,12 @@ export class WebhookHandlers {
           case 'checkout.session.completed':
             await handleCheckoutSessionCompleted(event.data.object as unknown as Record<string, unknown>);
             break;
+          case 'customer.subscription.created':
           case 'customer.subscription.updated':
+            await handleSubscriptionUpsert(event.data.object as unknown as Record<string, unknown>);
+            break;
           case 'customer.subscription.deleted':
-            logger.info({ type: event.type }, 'Subscription state changed — stripe-replit-sync will update the stripe schema');
+            await handleSubscriptionUpsert(event.data.object as unknown as Record<string, unknown>);
             break;
           default:
             break;

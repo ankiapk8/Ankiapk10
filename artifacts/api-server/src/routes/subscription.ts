@@ -4,6 +4,7 @@ import { eq, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../stripeClient";
 import { logger } from "../lib/logger";
 import { getDevOverrideForRequest } from "../lib/dev-overrides";
+import { checkIsPro } from "../lib/free-tier-limits";
 
 const router: IRouter = Router();
 
@@ -64,15 +65,16 @@ router.get("/subscription/status", async (req, res, next): Promise<void> => {
     }
 
     const userId = req.user!.id;
+    const isPro = await checkIsPro(userId);
     const sub = await getActiveSubscription(userId);
 
     res.json({
-      isPro: !!sub,
+      isPro,
       subscription: sub ? {
-        id: sub.id,
-        status: sub.status,
-        currentPeriodEnd: sub.current_period_end,
-        cancelAtPeriodEnd: sub.cancel_at_period_end,
+        id: sub.id as string,
+        status: sub.status as string,
+        currentPeriodEnd: sub.current_period_end as string | null,
+        cancelAtPeriodEnd: sub.cancel_at_period_end as boolean,
       } : null,
     });
   } catch (err) {
