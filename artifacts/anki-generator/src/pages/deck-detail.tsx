@@ -50,6 +50,7 @@ import { saveSession, getSavePoint, saveSavePoint, clearSavePoint, type StudySav
 import {
   getSrsState, saveSrsState, getDefaultSrsState, computeNextState,
   getNextInterval, intervalLabel, getDueCardIds, getDaysUntilDue,
+  partitionCardsByDue,
   type SrsRating,
 } from "@/lib/srs";
 import type { Card, Deck } from "@workspace/api-client-react/src/generated/api.schemas";
@@ -226,10 +227,10 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
       return ordered.length === cards.length ? ordered : cards;
     }
     if (srsMode && cards.length > 0) {
-      const dueIds = new Set(getDueCardIds(cards.map(c => c.id)));
-      const due = cards.filter(c => dueIds.has(c.id));
-      const notDue = cards.filter(c => !dueIds.has(c.id));
-      return [...due, ...notDue];
+      const { due, unseen, future } = partitionCardsByDue(cards.map(c => c.id));
+      const byId = new Map(cards.map(c => [c.id, c]));
+      const pick = (ids: number[]) => ids.map(id => byId.get(id)).filter(Boolean) as Card[];
+      return [...pick(due), ...pick(unseen), ...pick(future)];
     }
     return cards;
   };

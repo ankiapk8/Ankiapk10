@@ -129,6 +129,37 @@ export function getDueCardIds(cardIds: number[]): number[] {
   });
 }
 
+/**
+ * Splits card IDs into three ordered buckets for study queue construction:
+ *   1. due     — reviewed at least once AND dueDate <= today
+ *   2. unseen  — never reviewed (no SRS state or no lastReviewedAt)
+ *   3. future  — reviewed at least once AND dueDate > today
+ *
+ * Concatenate due → unseen → future to get the optimal study order.
+ */
+export function partitionCardsByDue(cardIds: number[]): {
+  due: number[];
+  unseen: number[];
+  future: number[];
+} {
+  const map = getSrsMap();
+  const today = todayStr();
+  const due: number[] = [];
+  const unseen: number[] = [];
+  const future: number[] = [];
+  for (const id of cardIds) {
+    const s = map[id];
+    if (!s || !s.lastReviewedAt) {
+      unseen.push(id);
+    } else if (s.dueDate <= today) {
+      due.push(id);
+    } else {
+      future.push(id);
+    }
+  }
+  return { due, unseen, future };
+}
+
 export function getDueCountForDeck(cardIds: number[]): number {
   return getDueCardIds(cardIds).length;
 }
