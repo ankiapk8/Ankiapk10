@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, FileText, ImageIcon, Layers, Plus, Stethoscope, Library, Crown } from "lucide-react";
+import { Sparkles, FileText, ImageIcon, Layers, Plus, Stethoscope, Library, Crown, Lock, Unlock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GenerateForm } from "@/components/generate-form";
@@ -18,6 +18,7 @@ const features = [
     desc: "Drop a file or paste notes — we'll turn them into smart cards.",
     color: "text-blue-500",
     bg: "bg-blue-500/10",
+    pro: false,
   },
   {
     icon: ImageIcon,
@@ -25,6 +26,7 @@ const features = [
     desc: "PDFs with diagrams become visual flashcards automatically.",
     color: "text-violet-500",
     bg: "bg-violet-500/10",
+    pro: true,
   },
   {
     icon: Layers,
@@ -32,8 +34,26 @@ const features = [
     desc: "Group cards into topics, subdecks, and study sessions.",
     color: "text-emerald-500",
     bg: "bg-emerald-500/10",
+    pro: false,
   },
 ];
+
+function DevLockBadge({ isPro, feature }: { isPro: boolean; feature: string }) {
+  if (!import.meta.env.DEV) return null;
+  return (
+    <span
+      title={isPro ? `${feature} — UNLOCKED (dev Pro active)` : `${feature} — Pro required`}
+      className={`inline-flex items-center gap-0.5 text-[9px] font-bold font-mono px-1 py-0.5 rounded border shrink-0 ${
+        isPro
+          ? "text-emerald-600 dark:text-emerald-400 border-emerald-300/60 bg-emerald-50 dark:bg-emerald-900/20"
+          : "text-amber-600 dark:text-amber-400 border-amber-300/50 bg-amber-50/80 dark:bg-amber-900/20"
+      }`}
+    >
+      {isPro ? <Unlock className="h-2 w-2" /> : <Lock className="h-2 w-2" />}
+      {isPro ? "UNLOCKED" : "PRO"}
+    </span>
+  );
+}
 
 export default function Generate() {
   const [, setLocation] = useLocation();
@@ -237,6 +257,11 @@ export default function Generate() {
                 <Crown className="h-2 w-2" />Pro
               </span>
             )}
+            {import.meta.env.DEV && isPro && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-400/20 text-emerald-600 dark:text-emerald-400 border border-emerald-300/50 ml-0.5">
+                <Unlock className="h-2 w-2" />DEV
+              </span>
+            )}
           </button>
         </div>
       </motion.div>
@@ -252,7 +277,7 @@ export default function Generate() {
             transition={{ duration: 0.35 }}
             className="mt-8 grid grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto"
           >
-            {features.map(({ icon: Icon, title, desc, color, bg }, idx) => (
+            {features.map(({ icon: Icon, title, desc, color, bg, pro }, idx) => (
               <motion.div
                 key={title}
                 initial={{ opacity: 0, y: 20 }}
@@ -266,10 +291,11 @@ export default function Generate() {
               >
                 <Card className="h-full aspect-square border-border/50 shadow-sm hover:shadow-md hover:border-primary/30 transition-all bg-background/70 backdrop-blur-sm">
                   <CardContent className="p-4 sm:p-5 h-full flex flex-col">
-                    <div
-                      className={`h-10 w-10 rounded-lg ${bg} flex items-center justify-center mb-3`}
-                    >
-                      <Icon className={`h-5 w-5 ${color}`} />
+                    <div className="flex items-start justify-between gap-1 mb-3">
+                      <div className={`h-10 w-10 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
+                        <Icon className={`h-5 w-5 ${color}`} />
+                      </div>
+                      {pro && <DevLockBadge isPro={isPro} feature={title} />}
                     </div>
                     <p className="font-semibold text-sm sm:text-base">{title}</p>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-snug">
