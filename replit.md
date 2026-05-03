@@ -89,6 +89,46 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - Export uses Anki's `::` convention: sub-deck cards are tagged `Parent::Child`
 - Deleting a parent nullifies `parentId` on children (they become standalone)
 
+## Local Subscription Control (Dev Only)
+
+All subscription-related dev tooling is compiled out in `NODE_ENV=production` and never reachable in deployed builds.
+
+### Dev Mode Panel (`artifacts/anki-generator/src/components/dev-panel.tsx`)
+- Floating panel at bottom-left, only rendered when `import.meta.env.DEV` is true
+- **Plan Controls tab**: Free / Pro toggle, Simulate Subscribe (mocks Stripe without real keys), Cancel Simulated Sub, Reset to real subscription
+- **Feature Access tab**: checklist of locked/unlocked features at the current plan level
+- **Live usage meters**: current deck count and today's export count shown as progress bars
+- **Reset quota button**: zeroes the daily apkg_export counter so devs can re-test the 1/day limit
+- Override persists across page refreshes via `localStorage` (`dev-pro-override`, `dev-simulated` keys)
+- On mount, re-applies persisted override to the backend so it survives server restart + page reload
+- Invalidates `["subscription/status"]` and `["subscription/usage"]` React Query caches on every change so generate/pricing pages update immediately
+
+### DevPlanBadge (`artifacts/anki-generator/src/components/dev-panel.tsx`)
+- Small badge in the header, only when an override is active
+- Shows `DEV FREE`, `DEV PRO`, or `SIMULATED PRO` to distinguish simulated from manually-forced
+
+### Dev Override Endpoints (`artifacts/api-server/src/routes/dev.ts`)
+- `POST /api/dev/set-pro` — force isPro=true or false
+- `DELETE /api/dev/set-pro` — clear override (fall back to real DB)
+- `POST /api/dev/simulate-subscribe` — set simulated Pro (`{ ok, isPro: true }`)
+- `DELETE /api/dev/simulate-subscribe` — force Free (`{ ok, isPro: false }`)
+- `GET /api/dev/status` — returns `{ authenticated, userId, devIsPro, simulated }`
+- `GET /api/dev/usage` — returns `{ decks: { count, max }, exportsToday: { count, max } }`
+- `POST /api/dev/reset-quota` — deletes today's apkg_export row from quota_usage
+
+### Override Store (`artifacts/api-server/src/lib/dev-overrides.ts`)
+- In-memory `Map<userId, { isPro, simulated }>` — resets on server restart
+- `setDevProOverride(userId, isPro, simulated?)` / `getDevOverrideEntry(userId)` / `clearDevProOverride(userId)`
+
+### Subscription Status Integration (`artifacts/api-server/src/routes/subscription.ts`)
+- `GET /subscription/status`: checks dev override first (via `getDevOverrideEntry`) before querying Stripe. Returns `{ isPro, devOverride: true, simulated }` when override is active.
+- `GET /subscription/usage`: returns `deckLimit/exportLimit = null` (unlimited) when dev override is Pro
+- `checkIsPro()` in `free-tier-limits.ts` also respects the dev override for all backend enforcement (deck creation, export quota, QBank access)
+
+### Free-Tier Limits (`artifacts/api-server/src/lib/free-tier-limits.ts`)
+- `FREE_TIER.MAX_DECKS = 2`, `FREE_TIER.MAX_CARDS_PER_DECK = 20`, `FREE_TIER.MAX_APKG_EXPORTS_PER_DAY = 1`
+- `checkIsPro(userId)` checks dev override when `NODE_ENV !== production`, falls back to Stripe subscriptions table
+
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
 
 ## Docker & Local Development

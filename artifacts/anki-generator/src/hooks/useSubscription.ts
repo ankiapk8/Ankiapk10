@@ -9,13 +9,15 @@ export interface SubscriptionStatus {
     cancelAtPeriodEnd: boolean;
   } | null;
   reason?: string;
+  devOverride?: boolean;
+  simulated?: boolean;
 }
 
 export interface UsageStatus {
   decks: number;
-  deckLimit: number;
+  deckLimit: number | null;
   exports: number;
-  exportLimit: number;
+  exportLimit: number | null;
 }
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/+$/, "") ?? "";
@@ -76,7 +78,7 @@ export function useUsage() {
     exports: data?.exports ?? 0,
     exportLimit: data?.exportLimit ?? 1,
     isLoading,
-  };
+  } as { decks: number; deckLimit: number | null; exports: number; exportLimit: number | null; isLoading: boolean };
 }
 
 export async function fetchStripeConfigured(): Promise<boolean> {

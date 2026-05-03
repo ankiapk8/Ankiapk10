@@ -3,6 +3,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../stripeClient";
 import { logger } from "../lib/logger";
+import { getDevOverrideEntry } from "../lib/dev-overrides";
 
 const router: IRouter = Router();
 
@@ -48,6 +49,22 @@ router.get("/subscription/status", async (req, res, next): Promise<void> => {
     }
 
     const userId = req.user!.id;
+
+    if (process.env.NODE_ENV !== "production") {
+      const devEntry = getDevOverrideEntry(userId);
+      if (devEntry !== undefined) {
+        res.json({
+          isPro: devEntry.isPro,
+          subscription: devEntry.isPro
+            ? { id: "dev-override", status: devEntry.simulated ? "simulated" : "dev-forced", currentPeriodEnd: null, cancelAtPeriodEnd: false }
+            : null,
+          devOverride: true,
+          simulated: devEntry.simulated,
+        });
+        return;
+      }
+    }
+
     const sub = await getActiveSubscription(userId);
 
     res.json({
@@ -171,6 +188,14 @@ router.get("/subscription/usage", async (req, res, next): Promise<void> => {
     }
     const userId = req.user!.id;
 
+    const isPro = (() => {
+      if (process.env.NODE_ENV !== "production") {
+        const devEntry = getDevOverrideEntry(userId);
+        if (devEntry !== undefined) return devEntry.isPro;
+      }
+      return false;
+    })();
+
     const deckResult = await db.execute(
       sql`SELECT cast(count(*) as int) AS cnt FROM decks WHERE user_id = ${userId}`
     );
@@ -184,7 +209,12 @@ router.get("/subscription/usage", async (req, res, next): Promise<void> => {
       ? (exportResult.rows[0] as { count: number }).count
       : parseInt(String((exportResult.rows[0] as { count?: unknown } | undefined)?.count ?? '0'), 10);
 
-    res.json({ decks: deckCount, deckLimit: 2, exports: exportCount, exportLimit: 1 });
+    res.json({
+      decks: deckCount,
+      deckLimit: isPro ? null : 2,
+      exports: exportCount,
+      exportLimit: isPro ? null : 1,
+    });
   } catch (err) {
     logger.error({ err }, 'Failed to get usage');
     res.json({ decks: 0, deckLimit: 2, exports: 0, exportLimit: 1 });

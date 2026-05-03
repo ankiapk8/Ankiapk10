@@ -54,16 +54,17 @@ function formatPrice(unitAmount: number, currency: string) {
   }).format(unitAmount / 100);
 }
 
-function UsageBar({ label, used, limit }: { label: string; used: number; limit: number }) {
-  const pct = Math.min(100, Math.round((used / limit) * 100));
-  const isNearLimit = pct >= 80;
-  const isAtLimit = used >= limit;
+function UsageBar({ label, used, limit }: { label: string; used: number; limit: number | null }) {
+  const unlimited = limit === null;
+  const pct = unlimited ? 0 : Math.min(100, Math.round((used / limit!) * 100));
+  const isNearLimit = !unlimited && pct >= 80;
+  const isAtLimit = !unlimited && used >= limit!;
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">{label}</span>
         <span className={`font-medium tabular-nums ${isAtLimit ? "text-red-500 dark:text-red-400" : isNearLimit ? "text-amber-500 dark:text-amber-400" : "text-foreground"}`}>
-          {used} / {limit}
+          {unlimited ? `${used} / ∞` : `${used} / ${limit}`}
         </span>
       </div>
       <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
@@ -164,7 +165,10 @@ export default function Pricing() {
   }
 
   const showUsage = !isPro && !usageLoading;
-  const anyNearLimit = !isPro && (decks / deckLimit >= 0.8 || exports / exportLimit >= 0.8);
+  const anyNearLimit = !isPro && (
+    (deckLimit != null && decks / deckLimit >= 0.8) ||
+    (exportLimit != null && exports / exportLimit >= 0.8)
+  );
 
   return (
     <div className="relative space-y-10 animate-in fade-in duration-500 pb-16">
