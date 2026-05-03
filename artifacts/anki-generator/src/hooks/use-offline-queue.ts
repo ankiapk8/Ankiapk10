@@ -3,9 +3,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 export type QueuedGeneration = {
   id: string;
   deckName: string;
-  cardType: string;
-  notes: string;
+  text: string;
   numCards: number;
+  type?: "deck" | "qbank";
   customPrompt?: string;
   createdAt: number;
 };

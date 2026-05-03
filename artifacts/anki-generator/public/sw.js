@@ -44,10 +44,10 @@ self.addEventListener("fetch", (e) => {
           fetchPromise.catch(() => {});
           return cached;
         }
-        return fetchPromise ?? new Response(JSON.stringify({ error: "Offline" }), {
+        return fetchPromise.then(r => r ?? new Response(JSON.stringify({ error: "Offline" }), {
           status: 503,
           headers: { "Content-Type": "application/json" },
-        });
+        }));
       })
     );
     return;

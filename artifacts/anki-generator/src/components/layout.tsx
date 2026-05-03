@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays } from "lucide-react";
@@ -9,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { SyncIndicator } from "@/components/sync-indicator";
 import { useOfflineQueue } from "@/hooks/use-offline-queue";
+import { useQueryClient } from "@tanstack/react-query";
+import { getListDecksQueryKey, getListQbanksQueryKey } from "@workspace/api-client-react";
+import { apiUrl } from "@/lib/utils";
 
 const NAV_ACCENTS: Record<string, { color: string; glow: string }> = {
   "/":        { color: "#34d399", glow: "hsl(152 72% 55% / 0.35)" },
@@ -20,7 +24,58 @@ const NAV_ACCENTS: Record<string, { color: string; glow: string }> = {
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [dark, setDark] = useDarkMode();
-  const { queueCount, isSyncing } = useOfflineQueue();
+  const { queueCount, isSyncing, syncQueue } = useOfflineQueue();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const runSync = () => {
+      syncQueue(async (item) => {
+        try {
+          const isQbank = item.type === "qbank";
+          const endpoint = isQbank ? apiUrl("api/generate-qbank/stream") : apiUrl("api/generate/stream");
+          const body = isQbank
+            ? JSON.stringify({ text: item.text, deckName: item.deckName, questionCount: item.numCards, customPrompt: item.customPrompt })
+            : JSON.stringify({ text: item.text, deckName: item.deckName, cardCount: item.numCards, deckType: "text", customPrompt: item.customPrompt });
+          const resp = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+          });
+          if (!resp.ok || !resp.body) return false;
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            const lines = buf.split("\n");
+            buf = lines.pop() ?? "";
+            for (const line of lines) {
+              if (!line.startsWith("data:")) continue;
+              try {
+                const event = JSON.parse(line.slice(5).trim()) as { type: string };
+                if (event.type === "done") {
+                  if (isQbank) {
+                    queryClient.invalidateQueries({ queryKey: getListQbanksQueryKey() });
+                  } else {
+                    queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
+                  }
+                  return true;
+                }
+                if (event.type === "error") return false;
+              } catch { continue; }
+            }
+          }
+          return false;
+        } catch {
+          return false;
+        }
+      });
+    };
+    window.addEventListener("online", runSync);
+    return () => window.removeEventListener("online", runSync);
+  }, [syncQueue, queryClient]);
 
   const navLinks = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },

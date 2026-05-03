@@ -22,6 +22,7 @@ import { extractPdf, isPdfFile, isTextFile, isImageFile, isPptxFile, isDocxFile,
 import { apiUrl } from "@/lib/utils";
 import { GenerationSuccessOverlay } from "@/components/generation-success-overlay";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
+import { useOfflineQueue } from "@/hooks/use-offline-queue";
 
 const DEFAULT_TARGET_CARDS = 20;
 const CHARS_PER_CARD = 220;
@@ -157,6 +158,7 @@ export function GenerateForm({
 }: GenerateFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { enqueue } = useOfflineQueue();
   const { data: allDecks } = useListDecks();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -430,6 +432,29 @@ export function GenerateForm({
     // Only use pre-commit review flow for single-target runs; multi-file runs
     // persist to DB normally so no data is lost if anything goes wrong.
     const usePreview = targets.length === 1;
+
+    if (!navigator.onLine) {
+      const textTargets = targets.filter(t => t.id === undefined);
+      if (textTargets.length > 0) {
+        for (const t of textTargets) {
+          await enqueue({
+            deckName: t.deckName,
+            text: t.text,
+            numCards: typeof t.cardCount === "number" ? t.cardCount : 20,
+            type: "deck",
+            customPrompt: t.customPrompt || undefined,
+          });
+        }
+        toast({
+          title: `${textTargets.length} deck${textTargets.length > 1 ? "s" : ""} queued`,
+          description: "Will generate automatically when you reconnect.",
+        });
+      } else {
+        toast({ title: "No internet connection", description: "File-based generation requires internet.", variant: "destructive" });
+      }
+      setIsGeneratingAll(false);
+      return;
+    }
 
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];

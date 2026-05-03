@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useOfflineQueue } from "@/hooks/use-offline-queue";
 import { Progress } from "@/components/ui/progress";
 import { apiUrl } from "@/lib/utils";
 import { extractPdf, isPdfFile, isTextFile } from "@/lib/pdf-extraction";
@@ -79,6 +80,7 @@ function parseProgressPercent(message: string): number | null {
 export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDeckName, prefilledCustomPrompt, onDone }: GenerateQbankFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { enqueue } = useOfflineQueue();
   const { data: allQbanks } = useListQbanks();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -293,6 +295,29 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
       ...readyFiles.map(f => ({ id: f.id, text: f.text, name: f.qbankName, count: f.questionCount, prompt: f.customPrompt })),
       ...(hasManual ? [{ id: undefined, text: manualText, name: manualName, count: manualCount, prompt: manualPrompt }] : []),
     ];
+
+    if (!navigator.onLine) {
+      const textTargets = targets.filter(t => t.id === undefined);
+      if (textTargets.length > 0) {
+        for (const t of textTargets) {
+          await enqueue({
+            deckName: t.name,
+            text: t.text,
+            numCards: typeof t.count === "number" ? t.count : 20,
+            type: "qbank",
+            customPrompt: t.prompt || undefined,
+          });
+        }
+        toast({
+          title: `${textTargets.length} question bank${textTargets.length > 1 ? "s" : ""} queued`,
+          description: "Will generate automatically when you reconnect.",
+        });
+      } else {
+        toast({ title: "No internet connection", description: "File-based generation requires internet.", variant: "destructive" });
+      }
+      setIsGeneratingAll(false);
+      return;
+    }
 
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
