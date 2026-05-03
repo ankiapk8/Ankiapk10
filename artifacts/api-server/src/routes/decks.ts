@@ -10,7 +10,7 @@ import {
   UpdateDeckBody,
 } from "@workspace/api-zod";
 import { serializeCard } from "../lib/serialize-card";
-import { checkIsPro, countRootDecksByUser, FREE_TIER, sendLimitError } from "../lib/free-tier-limits";
+import { checkIsPro, checkDeckQuota, recordDeckCreation, FREE_TIER, sendLimitError } from "../lib/free-tier-limits";
 
 const router: IRouter = Router();
 
@@ -46,10 +46,11 @@ router.post("/decks", async (req, res, next): Promise<void> => {
 
   const userId = req.isAuthenticated() ? req.user!.id : null;
   const isPro = userId ? await checkIsPro(userId) : false;
+  const deckKey = userId ?? (req.ip ?? "unknown");
 
-  if (!isPro && userId && parsed.data.parentId == null) {
-    const count = await countRootDecksByUser(userId);
-    if (count >= FREE_TIER.MAX_DECKS) {
+  if (!isPro && parsed.data.parentId == null) {
+    const { allowed } = await checkDeckQuota(deckKey, userId);
+    if (!allowed) {
       sendLimitError(
         res,
         "deck_count",
@@ -68,6 +69,9 @@ router.post("/decks", async (req, res, next): Promise<void> => {
       userId,
     };
     const [deck] = await db.insert(decksTable).values(values).returning();
+    if (deck && parsed.data.parentId == null && !isPro) {
+      await recordDeckCreation(deckKey);
+    }
     res.status(201).json({
       ...deck,
       cardCount: 0,

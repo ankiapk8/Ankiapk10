@@ -3,7 +3,7 @@ import { createRequire } from "module";
 import { createHash } from "crypto";
 import { inArray } from "drizzle-orm";
 import { db, decksTable, cardsTable } from "@workspace/db";
-import { checkIsPro, FREE_TIER, recordAndCheckExportLimit, sendLimitError } from "../lib/free-tier-limits";
+import { checkIsPro, checkExportQuota, recordExport, sendLimitError } from "../lib/free-tier-limits";
 
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -217,14 +217,14 @@ router.post("/export-apkg", async (req, res, next): Promise<void> => {
 
   const userId = req.isAuthenticated() ? req.user!.id : null;
   const isPro = userId ? await checkIsPro(userId) : false;
+  const exportKey = userId ?? (req.ip ?? "unknown");
   if (!isPro) {
-    const key = userId ?? (req.ip ?? "unknown");
-    const allowed = recordAndCheckExportLimit(key, FREE_TIER.MAX_APKG_EXPORTS_PER_DAY);
+    const { allowed } = await checkExportQuota(exportKey);
     if (!allowed) {
       sendLimitError(
         res,
         "apkg_export",
-        `Free users can export ${FREE_TIER.MAX_APKG_EXPORTS_PER_DAY} .apkg file per day. Upgrade to Pro for unlimited exports.`,
+        "Free users can export 1 .apkg file per day. Upgrade to Pro for unlimited exports.",
       );
       return;
     }
@@ -401,6 +401,10 @@ router.post("/export-apkg", async (req, res, next): Promise<void> => {
     { deckCount: allDecks.length, cardCount: allCards.length, mediaCount: mediaFiles.length },
     "Exported hierarchical .apkg",
   );
+
+  if (!isPro) {
+    await recordExport(exportKey);
+  }
 
   res.end(zipBuffer);
 });

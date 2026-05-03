@@ -7,4 +7,5 @@ export * from "./auth";
 export * from "./user-topics";
 export * from "./mind-maps";
 export * from "./feedback";
+export * from "./quota-usage";
 //# sourceMappingURL=index.d.ts.map

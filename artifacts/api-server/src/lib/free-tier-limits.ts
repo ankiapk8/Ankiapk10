@@ -1,6 +1,6 @@
 import { type Response } from "express";
 import { db, decksTable } from "@workspace/db";
-import { sql, eq, isNull, and } from "drizzle-orm";
+import { sql, and, eq, isNull } from "drizzle-orm";
 
 export const FREE_TIER = {
   MAX_CARDS_PER_DECK: 20,
@@ -55,30 +55,71 @@ export async function countRootDecksByUser(userId: string): Promise<number> {
   return result[0]?.cnt ?? 0;
 }
 
-const exportLog = new Map<string, { date: string; count: number }>();
-
 function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function recordAndCheckExportLimit(
+async function getQuotaCount(
   key: string,
-  maxPerDay: number,
-): boolean {
-  const today = todayUtc();
-  const entry = exportLog.get(key);
-  if (!entry || entry.date !== today) {
-    exportLog.set(key, { date: today, count: 1 });
-    return true;
-  }
-  if (entry.count >= maxPerDay) return false;
-  entry.count++;
-  return true;
+  metric: string,
+  period: string,
+): Promise<number> {
+  const result = await db.execute(
+    sql`SELECT count FROM quota_usage WHERE key = ${key} AND metric = ${metric} AND period = ${period}`,
+  );
+  const row = result.rows[0] as { count?: unknown } | undefined;
+  if (!row) return 0;
+  return typeof row.count === "number"
+    ? row.count
+    : parseInt(String(row.count ?? "0"), 10);
 }
 
-export function getExportCount(key: string): number {
+async function incrementQuota(
+  key: string,
+  metric: string,
+  period: string,
+): Promise<number> {
+  const result = await db.execute(
+    sql`
+      INSERT INTO quota_usage (key, metric, period, count)
+      VALUES (${key}, ${metric}, ${period}, 1)
+      ON CONFLICT (key, metric, period) DO UPDATE SET count = quota_usage.count + 1
+      RETURNING count
+    `,
+  );
+  const row = result.rows[0] as { count?: unknown } | undefined;
+  return typeof row?.count === "number"
+    ? row.count
+    : parseInt(String(row?.count ?? "1"), 10);
+}
+
+export async function checkDeckQuota(
+  key: string,
+  userId: string | null,
+): Promise<{ allowed: boolean; currentCount: number }> {
+  if (userId) {
+    const dbCount = await countRootDecksByUser(userId);
+    if (dbCount > 0) {
+      return { allowed: dbCount < FREE_TIER.MAX_DECKS, currentCount: dbCount };
+    }
+  }
+  const count = await getQuotaCount(key, "deck_create", "all");
+  return { allowed: count < FREE_TIER.MAX_DECKS, currentCount: count };
+}
+
+export async function recordDeckCreation(key: string): Promise<void> {
+  await incrementQuota(key, "deck_create", "all");
+}
+
+export async function checkExportQuota(
+  key: string,
+): Promise<{ allowed: boolean }> {
   const today = todayUtc();
-  const entry = exportLog.get(key);
-  if (!entry || entry.date !== today) return 0;
-  return entry.count;
+  const count = await getQuotaCount(key, "apkg_export", today);
+  return { allowed: count < FREE_TIER.MAX_APKG_EXPORTS_PER_DAY };
+}
+
+export async function recordExport(key: string): Promise<void> {
+  const today = todayUtc();
+  await incrementQuota(key, "apkg_export", today);
 }
