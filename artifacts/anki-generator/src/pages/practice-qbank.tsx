@@ -498,16 +498,15 @@ function PracticeSession({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ type: "spring", stiffness: 280, damping: 26 }}
-                  className="rounded-2xl border p-4 relative overflow-hidden"
-                  style={{ background: "rgba(167,139,250,0.05)", borderColor: "rgba(167,139,250,0.25)" }}
+                  className="rounded-2xl border p-4 relative overflow-hidden bg-violet-500/5 dark:bg-violet-400/5 border-violet-400/25 dark:border-violet-400/35"
                 >
-                  <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(ellipse at 0% 0%, rgba(167,139,250,0.12) 0%, transparent 60%)" }} />
+                  <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_at_0%_0%,rgba(167,139,250,0.1)_0%,transparent_60%)] dark:bg-[radial-gradient(ellipse_at_0%_0%,rgba(167,139,250,0.15)_0%,transparent_60%)]" />
                   <div className="relative">
                     <div className="flex items-center gap-2 mb-2.5">
-                      <div className="h-5 w-5 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(167,139,250,0.2)", border: "1px solid rgba(167,139,250,0.35)" }}>
-                        <Sparkles className="h-3 w-3" style={{ color: "#a78bfa" }} />
+                      <div className="h-5 w-5 rounded-lg flex items-center justify-center shrink-0 bg-violet-500/15 dark:bg-violet-400/20 border border-violet-500/30 dark:border-violet-400/35">
+                        <Sparkles className="h-3 w-3 text-violet-600 dark:text-violet-400" />
                       </div>
-                      <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#a78bfa" }}>Explanation</span>
+                      <span className="text-[11px] font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">Explanation</span>
                     </div>
                     <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{current.back}</p>
                   </div>

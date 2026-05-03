@@ -594,7 +594,7 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
             >
               <div className="flex items-center justify-between px-5 pt-4">
                 <span className="text-[10px] font-mono text-muted-foreground/50 tabular-nums">{index + 1} / {total}</span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border" style={{ color: "#38bdf8", background: "rgba(56,189,248,0.07)", borderColor: "rgba(56,189,248,0.2)" }}>Flashcard</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border text-sky-600 dark:text-sky-400 bg-sky-500/8 border-sky-500/25 dark:border-sky-400/30">Flashcard</span>
               </div>
               <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
                 <p className="text-lg sm:text-xl font-medium text-foreground leading-relaxed text-center">{current?.front}</p>
@@ -612,15 +612,15 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
             {/* Back face */}
             <div
               style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
-              className="absolute inset-0 rounded-2xl border border-sky-400/25 shadow-xl bg-card overflow-hidden flex flex-col"
+              className="absolute inset-0 rounded-2xl border border-sky-400/25 dark:border-sky-400/20 shadow-xl bg-card overflow-hidden flex flex-col"
             >
-              <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(ellipse at 25% 20%, rgba(56,189,248,0.14) 0%, rgba(34,197,94,0.06) 55%, transparent 100%)" }} />
+              <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_at_25%_20%,rgba(56,189,248,0.08)_0%,rgba(34,197,94,0.04)_55%,transparent_100%)] dark:bg-[radial-gradient(ellipse_at_25%_20%,rgba(56,189,248,0.18)_0%,rgba(34,197,94,0.07)_55%,transparent_100%)]" />
               <div className="flex items-center justify-between px-5 pt-4 relative">
                 <span className="text-[10px] font-mono text-muted-foreground/50 tabular-nums">{index + 1} / {total}</span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border" style={{ color: "#34d399", background: "rgba(52,211,153,0.07)", borderColor: "rgba(52,211,153,0.2)" }}>Answer</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full border text-emerald-600 dark:text-emerald-400 bg-emerald-500/8 border-emerald-500/25 dark:border-emerald-400/30">Answer</span>
               </div>
               <div className="flex-1 flex items-center justify-center p-6 sm:p-8 relative">
-                <p className="text-base sm:text-lg font-semibold leading-relaxed text-center whitespace-pre-wrap" style={{ color: "#38bdf8" }}>{current?.back}</p>
+                <p className="text-base sm:text-lg font-semibold leading-relaxed text-center whitespace-pre-wrap text-sky-600 dark:text-sky-400">{current?.back}</p>
               </div>
             </div>
           </motion.div>
@@ -750,16 +750,15 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ type: "spring", stiffness: 280, damping: 26 }}
-                className="rounded-2xl border p-4 relative overflow-hidden"
-                style={{ background: "rgba(167,139,250,0.05)", borderColor: "rgba(167,139,250,0.25)" }}
+                className="rounded-2xl border p-4 relative overflow-hidden bg-violet-500/5 dark:bg-violet-400/5 border-violet-400/25 dark:border-violet-400/35"
               >
-                <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl" style={{ background: "radial-gradient(ellipse at 0% 0%, rgba(167,139,250,0.12) 0%, transparent 60%)" }} />
+                <div aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_at_0%_0%,rgba(167,139,250,0.1)_0%,transparent_60%)] dark:bg-[radial-gradient(ellipse_at_0%_0%,rgba(167,139,250,0.15)_0%,transparent_60%)]" />
                 <div className="relative">
                   <div className="flex items-center gap-2 mb-2.5">
-                    <div className="h-5 w-5 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(167,139,250,0.2)", border: "1px solid rgba(167,139,250,0.35)" }}>
-                      <span className="text-[9px] font-bold" style={{ color: "#a78bfa" }}>E</span>
+                    <div className="h-5 w-5 rounded-lg flex items-center justify-center shrink-0 bg-violet-500/15 dark:bg-violet-400/20 border border-violet-500/30 dark:border-violet-400/35">
+                      <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400">E</span>
                     </div>
-                    <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "#a78bfa" }}>Explanation</span>
+                    <span className="text-[11px] font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">Explanation</span>
                   </div>
                   <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{current.back}</p>
                 </div>
