@@ -18,6 +18,7 @@ import deckMindMapsRouter from "./deck-mind-maps";
 import feedbackRouter from "./feedback";
 import topicsRouter from "./topics";
 import subscriptionRouter from "./subscription";
+import devRouter from "./dev";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(mindMapRouter);
 router.use(deckMindMapsRouter);
 router.use(feedbackRouter);
 router.use(topicsRouter);
+router.use(devRouter);
 
 export default router;

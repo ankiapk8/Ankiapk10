@@ -1,6 +1,7 @@
 import { type Response } from "express";
 import { db, decksTable } from "@workspace/db";
 import { sql, eq } from "drizzle-orm";
+import { getDevProOverride } from "./dev-overrides";
 
 export const FREE_TIER = {
   MAX_CARDS_PER_DECK: 20,
@@ -30,6 +31,10 @@ export function sendLimitError(
 }
 
 export async function checkIsPro(userId: string): Promise<boolean> {
+  if (process.env.NODE_ENV !== "production") {
+    const override = getDevProOverride(userId);
+    if (typeof override === "boolean") return override;
+  }
   try {
     const result = await db.execute(
       sql`
