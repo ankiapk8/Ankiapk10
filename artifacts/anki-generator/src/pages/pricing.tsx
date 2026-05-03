@@ -313,10 +313,10 @@ export default function Pricing() {
         </h3>
         <div className="grid gap-2 sm:grid-cols-2">
           {[
+            "Add Google Pay checkout",
+            "Add card payment support",
+            "Add Apple Pay checkout",
             "Smarter card quality checks",
-            "Better question bank explanations",
-            "More study planner automation",
-            "Faster large PDF processing",
           ].map((item) => (
             <div key={item} className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm text-muted-foreground">
               {item}
