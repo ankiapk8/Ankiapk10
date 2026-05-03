@@ -34,6 +34,10 @@ args = "Start application"
 task = "workflow.run"
 args = "Keepalive"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Auto Rebuild"
+
 [[workflows.workflow]]
 name = "API Server"
 author = "agent"
@@ -65,6 +69,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "bash scripts/keepalive.sh"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Auto Rebuild"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/auto-rebuild.sh"
 
 [workflows.workflow.metadata]
 outputType = "console"
