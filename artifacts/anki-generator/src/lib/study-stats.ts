@@ -333,6 +333,25 @@ export function getThisWeekCards(sessions: StudySession[]): number {
     .reduce((sum, s) => sum + s.total, 0);
 }
 
+// --- 8-week activity heatmap ---
+
+export function getLast8Weeks(): { date: string; label: string; total: number; known: number }[] {
+  const sessions = getSessions();
+  const result: { date: string; label: string; total: number; known: number }[] = [];
+  for (let i = 55; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    const dateStr = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    const daySessions = sessions.filter(s => s.date === dateStr);
+    const total = daySessions.reduce((sum, s) => sum + s.total, 0);
+    const known = daySessions.reduce((sum, s) => sum + s.known, 0);
+    result.push({ date: dateStr, label, total, known });
+  }
+  return result;
+}
+
 // --- Study time sparkline (estimated 8 s/card) ---
 
 const AVG_SECONDS_PER_CARD = 8;

@@ -22,6 +22,7 @@ import {
   setWeeklyGoal,
   getThisWeekCards,
   getLast14DaysTotals,
+  getLast8Weeks,
 } from "@/lib/study-stats";
 import { getTotalScheduledDueCount } from "@/lib/srs";
 import type { Qbank } from "@workspace/api-client-react";
@@ -54,6 +55,42 @@ export default function Dashboard() {
   const sparklineDays = useMemo(() => getLast14DaysTotals(), []);
 
   const [weeklyGoal, setWeeklyGoalState] = useState(() => getWeeklyGoal());
+
+  // 8-week heatmap grid: 8 cols (oldest→newest) × 7 rows (Mon→Sun)
+  const heatmap = useMemo(() => {
+    const raw = getLast8Weeks();
+    const lookup = new Map(raw.map(d => [d.date, d]));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayDow = (today.getDay() + 6) % 7; // Mon=0..Sun=6
+    const monday8WeeksAgo = new Date(today);
+    monday8WeeksAgo.setDate(today.getDate() - todayDow - 7 * 7);
+    type Cell = { date: string; label: string; total: number; known: number } | null;
+    const grid: Cell[][] = Array.from({ length: 8 }, () => Array(7).fill(null));
+    const cursor = new Date(monday8WeeksAgo);
+    for (let i = 0; i < 56; i++) {
+      const dateStr = cursor.toISOString().slice(0, 10);
+      const col = Math.floor(i / 7);
+      const row = i % 7;
+      if (cursor <= today) {
+        grid[col][row] = lookup.get(dateStr) ?? { date: dateStr, label: cursor.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }), total: 0, known: 0 };
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return grid;
+  }, []);
+
+  // Recent 28-day deck stats for Strongest / Weakest
+  const recentDeckStatsList = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 28);
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const recentSessions = sessions.filter(s => s.date >= cutoffStr);
+    const stats = getDeckStats(recentSessions);
+    return [...stats.entries()]
+      .map(([id, s]) => ({ id, ...s, pct: s.total > 0 ? Math.round((s.known / s.total) * 100) : 0 }))
+      .filter(d => d.total >= 3);
+  }, [sessions]);
 
   const totalDecks = (decks ?? []).filter((d: { kind?: string }) => (d.kind ?? "deck") !== "qbank").length;
   const totalCards = (decks ?? []).filter((d: { kind?: string }) => (d.kind ?? "deck") !== "qbank").reduce((sum, d) => sum + d.cardCount, 0);
@@ -97,26 +134,39 @@ export default function Dashboard() {
       });
   }, [decks, deckStats]);
 
-  // Recommended next: lowest mastery deck with ≥5 total cards reviewed
+  // Recommended next: scored by (days since last reviewed × 0.5) + (low mastery × 0.5)
   const recommendedDeck = useMemo(() => {
+    const lastStudied = new Map<number, string>();
+    for (const s of sessions) {
+      const existing = lastStudied.get(s.deckId);
+      if (!existing || s.date > existing) lastStudied.set(s.deckId, s.date);
+    }
+    const nowMs = new Date().setHours(0, 0, 0, 0);
     const qualified = [...deckStats.entries()]
-      .map(([id, s]) => ({ id, ...s, pct: s.total > 0 ? Math.round((s.known / s.total) * 100) : 0 }))
+      .map(([id, s]) => {
+        const pct = s.total > 0 ? s.known / s.total : 0;
+        const last = lastStudied.get(id);
+        const daysSince = last
+          ? Math.round((nowMs - new Date(last).setHours(0, 0, 0, 0)) / 86400000)
+          : 999;
+        const overdueScore = Math.min(daysSince, 30) / 30;
+        const masteryScore = 1 - pct;
+        const score = overdueScore * 0.5 + masteryScore * 0.5;
+        return { id, ...s, pct: Math.round(pct * 100), daysSince, score };
+      })
       .filter(d => d.total >= 5)
-      .sort((a, b) => a.pct - b.pct);
+      .sort((a, b) => b.score - a.score);
     return qualified[0] ?? null;
-  }, [deckStats]);
+  }, [sessions, deckStats]);
 
-  // Strongest / weakest decks by mastery %
+  // Strongest / weakest decks by recent (28-day) session performance
   const { strongest, weakest } = useMemo(() => {
-    const studied = [...deckStats.entries()]
-      .map(([id, s]) => ({ id, ...s, pct: s.total > 0 ? Math.round((s.known / s.total) * 100) : 0 }))
-      .filter(d => d.total >= 3)
-      .sort((a, b) => b.pct - a.pct);
+    const sorted = [...recentDeckStatsList].sort((a, b) => b.pct - a.pct);
     return {
-      strongest: studied.slice(0, 3),
-      weakest: [...studied].reverse().slice(0, 3),
+      strongest: sorted.slice(0, 3),
+      weakest: [...sorted].reverse().slice(0, 3),
     };
-  }, [deckStats]);
+  }, [recentDeckStatsList]);
 
   // Sparkline SVG points for study time
   const sparkline = useMemo(() => {
@@ -320,6 +370,16 @@ export default function Dashboard() {
               </div>
               <div className="flex-1 space-y-3">
                 <p className="font-medium text-sm leading-snug line-clamp-2">{recommendedDeck.deckName}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[11px] bg-red-500/10 text-red-600 dark:text-red-400 border border-red-400/20 rounded-md px-1.5 py-0.5 font-medium">
+                    {recommendedDeck.pct}% known
+                  </span>
+                  {recommendedDeck.daysSince < 999 && (
+                    <span className="text-[11px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-400/20 rounded-md px-1.5 py-0.5 font-medium">
+                      {recommendedDeck.daysSince === 0 ? "studied today" : `${recommendedDeck.daysSince}d since last study`}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-2 rounded-full bg-border/60 overflow-hidden">
                     <motion.div
@@ -329,7 +389,6 @@ export default function Dashboard() {
                       transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
                     />
                   </div>
-                  <span className="text-xs text-muted-foreground shrink-0">{recommendedDeck.pct}% known</span>
                 </div>
                 <Link href={`/study/${recommendedDeck.id}`}>
                   <Button size="sm" className="gap-1.5 mt-1 w-full">
@@ -469,6 +528,58 @@ export default function Dashboard() {
                   <div className="h-2.5 w-2.5 rounded-sm bg-orange-500/80" />
                   <span className="text-xs text-muted-foreground">Still learning</span>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 8-week activity heatmap */}
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">8-Week Heatmap</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-1 overflow-x-auto pb-1">
+                {heatmap.map((col, colIdx) => (
+                  <div key={colIdx} className="flex flex-col gap-1 flex-1 min-w-[28px]">
+                    {col.map((day, rowIdx) => {
+                      if (!day) {
+                        return <div key={rowIdx} className="aspect-square rounded-sm bg-transparent" />;
+                      }
+                      const intensity = day.total === 0 ? 0 : day.total <= 5 ? 1 : day.total <= 15 ? 2 : 3;
+                      const knownPct = day.total > 0 ? Math.round((day.known / day.total) * 100) : 0;
+                      const colorClass =
+                        intensity === 0 ? "bg-muted/50 dark:bg-muted/30" :
+                        intensity === 1 ? "bg-emerald-200 dark:bg-emerald-900/80" :
+                        intensity === 2 ? "bg-emerald-400 dark:bg-emerald-600" :
+                        "bg-emerald-600 dark:bg-emerald-400";
+                      return (
+                        <div key={rowIdx} className={`aspect-square rounded-sm cursor-default group/cell relative ${colorClass} hover:ring-1 hover:ring-emerald-400/60 transition-all`}>
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-20 hidden group-hover/cell:block pointer-events-none">
+                            <div className="bg-popover border border-border/60 rounded-lg px-2.5 py-1.5 shadow-lg text-center whitespace-nowrap">
+                              <p className="text-[10px] font-semibold">{day.label}</p>
+                              {day.total > 0 ? (
+                                <>
+                                  <p className="text-[10px] text-muted-foreground">{day.total} cards studied</p>
+                                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400">{knownPct}% known</p>
+                                </>
+                              ) : (
+                                <p className="text-[10px] text-muted-foreground">No activity</p>
+                              )}
+                            </div>
+                            <div className="mx-auto w-2 h-2 border-r border-b border-border/60 bg-popover rotate-45 -mt-1.5" />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                <span className="text-[10px] text-muted-foreground">Less</span>
+                {(["bg-muted/50 dark:bg-muted/30", "bg-emerald-200 dark:bg-emerald-900/80", "bg-emerald-400 dark:bg-emerald-600", "bg-emerald-600 dark:bg-emerald-400"] as const).map((cls, i) => (
+                  <div key={i} className={`h-3 w-3 rounded-sm ${cls}`} />
+                ))}
+                <span className="text-[10px] text-muted-foreground">More</span>
               </div>
             </CardContent>
           </Card>
