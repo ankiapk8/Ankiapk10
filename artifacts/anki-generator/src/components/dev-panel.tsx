@@ -278,6 +278,7 @@ export function DevPanel() {
                         type="button"
                         disabled={loading}
                         onClick={handleCancelSimulated}
+                        title="Forces plan to Free. Use 'Reset to real subscription' to restore DB-backed status."
                         className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-red-400/60 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 dark:text-red-400 transition-colors"
                       >
                         <X className="h-3 w-3" />

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { setDevProOverride, clearDevProOverride, getDevProOverride, getDevOverrideEntry } from "../lib/dev-overrides";
+import { setDevProOverride, clearDevProOverride, getDevOverrideEntry } from "../lib/dev-overrides";
 
 const router: IRouter = Router();
 
