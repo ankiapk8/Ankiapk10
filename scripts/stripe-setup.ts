@@ -72,7 +72,7 @@ async function run() {
   console.log(`NEXT STEPS`);
   console.log(`======================\n`);
   console.log(`1. Set this environment variable in your Replit Secrets (or .env):\n`);
-  console.log(`   STRIPE_PRICE_ID=${price.id}\n`);
+  console.log(`   export STRIPE_PRICE_ID=${price.id}\n`);
   console.log(`2. For local webhook forwarding, run in a separate terminal:\n`);
   console.log(`   stripe listen --forward-to http://localhost:8080/api/webhooks/stripe\n`);
   console.log(`   Then set the printed webhook signing secret as:\n`);

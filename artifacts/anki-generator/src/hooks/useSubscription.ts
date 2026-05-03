@@ -58,27 +58,25 @@ export async function startCheckout(priceId: string): Promise<string | null> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ priceId, origin: window.location.origin }),
+    body: JSON.stringify({ priceId }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any).error ?? "Checkout failed");
+    const body = await res.json().catch(() => ({})) as Record<string, unknown>;
+    throw new Error(typeof body.error === "string" ? body.error : "Checkout failed");
   }
-  const data = await res.json();
-  return data.url ?? null;
+  const data = await res.json() as Record<string, unknown>;
+  return typeof data.url === "string" ? data.url : null;
 }
 
 export async function openBillingPortal(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/api/subscription/portal`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ origin: window.location.origin }),
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error((err as any).error ?? "Portal access failed");
+    const body = await res.json().catch(() => ({})) as Record<string, unknown>;
+    throw new Error(typeof body.error === "string" ? body.error : "Portal access failed");
   }
-  const data = await res.json();
-  return data.url ?? null;
+  const data = await res.json() as Record<string, unknown>;
+  return typeof data.url === "string" ? data.url : null;
 }

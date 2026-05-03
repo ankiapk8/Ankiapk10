@@ -6,19 +6,11 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-function resolveBaseUrl(clientOrigin?: string): string {
+function resolveBaseUrl(): string {
   if (process.env.REPLIT_DOMAINS) {
     return `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
   }
-  if (clientOrigin) {
-    try {
-      const u = new URL(clientOrigin);
-      if (u.protocol === 'http:' || u.protocol === 'https:') {
-        return u.origin;
-      }
-    } catch { }
-  }
-  return `http://localhost:${process.env.FRONTEND_PORT ?? '5173'}`;
+  return `http://localhost:${process.env.PORT ?? '8080'}`;
 }
 
 async function getActiveSubscription(userId: string) {
@@ -112,11 +104,11 @@ router.post("/subscription/checkout", async (req, res, next): Promise<void> => {
       return;
     }
 
-    const { priceId, origin } = req.body as { priceId?: string; origin?: string };
+    const { priceId } = req.body as { priceId?: string };
 
-    const effectivePriceId = priceId || process.env.STRIPE_PRICE_ID;
+    const effectivePriceId = process.env.STRIPE_PRICE_ID || priceId;
     if (!effectivePriceId) {
-      res.status(400).json({ error: "priceId is required" });
+      res.status(400).json({ error: "priceId is required (or set STRIPE_PRICE_ID env var)" });
       return;
     }
 
@@ -142,7 +134,7 @@ router.post("/subscription/checkout", async (req, res, next): Promise<void> => {
       customerId = customer.id;
     }
 
-    const baseUrl = resolveBaseUrl(origin);
+    const baseUrl = resolveBaseUrl();
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
@@ -173,9 +165,8 @@ router.post("/subscription/portal", async (req, res, next): Promise<void> => {
       return;
     }
 
-    const { origin } = req.body as { origin?: string };
     const stripe = await getUncachableStripeClient();
-    const baseUrl = resolveBaseUrl(origin);
+    const baseUrl = resolveBaseUrl();
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
       return_url: `${baseUrl}/pricing`,

@@ -22,6 +22,26 @@ import { GenerationStageStepper, stageFromGenerating } from "@/components/genera
 import type { Qbank } from "@workspace/api-client-react";
 import { UpgradeBanner } from "@/components/upgrade-gate";
 
+interface LimitReachedBody {
+  limitReached: true;
+  feature: string;
+  message: string;
+}
+
+function isLimitReachedBody(v: Record<string, unknown>): v is LimitReachedBody {
+  return v.limitReached === true && typeof v.feature === "string";
+}
+
+class LimitReachedError extends Error {
+  readonly limitReached = true as const;
+  readonly feature: string;
+  constructor(message: string, feature: string) {
+    super(message);
+    this.name = "LimitReachedError";
+    this.feature = feature;
+  }
+}
+
 const DEFAULT_TARGET_QUESTIONS = 20;
 
 interface GenerateQbankFormProps {
@@ -209,14 +229,11 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
         }),
       }).then(async resp => {
         if (!resp.ok || !resp.body) {
-          const err = await resp.json().catch(() => ({}) as Record<string, unknown>);
-          if ((err as Record<string, unknown>).limitReached === true) {
-            const e = new Error(typeof (err as any).message === 'string' ? (err as any).message : 'This feature requires a Pro subscription.');
-            (e as any).limitReached = true;
-            (e as any).feature = typeof (err as any).feature === 'string' ? (err as any).feature : 'Pro feature';
-            reject(e);
+          const body = await resp.json().catch(() => ({})) as Record<string, unknown>;
+          if (isLimitReachedBody(body)) {
+            reject(new LimitReachedError(body.message, body.feature));
           } else {
-            reject(new Error((err as { error?: string }).error ?? `Generation failed (${resp.status})`));
+            reject(new Error(typeof body.error === "string" ? body.error : `Generation failed (${resp.status})`));
           }
           return;
         }
@@ -353,10 +370,9 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
         if (wasCancelled) {
           if (t.id) updateFile(t.id, { status: "ready", progress: "Cancelled", generatingPercent: 0, generatingMessage: undefined });
           cancelled++;
-        } else if (error && typeof error === "object" && (error as any).limitReached === true) {
-          const feature = (error as any).feature ?? "Pro feature";
+        } else if (error instanceof LimitReachedError) {
           if (t.id) updateFile(t.id, { status: "error", progress: "Pro feature required" });
-          setLimitReachedFeature(feature);
+          setLimitReachedFeature(error.feature);
           fail++;
         } else {
           const message = error instanceof Error ? error.message : "Generation failed";
@@ -395,7 +411,17 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
   return (
     <div className="space-y-5">
       {limitReachedFeature && (
-        <UpgradeBanner feature={limitReachedFeature} compact={false} />
+        <div className="relative">
+          <UpgradeBanner feature={limitReachedFeature} compact={false} />
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setLimitReachedFeature(null)}
+            className="absolute top-2 right-2 rounded p-0.5 text-amber-600 hover:text-amber-900 dark:text-amber-400 dark:hover:text-amber-200 transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
       <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3 flex items-start gap-2.5">
         <div className="h-7 w-7 rounded-md bg-violet-500/15 text-violet-600 flex items-center justify-center shrink-0">
