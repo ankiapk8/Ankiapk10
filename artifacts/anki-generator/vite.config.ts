@@ -80,14 +80,12 @@ export default defineConfig({
     port,
     host: "0.0.0.0",
     allowedHosts: true,
-    proxy: isReplit
-      ? undefined
-      : {
-          "/api": {
-            target: `http://localhost:${apiPort}`,
-            changeOrigin: true,
-          },
-        },
+    proxy: {
+      "/api": {
+        target: `http://localhost:${apiPort}`,
+        changeOrigin: true,
+      },
+    },
     fs: {
       strict: true,
       deny: ["**/.*"],
