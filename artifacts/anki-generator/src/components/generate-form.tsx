@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { GenerationStageStepper, stageFromGenerating } from "@/components/generation-stage-stepper";
 import { CardReviewModal } from "@/components/card-review-modal";
+import { GenerationProgressLog } from "@/components/generation-progress-log";
+import { CardPreviewPanel } from "@/components/card-preview-panel";
 import { extractPdf, isPdfFile, isTextFile, isImageFile, isPptxFile, isDocxFile, extractImage, extractOffice, type ImageRegion } from "@/lib/pdf-extraction";
 import { apiUrl } from "@/lib/utils";
 import { GenerationSuccessOverlay } from "@/components/generation-success-overlay";
@@ -94,6 +96,7 @@ type FileEntry = {
   liveCardCount?: number;
   stagedCards?: StagedCard[];
   generatingStage?: string;
+  generatingLog?: string[];
 };
 
 function formatEta(ms: number): string {
@@ -168,6 +171,9 @@ export function GenerateForm({
   const [successOverlay, setSuccessOverlay] = useState<{ open: boolean; decks: number; cards: number }>({ open: false, decks: 0, cards: 0 });
   const pendingDoneRef = useRef<(() => void) | null>(null);
   const [reviewState, setReviewState] = useState<{ deckId?: number; deckName: string; autoClose?: () => void; stagedCards?: StagedCard[]; onCommit?: (cards: StagedCard[]) => Promise<void> } | null>(null);
+  const [inlinePreview, setInlinePreview] = useState<{ cards: StagedCard[]; deckName: string; onSave: (cards: StagedCard[]) => Promise<void> } | null>(null);
+  const [manualGeneratingLog, setManualGeneratingLog] = useState<string[]>([]);
+  const [autoGeneratePending, setAutoGeneratePending] = useState(false);
   const [manualText, setManualText] = useState("");
   const [manualDeckName, setManualDeckName] = useState("");
   const [manualCardCount, setManualCardCount] = useState<number | "">("");
@@ -306,7 +312,8 @@ export function GenerateForm({
     customPrompt?: string,
     pageTexts?: string[],
     pageImageRegions?: ImageRegion[][],
-  usePreview = false,
+    usePreview = false,
+    onProgressMsg?: (msg: string) => void,
   ): Promise<{ count: number; deckId?: number; stagedCards?: StagedCard[] }> =>
     new Promise((resolve, reject) => {
       const trimmedPrompt = (customPrompt ?? "").trim();
@@ -355,12 +362,23 @@ export function GenerateForm({
                 type: string; percent?: number; message?: string; generatedCount?: number;
                 deck?: { id?: number }; cardsCreated?: number; cards?: StagedCard[]; stage?: string;
               };
-              if (event.type === "progress" && fileId) {
-                setFiles(prev => prev.map(f =>
-                  f.id === fileId
-                    ? { ...f, generatingPercent: event.percent, generatingMessage: event.message, liveCardCount: event.cardsCreated ?? f.liveCardCount, generatingStage: event.stage ?? f.generatingStage }
-                    : f
-                ));
+              if (event.type === "progress") {
+                const msg = event.message;
+                if (fileId) {
+                  setFiles(prev => prev.map(f =>
+                    f.id === fileId
+                      ? {
+                          ...f,
+                          generatingPercent: event.percent,
+                          generatingMessage: msg,
+                          liveCardCount: event.cardsCreated ?? f.liveCardCount,
+                          generatingStage: event.stage ?? f.generatingStage,
+                          generatingLog: msg ? [...(f.generatingLog ?? []), msg] : (f.generatingLog ?? []),
+                        }
+                      : f
+                  ));
+                }
+                if (msg) onProgressMsg?.(msg);
               } else if (event.type === "done") {
                 resolve({ count: event.generatedCount ?? 0, deckId: event.deck?.id, stagedCards: event.cards });
                 return;
@@ -399,6 +417,24 @@ export function GenerateForm({
     }
   };
 
+  const handleRegenerate = () => {
+    setInlinePreview(null);
+    setManualGeneratingLog([]);
+    setFiles(prev => prev.map(f =>
+      f.status === "done"
+        ? { ...f, status: "ready", generatedCount: undefined, generatedDeckId: undefined, stagedCards: undefined, generatingLog: [], generatingPercent: 0, generatingMessage: undefined, liveCardCount: undefined }
+        : f
+    ));
+    setAutoGeneratePending(true);
+  };
+
+  useEffect(() => {
+    if (!autoGeneratePending || isGeneratingAll) return;
+    setAutoGeneratePending(false);
+    handleGenerateAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoGeneratePending, isGeneratingAll]);
+
   const resetState = () => {
     setFiles([]);
     setManualText(""); setManualDeckName(""); setManualCardCount("");
@@ -409,6 +445,8 @@ export function GenerateForm({
     setIsGeneratingAll(true);
     setIsCancelling(false);
     cancelledIdsRef.current.clear();
+    setManualGeneratingLog([]);
+    setInlinePreview(null);
     let ok = 0, fail = 0, cancelled = 0, totalCards = 0;
     let lastDoneId: number | undefined;
     let lastDoneName = "";
@@ -471,9 +509,12 @@ export function GenerateForm({
         continue;
       }
 
-      if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…", generatingStartedAt: Date.now() });
+      if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…", generatingStartedAt: Date.now(), generatingLog: [] });
       try {
-        const { count, deckId: doneId, stagedCards } = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts, t.pageImageRegions, usePreview);
+        const onProgressMsg = t.id === undefined
+          ? (msg: string) => setManualGeneratingLog(prev => [...prev, msg])
+          : undefined;
+        const { count, deckId: doneId, stagedCards } = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts, t.pageImageRegions, usePreview, onProgressMsg);
         if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count, generatedDeckId: doneId, stagedCards });
         ok++;
         totalCards += count;
@@ -513,7 +554,7 @@ export function GenerateForm({
         const capturedFileId = lastDoneFileId;
 
         if (lastStagedCards && lastStagedCards.length > 0) {
-          // Pre-commit: cards not yet in DB — show review modal first, commit on confirm
+          // Pre-commit: cards not yet in DB — show inline preview, commit on save
           const commitAndFinish = async (editedCards: StagedCard[]) => {
             try {
               const resp = await fetch(apiUrl("api/generate/commit"), {
@@ -525,14 +566,14 @@ export function GenerateForm({
               const data = await resp.json() as { deck: { id: number }; cardCount: number };
               if (capturedFileId) updateFile(capturedFileId, { generatedDeckId: data.deck.id, generatedCount: data.cardCount });
               queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
-              setReviewState(null);
+              setInlinePreview(null);
               setSuccessOverlay({ open: true, decks: 1, cards: data.cardCount });
               pendingDoneRef.current = () => { resetState(); onDone?.(); };
             } catch {
               toast({ title: "Failed to save deck", description: "Please try again.", variant: "destructive" });
             }
           };
-          setReviewState({ deckName: capturedName, stagedCards: lastStagedCards, onCommit: commitAndFinish });
+          setInlinePreview({ cards: lastStagedCards, deckName: capturedName, onSave: commitAndFinish });
         } else if (lastDoneId) {
           // Already saved: open post-save review before navigating
           const capturedId = lastDoneId;
@@ -631,13 +672,11 @@ export function GenerateForm({
           if (fn) fn();
         }}
       />
-      {reviewState && (
+      {reviewState && reviewState.deckId && (
         <CardReviewModal
           deckId={reviewState.deckId}
           deckName={reviewState.deckName}
           isOpen={!!reviewState}
-          preloadedCards={reviewState.stagedCards}
-          onCommit={reviewState.onCommit}
           onClose={() => {
             const autoClose = reviewState.autoClose;
             setReviewState(null);
@@ -645,6 +684,33 @@ export function GenerateForm({
           }}
         />
       )}
+
+      <AnimatePresence mode="wait">
+        {inlinePreview ? (
+          <motion.div
+            key="preview"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <CardPreviewPanel
+              cards={inlinePreview.cards}
+              deckName={inlinePreview.deckName}
+              accentColor="emerald"
+              onSave={inlinePreview.onSave}
+              onRegenerate={handleRegenerate}
+              onDiscard={() => setInlinePreview(null)}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="form"
+            className="space-y-5"
+            initial={false}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
       <ParentSelector />
 
       {/* Shared custom instructions */}
@@ -847,6 +913,13 @@ export function GenerateForm({
                     </span>
                   </div>
                   <BatteryProgress value={pct} />
+                  {(f.generatingLog ?? []).length > 0 && (
+                    <GenerationProgressLog
+                      messages={f.generatingLog ?? []}
+                      isComplete={false}
+                      accentColor="emerald"
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => cancelOne(f.id)}
@@ -1043,6 +1116,23 @@ export function GenerateForm({
         )}
       </AnimatePresence>
 
+      <AnimatePresence>
+        {isGeneratingAll && manualGeneratingLog.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <GenerationProgressLog
+              messages={manualGeneratingLog}
+              isComplete={false}
+              accentColor="emerald"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className={stickyClass}>
         {totalTargets > 0 && !isGeneratingAll && !isExtracting && (
           <div className="flex items-center justify-between mb-2 px-0.5 text-xs">
@@ -1085,6 +1175,9 @@ export function GenerateForm({
           />
         )}
       </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Wrapper>
   );
 }
