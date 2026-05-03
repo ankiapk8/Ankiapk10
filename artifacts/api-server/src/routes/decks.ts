@@ -145,6 +145,24 @@ router.patch("/decks/:id", async (req, res, next): Promise<void> => {
   const parsed = UpdateDeckBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  const promotingToRoot = "parentId" in parsed.data && (parsed.data.parentId === null || parsed.data.parentId === undefined);
+  if (promotingToRoot) {
+    const patchUserId = req.isAuthenticated() ? req.user!.id : null;
+    const patchIsPro = patchUserId ? await checkIsPro(patchUserId) : false;
+    if (!patchIsPro) {
+      const patchKey = patchUserId ?? (req.ip ?? "unknown");
+      const existing = await db.select({ parentId: decksTable.parentId }).from(decksTable).where(eq(decksTable.id, id));
+      const wasChild = existing[0]?.parentId != null;
+      if (wasChild) {
+        const { allowed } = await checkDeckQuota(patchKey, patchUserId);
+        if (!allowed) {
+          sendLimitError(res, "deck_count", `Free users can have up to ${FREE_TIER.MAX_DECKS} root decks. Upgrade to Pro for unlimited decks.`);
+          return;
+        }
+      }
+    }
+  }
+
   const updates: Partial<typeof decksTable.$inferInsert> & { updatedAt?: Date } = {
     updatedAt: new Date(),
   };
@@ -213,6 +231,17 @@ router.post("/decks/merge", async (req, res, next): Promise<void> => {
     return;
   }
 
+  const mergeUserId = req.isAuthenticated() ? req.user!.id : null;
+  const mergeIsPro = mergeUserId ? await checkIsPro(mergeUserId) : false;
+  if (!mergeIsPro && parentId === null) {
+    const mergeKey = mergeUserId ?? (req.ip ?? "unknown");
+    const { allowed } = await checkDeckQuota(mergeKey, mergeUserId);
+    if (!allowed) {
+      sendLimitError(res, "deck_count", `Free users can create up to ${FREE_TIER.MAX_DECKS} decks. Upgrade to Pro for unlimited decks.`);
+      return;
+    }
+  }
+
   try {
     const allDecks = await db.select().from(decksTable);
     const byId = new Map(allDecks.map(d => [d.id, d] as const));
@@ -278,6 +307,11 @@ router.post("/decks/merge", async (req, res, next): Promise<void> => {
 
     if (deleteOriginals) {
       await db.delete(decksTable).where(inArray(decksTable.id, deckIds));
+    }
+
+    if (!mergeIsPro && parentId === null) {
+      const mergeKey = mergeUserId ?? (req.ip ?? "unknown");
+      await recordDeckCreation(mergeKey);
     }
 
     res.status(201).json({
