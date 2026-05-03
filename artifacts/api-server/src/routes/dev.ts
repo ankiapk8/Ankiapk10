@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { setDevProOverride, clearDevProOverride, getDevProOverride } from "../lib/dev-overrides";
+import { setDevProOverride, clearDevProOverride, getDevProOverride, getDevOverrideEntry } from "../lib/dev-overrides";
 
 const router: IRouter = Router();
 
@@ -31,11 +31,17 @@ if (process.env.NODE_ENV !== "production") {
 
   router.get("/dev/status", (req, res): void => {
     if (!req.isAuthenticated()) {
-      res.json({ authenticated: false, userId: null, devIsPro: null });
+      res.json({ authenticated: false, userId: null, devIsPro: null, simulated: false });
       return;
     }
     const userId = req.user!.id;
-    res.json({ authenticated: true, userId, devIsPro: getDevProOverride(userId) ?? null });
+    const entry = getDevOverrideEntry(userId);
+    res.json({
+      authenticated: true,
+      userId,
+      devIsPro: entry?.isPro ?? null,
+      simulated: entry?.simulated ?? false,
+    });
   });
 
   router.post("/dev/simulate-subscribe", (req, res): void => {
@@ -44,7 +50,7 @@ if (process.env.NODE_ENV !== "production") {
       return;
     }
     const userId = req.user!.id;
-    setDevProOverride(userId, true);
+    setDevProOverride(userId, true, true);
     res.json({ ok: true, userId, devIsPro: true, simulated: true });
   });
 

@@ -1,24 +1,26 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Crown, ChevronDown, ChevronUp, RotateCcw, Zap, Lock, FlaskConical, X } from "lucide-react";
+import { Crown, ChevronDown, ChevronUp, RotateCcw, Lock, FlaskConical, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/+$/, "") ?? "";
 const LS_KEY = "dev-pro-override";
+const LS_SIM_KEY = "dev-simulated";
 
 interface DevStatus {
   authenticated: boolean;
   userId: string | null;
   devIsPro: boolean | null;
+  simulated: boolean;
 }
 
 async function fetchDevStatus(): Promise<DevStatus> {
   try {
     const res = await fetch(`${API_BASE}/api/dev/status`, { credentials: "include" });
-    if (!res.ok) return { authenticated: false, userId: null, devIsPro: null };
+    if (!res.ok) return { authenticated: false, userId: null, devIsPro: null, simulated: false };
     return res.json();
   } catch {
-    return { authenticated: false, userId: null, devIsPro: null };
+    return { authenticated: false, userId: null, devIsPro: null, simulated: false };
   }
 }
 
@@ -53,44 +55,52 @@ async function cancelSimulatedSubscribe(): Promise<void> {
 }
 
 export function DevPlanBadge() {
-  const [devIsPro, setDevIsPro] = useState<boolean | null>(null);
+  const [state, setState] = useState<{ isPro: boolean | null; simulated: boolean }>({
+    isPro: null,
+    simulated: false,
+  });
 
   useEffect(() => {
-    const stored = localStorage.getItem(LS_KEY);
-    if (stored === "true") setDevIsPro(true);
-    else if (stored === "false") setDevIsPro(false);
-    else setDevIsPro(null);
-
-    const handler = () => {
-      const v = localStorage.getItem(LS_KEY);
-      if (v === "true") setDevIsPro(true);
-      else if (v === "false") setDevIsPro(false);
-      else setDevIsPro(null);
+    const read = () => {
+      const stored = localStorage.getItem(LS_KEY);
+      const sim = localStorage.getItem(LS_SIM_KEY) === "true";
+      if (stored === "true") setState({ isPro: true, simulated: sim });
+      else if (stored === "false") setState({ isPro: false, simulated: false });
+      else setState({ isPro: null, simulated: false });
     };
-    window.addEventListener("dev-plan-changed", handler);
-    return () => window.removeEventListener("dev-plan-changed", handler);
+    read();
+    window.addEventListener("dev-plan-changed", read);
+    return () => window.removeEventListener("dev-plan-changed", read);
   }, []);
 
-  if (devIsPro === null) return null;
+  if (state.isPro === null) return null;
 
   return (
     <span
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-wide border ${
-        devIsPro
+        state.isPro
           ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300/50"
           : "bg-muted text-muted-foreground border-border"
       }`}
       title="Dev subscription override"
     >
-      {devIsPro ? <Crown className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
-      {devIsPro ? "DEV PRO" : "DEV FREE"}
+      {state.isPro ? <Crown className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
+      {state.isPro
+        ? state.simulated ? "SIMULATED PRO" : "DEV PRO"
+        : "DEV FREE"}
     </span>
   );
 }
 
-function syncToLocalStorage(isPro: boolean | null) {
-  if (isPro === null) localStorage.removeItem(LS_KEY);
-  else localStorage.setItem(LS_KEY, String(isPro));
+function syncToLocalStorage(isPro: boolean | null, simulated: boolean) {
+  if (isPro === null) {
+    localStorage.removeItem(LS_KEY);
+    localStorage.removeItem(LS_SIM_KEY);
+  } else {
+    localStorage.setItem(LS_KEY, String(isPro));
+    if (simulated) localStorage.setItem(LS_SIM_KEY, "true");
+    else localStorage.removeItem(LS_SIM_KEY);
+  }
   window.dispatchEvent(new Event("dev-plan-changed"));
 }
 
@@ -103,7 +113,7 @@ export function DevPanel() {
   async function refresh() {
     const s = await fetchDevStatus();
     setStatus(s);
-    syncToLocalStorage(s.devIsPro);
+    syncToLocalStorage(s.devIsPro, s.simulated);
   }
 
   useEffect(() => {
@@ -112,7 +122,12 @@ export function DevPanel() {
     const stored = localStorage.getItem(LS_KEY);
     if (stored !== null) {
       const isPro = stored === "true";
-      setDevPro(isPro).then(() => refresh());
+      const wasSimulated = localStorage.getItem(LS_SIM_KEY) === "true";
+      if (wasSimulated && isPro) {
+        simulateSubscribe().then(() => refresh());
+      } else {
+        setDevPro(isPro).then(() => refresh());
+      }
     }
   }, []);
 
@@ -154,14 +169,29 @@ export function DevPanel() {
   }
 
   const devIsPro = status?.devIsPro;
+  const isSimulated = status?.simulated ?? false;
   const hasOverride = devIsPro !== null && devIsPro !== undefined;
+
+  function headerBadgeLabel() {
+    if (!hasOverride) return "REAL";
+    if (devIsPro && isSimulated) return "SIMULATED PRO";
+    if (devIsPro) return "PRO";
+    return "FREE";
+  }
+
+  function headerBadgeClass() {
+    if (!hasOverride) return "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400";
+    if (devIsPro && isSimulated) return "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400";
+    if (devIsPro) return "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300";
+    return "bg-muted text-muted-foreground";
+  }
 
   return (
     <div className="fixed bottom-4 left-4 z-[9999] font-mono text-xs">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl border border-violet-400/40 bg-background/95 backdrop-blur shadow-xl shadow-violet-500/10 overflow-hidden w-68"
+        className="rounded-xl border border-violet-400/40 bg-background/95 backdrop-blur shadow-xl shadow-violet-500/10 overflow-hidden"
         style={{ width: "17rem" }}
       >
         <button
@@ -171,14 +201,8 @@ export function DevPanel() {
         >
           <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse shrink-0" />
           <span className="text-violet-600 dark:text-violet-400 font-bold tracking-wide uppercase">Dev Mode</span>
-          <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-            hasOverride
-              ? devIsPro
-                ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
-                : "bg-muted text-muted-foreground"
-              : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-          }`}>
-            {hasOverride ? (devIsPro ? "PRO" : "FREE") : "REAL"}
+          <span className={`ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${headerBadgeClass()}`}>
+            {headerBadgeLabel()}
           </span>
           <span className="ml-auto text-muted-foreground">
             {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
@@ -219,7 +243,7 @@ export function DevPanel() {
                     disabled={loading}
                     onClick={() => handleSet(true)}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md border transition-all ${
-                      hasOverride && devIsPro
+                      hasOverride && devIsPro && !isSimulated
                         ? "border-amber-500 bg-amber-500 text-white"
                         : "border-border hover:border-amber-400/50 hover:bg-amber-50 dark:hover:bg-amber-950/20 text-muted-foreground hover:text-amber-600"
                     }`}
@@ -233,7 +257,7 @@ export function DevPanel() {
                   <div className="text-muted-foreground/70 text-[10px] uppercase tracking-widest mb-1.5">
                     Simulate Stripe (no key needed)
                   </div>
-                  {!hasOverride || !devIsPro ? (
+                  {!isSimulated ? (
                     <button
                       type="button"
                       disabled={loading || !status?.authenticated}
@@ -245,15 +269,21 @@ export function DevPanel() {
                       Simulate Subscribe
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      disabled={loading}
-                      onClick={handleCancelSimulated}
-                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-red-400/60 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 dark:text-red-400 transition-colors"
-                    >
-                      <X className="h-3 w-3" />
-                      Cancel Simulated Sub
-                    </button>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-violet-50 dark:bg-violet-950/20 border border-violet-200/50 dark:border-violet-800/30 text-violet-700 dark:text-violet-300">
+                        <FlaskConical className="h-3 w-3 shrink-0" />
+                        <span className="text-[10px] font-bold uppercase tracking-wide">Simulated Pro active</span>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={handleCancelSimulated}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-red-400/60 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 dark:text-red-400 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                        Cancel Simulated Sub
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -284,7 +314,15 @@ export function DevPanel() {
                   )}
                   <div className="flex justify-between">
                     <span>Override</span>
-                    <span>{hasOverride ? (devIsPro ? "Pro forced" : "Free forced") : "none (real DB)"}</span>
+                    <span>
+                      {!hasOverride
+                        ? "none (real DB)"
+                        : devIsPro && isSimulated
+                          ? "Simulated Pro"
+                          : devIsPro
+                            ? "Pro forced"
+                            : "Free forced"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span>Persisted</span>

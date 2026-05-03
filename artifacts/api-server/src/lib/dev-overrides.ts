@@ -1,10 +1,19 @@
-const devProOverrides = new Map<string, boolean>();
+interface OverrideEntry {
+  isPro: boolean;
+  simulated: boolean;
+}
 
-export function setDevProOverride(userId: string, isPro: boolean): void {
-  devProOverrides.set(userId, isPro);
+const devProOverrides = new Map<string, OverrideEntry>();
+
+export function setDevProOverride(userId: string, isPro: boolean, simulated = false): void {
+  devProOverrides.set(userId, { isPro, simulated });
 }
 
 export function getDevProOverride(userId: string): boolean | undefined {
+  return devProOverrides.get(userId)?.isPro;
+}
+
+export function getDevOverrideEntry(userId: string): OverrideEntry | undefined {
   return devProOverrides.get(userId);
 }
 
