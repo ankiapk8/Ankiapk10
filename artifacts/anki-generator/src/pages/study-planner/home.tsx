@@ -366,7 +366,7 @@ ${monthsHtml}</body></html>`;
 
       {/* ── Page header ───────────────────────────────────────────────── */}
       <div className="px-4 pt-6 pb-4 text-center relative">
-        <div className="absolute top-4 right-4 left-4 sm:left-auto flex items-center justify-end gap-2 flex-wrap">
+        <div className="absolute top-4 right-4 left-4 sm:left-auto flex items-center justify-end gap-2 flex-wrap max-w-[calc(100%-2rem)]">
           {todayCount > 0 && (
             <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full border border-orange-200 dark:border-orange-700/60">
               {todayCount} due today
