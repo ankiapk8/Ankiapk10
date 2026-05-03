@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useListDecks, useListQbanks } from "@workspace/api-client-react";
@@ -47,8 +47,24 @@ export default function Dashboard() {
   const { data: decks, isLoading } = useListDecks();
   const { data: qbanks } = useListQbanks();
 
-  const [plannerBannerDismissed, setPlannerBannerDismissed] = useState(false);
-  const plannerDueToday = useMemo(() => getDashboardPlannerDueTodayCount(), []);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const BANNER_LS_KEY = `ankigen-planner-banner-dismissed-${todayStr}`;
+  const [plannerBannerDismissed, setPlannerBannerDismissed] = useState(() => {
+    try { return localStorage.getItem(BANNER_LS_KEY) === "1"; } catch { return false; }
+  });
+  const dismissBanner = () => {
+    try { localStorage.setItem(BANNER_LS_KEY, "1"); } catch {}
+    setPlannerBannerDismissed(true);
+  };
+
+  const [plannerDueTick, setPlannerDueTick] = useState(0);
+  useEffect(() => {
+    const refresh = () => setPlannerDueTick(t => t + 1);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("storage", refresh);
+    return () => { window.removeEventListener("focus", refresh); window.removeEventListener("storage", refresh); };
+  }, []);
+  const plannerDueToday = useMemo(() => getDashboardPlannerDueTodayCount(), [plannerDueTick]);
 
   const sessions = useMemo(() => getSessions(), []);
   const streak = useMemo(() => getStudyStreak(sessions), [sessions]);
@@ -232,7 +248,7 @@ export default function Dashboard() {
               </Button>
             </Link>
             <button
-              onClick={() => setPlannerBannerDismissed(true)}
+              onClick={dismissBanner}
               className="text-amber-500 hover:text-amber-700 dark:hover:text-amber-300 transition-colors shrink-0"
               aria-label="Dismiss"
             >
