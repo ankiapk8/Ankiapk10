@@ -20,6 +20,7 @@ interface ChangelogEntry {
   title: string;
   desc: string;
   badge?: string;
+  critical?: boolean;
 }
 
 const CHANGELOG: Record<string, { headline: string; entries: ChangelogEntry[] }> = {
@@ -32,6 +33,7 @@ const CHANGELOG: Record<string, { headline: string; entries: ChangelogEntry[] }>
         title: "Final Year Study Planner",
         desc: "Plan all 14 medical subjects across months, track topics, streaks, and export your schedule as CSV or ZIP.",
         badge: "New",
+        critical: true,
       },
       {
         icon: Layers3,
@@ -45,6 +47,7 @@ const CHANGELOG: Record<string, { headline: string; entries: ChangelogEntry[] }>
         color: "#2dd4bf",
         title: "Feedback & Support",
         desc: "Send bug reports, feature ideas, or kind words right from the app. Every response is read and actioned.",
+        critical: true,
       },
     ],
   },
@@ -137,6 +140,7 @@ const CHANGELOG: Record<string, { headline: string; entries: ChangelogEntry[] }>
 };
 
 const STORAGE_KEY = "ankigen-whats-new-seen";
+const CRITICAL_FEATURES_STORAGE_KEY = "ankigen-critical-feature-seen";
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -176,6 +180,7 @@ export function WhatsNewBanner() {
 
   const changelog = CHANGELOG[APP_VERSION];
   if (!changelog) return null;
+  const criticalEntries = changelog.entries.filter((entry) => entry.critical);
 
   const overlayBg = isDark ? "rgba(0,0,0,0.65)" : "rgba(0,0,0,0.40)";
   const cardBg = isDark
@@ -186,6 +191,13 @@ export function WhatsNewBanner() {
   const divider = isDark ? "bg-white/8" : "bg-black/6";
   const entryBg = isDark ? "bg-white/4 hover:bg-white/7" : "bg-black/3 hover:bg-black/5";
   const entryDesc = isDark ? "text-white/55" : "text-zinc-500";
+  const criticalSeen = (() => {
+    try {
+      return localStorage.getItem(CRITICAL_FEATURES_STORAGE_KEY) === APP_VERSION;
+    } catch {
+      return false;
+    }
+  })();
 
   return (
     <AnimatePresence>
@@ -282,7 +294,7 @@ export function WhatsNewBanner() {
 
               {/* Feature entries */}
               <div className="flex flex-col gap-1.5">
-                {changelog.entries.map((entry, i) => {
+                {changelog.entries.sort((a, b) => Number(b.critical ?? false) - Number(a.critical ?? false)).map((entry, i) => {
                   const Icon = entry.icon;
                   return (
                     <motion.div
@@ -327,6 +339,15 @@ export function WhatsNewBanner() {
                   );
                 })}
               </div>
+
+              {!criticalSeen && criticalEntries.length > 0 && (
+                <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/8 px-3 py-2">
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${headingColor}`}>Critical updates</p>
+                  <p className={`text-[10px] mt-0.5 ${entryDesc}`}>
+                    {criticalEntries.map((entry) => entry.title).join(" · ")}
+                  </p>
+                </div>
+              )}
 
               {/* Dismiss button */}
               <motion.button
