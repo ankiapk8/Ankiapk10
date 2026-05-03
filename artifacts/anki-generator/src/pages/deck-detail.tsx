@@ -1154,8 +1154,6 @@ export default function DeckDetail() {
   const deckWithSubs = deck as DeckWithSubDecks | undefined;
   const subDecks = [...(deckWithSubs?.subDecks ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   const hasSubDecks = subDecks.length > 0;
-  const dueCardIds = useMemo(() => getDueCardIds(cardList.map(c => c.id)), [cardList]);
-  const dueCount = dueCardIds.length;
   const [studyDueOnly, setStudyDueOnly] = useState(false);
 
   const handleExportJson = async () => {
@@ -1230,6 +1228,8 @@ export default function DeckDetail() {
   }
 
   const cardList = cards ?? [];
+  const dueCardIds = getDueCardIds(cardList.map(c => c.id));
+  const dueCount = dueCardIds.length;
   const visualCount = cardList.filter(c => (c as Card & { image?: string | null }).image).length;
   const textCount = cardList.length - visualCount;
   const hasMixedCards = visualCount > 0 && textCount > 0;
@@ -1639,6 +1639,7 @@ function EditableCard({
   onDelete: (id: number) => void;
 }) {
   const daysUntilDue = getDaysUntilDue(card.id);
+  const cardSrs = getSrsState(card.id);
   const [isEditing, setIsEditing] = useState(false);
   const [front, setFront] = useState(card.front);
   const [back, setBack] = useState(card.back);
@@ -1716,6 +1717,11 @@ function EditableCard({
               }`}>
                 <CalendarClock className="h-2.5 w-2.5" />
                 {daysUntilDue <= 0 ? "Due now" : `Due in ${daysUntilDue}d`}
+              </span>
+            )}
+            {cardSrs.reps > 0 && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded-full border border-border/40">
+                EF {cardSrs.easeFactor.toFixed(2)}
               </span>
             )}
             {(card as Card & { image?: string | null }).image && (
