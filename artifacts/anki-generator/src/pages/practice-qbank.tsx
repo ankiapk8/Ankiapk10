@@ -561,6 +561,14 @@ function PracticeSession({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const expiredRef = useRef(false);
 
+  // Mirror mutable state into refs so the timer expiry callback always
+  // reads the latest values without stale-closure issues.
+  const selectedRef = useRef<number | null>(null);
+  const answersRef = useRef<Answer[]>([]);
+  const indexRef = useRef(0);
+  const revealedRef = useRef(false);
+  const onDoneRef = useRef(onDone);
+
   const current = questions[index];
   const choices = current?.choices ?? [];
   const correctIndex = current?.correctIndex ?? 0;
@@ -574,37 +582,56 @@ function PracticeSession({
   const timerPct = timeLimitSeconds > 0 ? timerSeconds / timeLimitSeconds : 1;
   const timerColor = timerPct > 0.5 ? "text-emerald-600 dark:text-emerald-400" : timerPct > 0.25 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400";
 
+  // Keep refs in sync with latest state/props
+  useEffect(() => { selectedRef.current = selected; }, [selected]);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { indexRef.current = index; }, [index]);
+  useEffect(() => { revealedRef.current = revealed; }, [revealed]);
+  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
+
   // Reset question start time when index changes
   useEffect(() => {
     questionStartRef.current = Date.now();
   }, [index]);
 
-  // Countdown timer
+  // Countdown timer — just decrements, no side-effects
   useEffect(() => {
     if (!timed) return;
     timerRef.current = setInterval(() => {
-      setTimerSeconds(s => {
-        if (s <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current);
-          if (!expiredRef.current) {
-            expiredRef.current = true;
-            // End session with current answers
-            setAnswers(prev => {
-              const elapsed = Math.round((Date.now() - sessionStartTime) / 1000);
-              // Schedule the call outside the setState callback
-              setTimeout(() => {
-                setAnswers(a => { onDone(a, elapsed); return a; });
-              }, 0);
-              return prev;
-            });
-          }
-          return 0;
-        }
-        return s - 1;
-      });
+      setTimerSeconds(s => (s > 0 ? s - 1 : 0));
     }, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [timed]);
+
+  // Handle timer expiry — runs once when timerSeconds reaches 0
+  useEffect(() => {
+    if (!timed || timerSeconds !== 0) return;
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    if (expiredRef.current) return;
+    expiredRef.current = true;
+
+    const currentSelected = selectedRef.current;
+    const currentAnswers = answersRef.current;
+    const currentIndex = indexRef.current;
+    const currentRevealed = revealedRef.current;
+    const q = questions[currentIndex];
+    const elapsed = Math.round((Date.now() - sessionStartTime) / 1000);
+
+    let finalAnswers = [...currentAnswers];
+
+    // Auto-commit the in-progress question if the user had selected an answer
+    // but hadn't confirmed it yet when time ran out.
+    if (!currentRevealed && currentSelected !== null && currentAnswers.length === currentIndex) {
+      finalAnswers.push({
+        questionIndex: currentIndex,
+        selectedIndex: currentSelected,
+        correct: currentSelected === (q?.correctIndex ?? 0),
+        timeSeconds: Math.round((Date.now() - questionStartRef.current) / 1000),
+      });
+    }
+
+    onDoneRef.current(finalAnswers, elapsed);
+  }, [timed, timerSeconds, questions, sessionStartTime]);
 
   const handleSelect = useCallback((i: number) => {
     if (revealed) return;
