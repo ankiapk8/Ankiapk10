@@ -277,15 +277,21 @@ export default function Dashboard() {
           gradient="from-emerald-500 via-teal-400 to-cyan-500"
           title="Dashboard"
           subtitle="Your study progress at a glance."
-          action={
-            <Link href="/generate">
-              <Button className="gap-2">
-                <PlusCircle className="h-4 w-4" />
-                Generate Cards
-              </Button>
-            </Link>
-          }
         />
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Link href="/generate">
+            <Button className="gap-2">
+              <PlusCircle className="h-4 w-4" />
+              Generate Cards
+            </Button>
+          </Link>
+          <Link href="/settings">
+            <Button variant="outline" className="gap-2">
+              <Settings className="h-4 w-4" />
+              Settings
+            </Button>
+          </Link>
+        </div>
         {import.meta.env.DEV && <div className="mt-2"><ModelBadge /></div>}
       </div>
 
