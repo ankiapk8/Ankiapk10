@@ -743,8 +743,8 @@ export default function Decks() {
     if (masteryFilter !== "all") {
       list = list.filter(d => {
         const pct = masteryMap.get(d.id);
-        if (masteryFilter === "mastered") return (pct ?? 0) >= 80;
-        return (pct ?? 0) < 80;
+        if (masteryFilter === "mastered") return (pct ?? 0) >= 0.8;
+        return (pct ?? 0) < 0.8;
       });
     }
     return sortDecks(list);
