@@ -14,6 +14,7 @@ import qbanksRouter from "./qbanks";
 import mindMapRouter from "./mind-map";
 import deckMindMapsRouter from "./deck-mind-maps";
 import feedbackRouter from "./feedback";
+import topicsRouter from "./topics";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(qbanksRouter);
 router.use(mindMapRouter);
 router.use(deckMindMapsRouter);
 router.use(feedbackRouter);
+router.use(topicsRouter);
 
 export default router;

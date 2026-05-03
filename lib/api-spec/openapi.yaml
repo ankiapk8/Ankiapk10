@@ -16,6 +16,8 @@ tags:
     description: Card operations
   - name: generate
     description: AI card generation operations
+  - name: planner
+    description: Study planner operations
 paths:
   /healthz:
     get:
@@ -211,6 +213,50 @@ paths:
                 $ref: "#/components/schemas/GenerateCardsResponse"
         "400":
           description: Bad request
+
+  /topics:
+    get:
+      operationId: getAllTopics
+      tags: [planner]
+      summary: Get all study topics for the current user
+      responses:
+        "200":
+          description: Topics by storage key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetAllTopicsResponse"
+        "401":
+          description: Not authenticated
+
+  /topics/{storageKey}:
+    put:
+      operationId: upsertTopics
+      tags: [planner]
+      summary: Save study topics for a storage key
+      parameters:
+        - name: storageKey
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertTopicsBody"
+      responses:
+        "200":
+          description: Saved topics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpsertTopicsResponse"
+        "400":
+          description: Invalid request body
+        "401":
+          description: Not authenticated
 
   /generate-qbank:
     post:
@@ -544,3 +590,39 @@ components:
         - deckName
         - csv
         - cardCount
+
+    GetAllTopicsResponse:
+      type: object
+      properties:
+        topics:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: "#/components/schemas/Topic"
+      required:
+        - topics
+
+    UpsertTopicsBody:
+      type: object
+      properties:
+        topics:
+          type: array
+          items:
+            $ref: "#/components/schemas/Topic"
+      required:
+        - topics
+
+    UpsertTopicsResponse:
+      type: object
+      properties:
+        topics:
+          type: array
+          items:
+            $ref: "#/components/schemas/Topic"
+      required:
+        - topics
+
+    Topic:
+      type: object
+      additionalProperties: true
