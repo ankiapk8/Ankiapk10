@@ -76,7 +76,12 @@ export default function Dashboard() {
     const refresh = () => { setPlannerDueTick(t => t + 1); setStatsTick(t => t + 1); };
     window.addEventListener("focus", refresh);
     window.addEventListener("storage", refresh);
-    return () => { window.removeEventListener("focus", refresh); window.removeEventListener("storage", refresh); };
+    window.addEventListener("deck-tags-changed", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("deck-tags-changed", refresh);
+    };
   }, []);
   const plannerDueToday = useMemo(() => getDashboardPlannerDueTodayCount(), [plannerDueTick]);
 

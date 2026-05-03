@@ -1425,9 +1425,13 @@ export default function DeckDetail() {
 
   useEffect(() => { setDeckTagsLocal(getDeckTags(deckId)); }, [deckId]);
   useEffect(() => {
-    const onStorage = () => setDeckTagsLocal(getDeckTags(deckId));
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    const onTagsChanged = () => setDeckTagsLocal(getDeckTags(deckId));
+    window.addEventListener("storage", onTagsChanged);
+    window.addEventListener("deck-tags-changed", onTagsChanged);
+    return () => {
+      window.removeEventListener("storage", onTagsChanged);
+      window.removeEventListener("deck-tags-changed", onTagsChanged);
+    };
   }, [deckId]);
 
   const handleAddDeckTag = (tag: string) => {

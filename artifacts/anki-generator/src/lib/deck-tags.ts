@@ -28,7 +28,7 @@ export function setDeckTags(deckId: number, tags: string[]): void {
       obj[String(deckId)] = normalized;
     }
     localStorage.setItem(DECK_TAGS_KEY, JSON.stringify(obj));
-    window.dispatchEvent(new Event("storage"));
+    window.dispatchEvent(new CustomEvent("deck-tags-changed"));
   } catch {}
 }
 
