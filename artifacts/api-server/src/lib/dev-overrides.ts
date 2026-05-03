@@ -80,6 +80,12 @@ export async function clearDevProOverride(key: string): Promise<void> {
   await clearPersistedOverride(key);
 }
 
+export function getDevSidFromRequest(req: Request): string | undefined {
+  const header = req.headers["x-dev-sid"] as string | undefined;
+  if (header && header.length > 0) return header;
+  return req.cookies?.[DEV_SID_COOKIE] as string | undefined;
+}
+
 export function getDevOverrideForRequest(req: Request): OverrideEntry | undefined {
   if (process.env.NODE_ENV === "production") return undefined;
   const userId = (req as any).user?.id as string | undefined;
@@ -87,7 +93,7 @@ export function getDevOverrideForRequest(req: Request): OverrideEntry | undefine
     const entry = devProOverrides.get(userId);
     if (entry !== undefined) return entry;
   }
-  const devSid = req.cookies?.[DEV_SID_COOKIE] as string | undefined;
+  const devSid = getDevSidFromRequest(req);
   if (devSid) return devProOverrides.get(devSid);
   return undefined;
 }

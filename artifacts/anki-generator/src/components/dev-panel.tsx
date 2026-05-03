@@ -6,9 +6,15 @@ import {
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { devSidHeaders } from "@/lib/dev-sid";
+
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/+$/, "") ?? "";
 const LS_KEY = "dev-pro-override";
 const LS_SIM_KEY = "dev-simulated";
+
+function devHeaders(): HeadersInit {
+  return devSidHeaders();
+}
 
 interface DevStatus {
   authenticated: boolean;
@@ -37,7 +43,7 @@ const FEATURES: { label: string; pro: boolean }[] = [
 
 async function fetchDevStatus(): Promise<DevStatus> {
   try {
-    const res = await fetch(`${API_BASE}/api/dev/status`, { credentials: "include" });
+    const res = await fetch(`${API_BASE}/api/dev/status`, { credentials: "include", headers: devHeaders() });
     if (!res.ok) return { authenticated: false, userId: null, devIsPro: null, simulated: false };
     return res.json();
   } catch {
@@ -47,7 +53,7 @@ async function fetchDevStatus(): Promise<DevStatus> {
 
 async function fetchDevUsage(): Promise<DevUsage | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/dev/usage`, { credentials: "include" });
+    const res = await fetch(`${API_BASE}/api/dev/usage`, { credentials: "include", headers: devHeaders() });
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -58,26 +64,26 @@ async function fetchDevUsage(): Promise<DevUsage | null> {
 async function setDevPro(isPro: boolean): Promise<void> {
   await fetch(`${API_BASE}/api/dev/set-pro`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...devHeaders() },
     credentials: "include",
     body: JSON.stringify({ isPro }),
   });
 }
 
 async function clearDevOverride(): Promise<void> {
-  await fetch(`${API_BASE}/api/dev/set-pro`, { method: "DELETE", credentials: "include" });
+  await fetch(`${API_BASE}/api/dev/set-pro`, { method: "DELETE", credentials: "include", headers: devHeaders() });
 }
 
 async function simulateSubscribe(): Promise<void> {
-  await fetch(`${API_BASE}/api/dev/simulate-subscribe`, { method: "POST", credentials: "include" });
+  await fetch(`${API_BASE}/api/dev/simulate-subscribe`, { method: "POST", credentials: "include", headers: devHeaders() });
 }
 
 async function cancelSimulatedSubscribe(): Promise<void> {
-  await fetch(`${API_BASE}/api/dev/simulate-subscribe`, { method: "DELETE", credentials: "include" });
+  await fetch(`${API_BASE}/api/dev/simulate-subscribe`, { method: "DELETE", credentials: "include", headers: devHeaders() });
 }
 
 async function resetQuota(): Promise<void> {
-  await fetch(`${API_BASE}/api/dev/reset-quota`, { method: "POST", credentials: "include" });
+  await fetch(`${API_BASE}/api/dev/reset-quota`, { method: "POST", credentials: "include", headers: devHeaders() });
 }
 
 interface DevSubStatus {
@@ -88,7 +94,7 @@ interface DevSubStatus {
 
 async function fetchSubStatus(): Promise<DevSubStatus> {
   try {
-    const res = await fetch(`${API_BASE}/api/subscription/status`, { credentials: "include" });
+    const res = await fetch(`${API_BASE}/api/subscription/status`, { credentials: "include", headers: devHeaders() });
     if (!res.ok) return { isPro: false };
     return res.json();
   } catch {

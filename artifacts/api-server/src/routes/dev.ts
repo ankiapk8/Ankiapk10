@@ -5,6 +5,7 @@ import {
   clearDevProOverride,
   getDevOverrideEntry,
   loadDevOverridesFromDB,
+  getDevSidFromRequest,
   DEV_SID_COOKIE,
 } from "../lib/dev-overrides";
 import { countAllDecksByUser, FREE_TIER } from "../lib/free-tier-limits";
@@ -14,7 +15,7 @@ import { sql } from "drizzle-orm";
 const router: IRouter = Router();
 
 function getOrSetDevSid(req: Request, res: Response): string {
-  const existing = req.cookies?.[DEV_SID_COOKIE] as string | undefined;
+  const existing = getDevSidFromRequest(req);
   if (existing && existing.length > 0) return existing;
   const sid = "dev-" + crypto.randomBytes(16).toString("hex");
   res.cookie(DEV_SID_COOKIE, sid, {

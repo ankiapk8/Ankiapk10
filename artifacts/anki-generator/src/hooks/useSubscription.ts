@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { devSidHeaders } from "@/lib/dev-sid";
 
 export interface SubscriptionStatus {
   isPro: boolean;
@@ -26,6 +27,7 @@ async function fetchSubscriptionStatus(): Promise<SubscriptionStatus> {
   try {
     const res = await fetch(`${API_BASE}/api/subscription/status`, {
       credentials: "include",
+      headers: devSidHeaders(),
     });
     if (!res.ok) return { isPro: false, subscription: null };
     return res.json();
@@ -38,6 +40,7 @@ async function fetchUsageStatus(): Promise<UsageStatus> {
   try {
     const res = await fetch(`${API_BASE}/api/subscription/usage`, {
       credentials: "include",
+      headers: devSidHeaders(),
     });
     if (!res.ok) return { decks: 0, deckLimit: 2, exports: 0, exportLimit: 1 };
     return res.json();
