@@ -2,7 +2,6 @@ import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays } from "lucide-react";
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
-import { BottomNav } from "@/components/bottom-nav";
 import { PomodoroTimer } from "@/components/pomodoro-timer";
 import { FeedbackButton } from "@/components/feedback-button";
 import { useDarkMode } from "@/hooks/use-dark-mode";
@@ -138,10 +137,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className={`flex-1 flex flex-col w-full ${location.startsWith("/planner") ? "" : "max-w-5xl mx-auto p-4 md:p-8 pb-24 lg:pb-8"}`}>
+      <main className={`flex-1 flex flex-col w-full ${location.startsWith("/planner") ? "" : "max-w-5xl mx-auto p-4 md:p-8"}`}>
         {children}
       </main>
-      <BottomNav />
       <FeedbackButton />
       <ApkWelcomeBanner />
     </div>
