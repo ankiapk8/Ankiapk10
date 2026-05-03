@@ -28,6 +28,7 @@ import AdminFeedback from "@/pages/admin-feedback";
 import NotFound from "@/pages/not-found";
 import { StudyPlannerTab } from "@/pages/study-planner-tab";
 import StudyDue from "@/pages/study-due";
+import Pricing from "@/pages/pricing";
 
 const ONE_WEEK = 1000 * 60 * 60 * 24 * 7;
 
@@ -70,6 +71,7 @@ function AppRouter() {
             <Route path="/practice-qbank/:id" component={PracticeQbank} />
             <Route path="/planner" component={StudyPlannerTab} />
             <Route path="/study/due" component={StudyDue} />
+            <Route path="/pricing" component={Pricing} />
             <Route component={NotFound} />
           </Switch>
         </PageTransition>

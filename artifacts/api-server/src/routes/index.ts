@@ -15,10 +15,12 @@ import mindMapRouter from "./mind-map";
 import deckMindMapsRouter from "./deck-mind-maps";
 import feedbackRouter from "./feedback";
 import topicsRouter from "./topics";
+import subscriptionRouter from "./subscription";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(subscriptionRouter);
 router.use(decksRouter);
 router.use(cardsRouter);
 router.use(generateRouter);

@@ -140,9 +140,14 @@ export async function ensureDatabaseSchema(): Promise<void> {
       "first_name" varchar,
       "last_name" varchar,
       "profile_image_url" varchar,
+      "stripe_customer_id" varchar,
+      "stripe_subscription_id" varchar,
       "created_at" timestamp with time zone DEFAULT now() NOT NULL,
       "updated_at" timestamp with time zone DEFAULT now() NOT NULL
     );
+
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "stripe_customer_id" varchar;
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "stripe_subscription_id" varchar;
 
     CREATE TABLE IF NOT EXISTS "user_topics" (
       "user_id" varchar NOT NULL,

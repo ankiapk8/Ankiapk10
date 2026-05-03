@@ -2,6 +2,8 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { ensureDatabaseSchema } from "@workspace/db";
 import { autoConfigureFromEnv } from "./lib/apk-builder";
+import { runMigrations } from 'stripe-replit-sync';
+import { getStripeSync } from "./stripeClient";
 
 const rawPort = process.env["PORT"];
 
@@ -17,8 +19,34 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
+async function initStripe(): Promise<void> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    logger.warn("DATABASE_URL not set — skipping Stripe initialization");
+    return;
+  }
+  try {
+    logger.info("Initializing Stripe schema...");
+    await runMigrations({ databaseUrl, schema: 'stripe' });
+    logger.info("Stripe schema ready");
+
+    const stripeSync = await getStripeSync();
+    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
+    logger.info("Stripe webhook configured");
+
+    stripeSync.syncBackfill()
+      .then(() => logger.info("Stripe data synced"))
+      .catch(err => logger.warn({ err }, "Stripe backfill failed (non-fatal)"));
+  } catch (err) {
+    logger.warn({ err }, "Stripe initialization failed (non-fatal — connect Stripe integration to enable payments)");
+  }
+}
+
 async function main(): Promise<void> {
   await ensureDatabaseSchema();
+
+  await initStripe();
 
   app.listen(port, (err) => {
     if (err) {

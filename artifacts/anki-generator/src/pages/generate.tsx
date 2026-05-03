@@ -1,11 +1,13 @@
 import { useState, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, FileText, ImageIcon, Layers, Plus, Stethoscope, Library } from "lucide-react";
+import { Sparkles, FileText, ImageIcon, Layers, Plus, Stethoscope, Library, Crown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GenerateForm } from "@/components/generate-form";
 import { GenerateQbankForm } from "@/components/generate-qbank-form";
+import { useSubscription } from "@/hooks/useSubscription";
+import { UpgradeBanner } from "@/components/upgrade-gate";
 
 type Mode = "deck" | "qbank";
 
@@ -40,6 +42,7 @@ export default function Generate() {
   const prefillDeckName = urlParams.get("deckName") ?? undefined;
   const prefillCustomPrompt = urlParams.get("customPrompt") ?? undefined;
   const [mode, setMode] = useState<Mode>(urlParams.get("mode") === "qbank" ? "qbank" : "deck");
+  const { isPro } = useSubscription();
 
   const isQbank = mode === "qbank";
 
@@ -229,6 +232,11 @@ export default function Generate() {
           >
             <Stethoscope className="h-4 w-4" />
             Question Bank
+            {!isPro && (
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-300/50 ml-0.5">
+                <Crown className="h-2 w-2" />Pro
+              </span>
+            )}
           </button>
         </div>
       </motion.div>
@@ -328,11 +336,15 @@ export default function Generate() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.35 }}
-            className="mt-8 max-w-2xl mx-auto"
+            className="mt-8 max-w-2xl mx-auto space-y-4"
           >
+            {!isPro && (
+              <UpgradeBanner feature="Question Bank generation" />
+            )}
             <motion.button
               type="button"
               onClick={() => {
+                if (!isPro) return;
                 const el = document.getElementById("generate-form-section");
                 el?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
@@ -463,14 +475,20 @@ export default function Generate() {
                   exit={{ opacity: 0, x: -16 }}
                   transition={{ duration: 0.25 }}
                 >
-                  <GenerateQbankForm
-                    prefilledDeckName={prefillDeckName}
-                    prefilledCustomPrompt={prefillCustomPrompt}
-                    onDone={(deckId) => {
-                      if (deckId !== undefined) setLocation(`/decks/${deckId}`);
-                      else setLocation("/decks");
-                    }}
-                  />
+                  {!isPro ? (
+                    <div className="py-4">
+                      <UpgradeBanner feature="Question Bank generation" />
+                    </div>
+                  ) : (
+                    <GenerateQbankForm
+                      prefilledDeckName={prefillDeckName}
+                      prefilledCustomPrompt={prefillCustomPrompt}
+                      onDone={(deckId) => {
+                        if (deckId !== undefined) setLocation(`/decks/${deckId}`);
+                        else setLocation("/decks");
+                      }}
+                    />
+                  )}
                 </motion.div>
               ) : (
                 <motion.div

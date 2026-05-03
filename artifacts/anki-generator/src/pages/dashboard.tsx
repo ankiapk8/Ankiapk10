@@ -11,7 +11,7 @@ import {
   Layers, FileText, Sparkles, ChevronRight, PlusCircle,
   Clock, Flame, Brain, CheckCircle2, BookOpen, Stethoscope, CalendarClock,
   LayoutDashboard, Target, TrendingUp, TrendingDown, Compass, Timer,
-  Trophy, Play, X, Search, Tag,
+  Trophy, Play, X, Search, Tag, Crown, Settings,
 } from "lucide-react";
 import {
   getSessions,
@@ -35,6 +35,7 @@ import { FeaturesShowcase } from "@/components/features-showcase";
 import { ModelBadge } from "@/components/model-badge";
 import { AmbientOrbs } from "@/components/ambient-orbs";
 import { PageHeader } from "@/components/page-header";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const RING_R = 36;
 const RING_C = 2 * Math.PI * RING_R; // ≈ 226.2
@@ -58,6 +59,7 @@ function masteryColor(pct: number | null): { chip: string; dot: string } {
 export default function Dashboard() {
   const { data: decks, isLoading } = useListDecks();
   const { data: qbanks } = useListQbanks();
+  const { isPro } = useSubscription();
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const BANNER_LS_KEY = `ankigen-planner-banner-dismissed-${todayStr}`;
@@ -291,6 +293,14 @@ export default function Dashboard() {
               Settings
             </Button>
           </Link>
+          {!isPro && (
+            <Link href="/pricing">
+              <Button variant="outline" className="gap-2 border-amber-300/60 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30">
+                <Crown className="h-4 w-4" />
+                Upgrade to Pro
+              </Button>
+            </Link>
+          )}
         </div>
         {import.meta.env.DEV && <div className="mt-2"><ModelBadge /></div>}
       </div>

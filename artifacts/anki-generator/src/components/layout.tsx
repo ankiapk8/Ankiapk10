@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays, Download } from "lucide-react";
+import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays, Download, Crown } from "lucide-react";
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
 import { PomodoroTimer } from "@/components/pomodoro-timer";
 import { FeedbackButton } from "@/components/feedback-button";
@@ -229,6 +229,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Button>
             )}
             <PomodoroTimer />
+            <Link href="/pricing">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                aria-label="Upgrade to Pro"
+                title="Upgrade to Pro"
+              >
+                <Crown className="h-4 w-4" />
+              </Button>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
