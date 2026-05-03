@@ -4,17 +4,19 @@ import { Check } from "lucide-react";
 export type GenStage = 0 | 1 | 2 | 3;
 
 const STAGES = [
-  { label: "Extracting" },
-  { label: "Generating" },
-  { label: "Saving" },
+  { label: "Extracting text" },
+  { label: "Detecting figures" },
+  { label: "Generating cards" },
   { label: "Done" },
 ] as const;
 
 function getStageFromMessage(message: string, percent: number): GenStage {
   const msg = message.toLowerCase();
-  if (msg.includes("saving") || msg.includes("database") || percent >= 88) return 2;
-  if (msg.includes("generating") || msg.includes("analyzing") || msg.includes("connecting") || percent >= 5) return 1;
-  return 1;
+  if (percent >= 100) return 3;
+  if (msg.includes("saving") || msg.includes("database")) return 2;
+  if (msg.includes("generating") || msg.includes("writing") || msg.includes("cards") || percent >= 12) return 2;
+  if (msg.includes("analyzing") || msg.includes("cropping") || msg.includes("image") || msg.includes("visual") || msg.includes("figure") || msg.includes("detecting")) return 1;
+  return 0;
 }
 
 export function stageFromGenerating(percent: number, message: string): GenStage {

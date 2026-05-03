@@ -453,7 +453,7 @@ async function generateTextCards(
   requestLog: { warn: (obj: unknown, message: string) => void },
   signal?: AbortSignal,
   customPrompt?: string,
-  onProgress?: (done: number, total: number) => void,
+  onProgress?: (done: number, total: number, cardsCreated: number) => void,
   pageTexts?: string[],
 ): Promise<RawCard[]> {
   const trimmed = text.trim();
@@ -496,7 +496,7 @@ async function generateTextCards(
       else requestLog.warn({ err: r.reason }, "Text chunk generation failed");
     }
     done += slice.length;
-    onProgress?.(done, chunks.length);
+    onProgress?.(done, chunks.length, allCards.length);
   }
 
   // Deduplicate exact-duplicate fronts that can arise from chunk overlap.
@@ -998,13 +998,14 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
           req.log,
           signal,
           customPrompt,
-          (done, total) => {
+          (done, total, cardsCreated) => {
             const frac = total > 0 ? done / total : 1;
             const pct = Math.round(TEXT_START + frac * (TEXT_DONE_PERCENT - TEXT_START));
             sseEmit(res, {
               type: "progress",
               percent: pct,
               message: `Generating text cards… (${done}/${total} chunks)`,
+              cardsCreated,
             });
           },
           pageTexts,

@@ -26,6 +26,7 @@ interface GenerateQbankFormProps {
   defaultParentId?: number | null;
   prefilledText?: string;
   prefilledDeckName?: string;
+  prefilledCustomPrompt?: string;
   onDone?: (newQbankId?: number) => void;
 }
 
@@ -75,7 +76,7 @@ function parseProgressPercent(message: string): number | null {
   return Math.round((parseInt(match[1], 10) / total) * 100);
 }
 
-export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDeckName, onDone }: GenerateQbankFormProps) {
+export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDeckName, prefilledCustomPrompt, onDone }: GenerateQbankFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: allQbanks } = useListQbanks();
@@ -91,7 +92,7 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
   const [manualPrompt, setManualPrompt] = useState("");
 
   // Shared
-  const [sharedPrompt, setSharedPrompt] = useState("");
+  const [sharedPrompt, setSharedPrompt] = useState(prefilledCustomPrompt ?? "");
   const [parentId, setParentId] = useState<string>(defaultParentId?.toString() ?? "none");
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [lastResultDeckId, setLastResultDeckId] = useState<number | undefined>(undefined);

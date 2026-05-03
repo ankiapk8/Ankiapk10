@@ -82,6 +82,7 @@ type FileEntry = {
   generatingStartedAt?: number;
   customPrompt?: string;
   generatedDeckId?: number;
+  liveCardCount?: number;
 };
 
 function formatEta(ms: number): string {
@@ -154,7 +155,7 @@ export function GenerateForm({
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [successOverlay, setSuccessOverlay] = useState<{ open: boolean; decks: number; cards: number }>({ open: false, decks: 0, cards: 0 });
   const pendingDoneRef = useRef<(() => void) | null>(null);
-  const [reviewState, setReviewState] = useState<{ deckId: number; deckName: string } | null>(null);
+  const [reviewState, setReviewState] = useState<{ deckId: number; deckName: string; autoClose?: () => void } | null>(null);
   const [manualText, setManualText] = useState("");
   const [manualDeckName, setManualDeckName] = useState("");
   const [manualCardCount, setManualCardCount] = useState<number | "">("");
@@ -333,12 +334,12 @@ export function GenerateForm({
             try {
               const event = JSON.parse(line.slice(5).trim()) as {
                 type: string; percent?: number; message?: string; generatedCount?: number;
-                deck?: { id?: number };
+                deck?: { id?: number }; cardsCreated?: number;
               };
               if (event.type === "progress" && fileId) {
                 setFiles(prev => prev.map(f =>
                   f.id === fileId
-                    ? { ...f, generatingPercent: event.percent, generatingMessage: event.message }
+                    ? { ...f, generatingPercent: event.percent, generatingMessage: event.message, liveCardCount: event.cardsCreated ?? f.liveCardCount }
                     : f
                 ));
               } else if (event.type === "done") {
@@ -390,6 +391,8 @@ export function GenerateForm({
     setIsCancelling(false);
     cancelledIdsRef.current.clear();
     let ok = 0, fail = 0, cancelled = 0, totalCards = 0;
+    let lastDoneId: number | undefined;
+    let lastDoneName = "";
     const sharedTrim = sharedCustomPrompt.trim();
     const fileEffectivePrompt = (f: FileEntry) => {
       const own = (f.customPrompt ?? "").trim();
@@ -427,6 +430,8 @@ export function GenerateForm({
         if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count, generatedDeckId: doneId });
         ok++;
         totalCards += count;
+        lastDoneId = doneId;
+        lastDoneName = t.deckName;
       } catch (error) {
         const wasCancelled = cancelledIdsRef.current.has(key) || cancelledIdsRef.current.has(manualCancelKey);
         if (wasCancelled) {
@@ -453,16 +458,30 @@ export function GenerateForm({
 
     if (ok > 0) {
       const cleanRun = fail === 0 && cancelled === 0;
-      setSuccessOverlay({ open: true, decks: ok, cards: totalCards });
-      if (cleanRun) {
-        // Defer the reset + onDone (which often navigates away) until after
-        // the celebration overlay finishes, so users actually see it.
-        pendingDoneRef.current = () => { resetState(); onDone?.(); };
-      } else {
-        toast({
-          title: ok === 1 ? "Deck generated!" : `${ok} decks generated!`,
-          description: `${fail > 0 ? `${fail} failed` : ""}${fail > 0 && cancelled > 0 ? ", " : ""}${cancelled > 0 ? `${cancelled} cancelled` : ""}.`,
+      if (cleanRun && ok === 1 && lastDoneId) {
+        // Single clean run: auto-open card review so user can review/edit cards
+        // before being navigated away. Modal close then triggers success overlay.
+        const capturedId = lastDoneId;
+        const capturedName = lastDoneName;
+        const capturedCards = totalCards;
+        setReviewState({
+          deckId: capturedId,
+          deckName: capturedName,
+          autoClose: () => {
+            setSuccessOverlay({ open: true, decks: 1, cards: capturedCards });
+            pendingDoneRef.current = () => { resetState(); onDone?.(); };
+          },
         });
+      } else {
+        setSuccessOverlay({ open: true, decks: ok, cards: totalCards });
+        if (cleanRun) {
+          pendingDoneRef.current = () => { resetState(); onDone?.(); };
+        } else {
+          toast({
+            title: ok === 1 ? "Deck generated!" : `${ok} decks generated!`,
+            description: `${fail > 0 ? `${fail} failed` : ""}${fail > 0 && cancelled > 0 ? ", " : ""}${cancelled > 0 ? `${cancelled} cancelled` : ""}.`,
+          });
+        }
       }
     } else {
       toast({ title: "Generation failed", variant: "destructive" });
@@ -541,7 +560,11 @@ export function GenerateForm({
           deckId={reviewState.deckId}
           deckName={reviewState.deckName}
           isOpen={!!reviewState}
-          onClose={() => setReviewState(null)}
+          onClose={() => {
+            const autoClose = reviewState.autoClose;
+            setReviewState(null);
+            autoClose?.();
+          }}
         />
       )}
       <ParentSelector />
@@ -719,8 +742,7 @@ export function GenerateForm({
                 } else if (startedAt && pct < 8 && nowTick - startedAt > 4000) {
                   etaLabel = "estimating…";
                 }
-                const targetCount = typeof f.cardCount === "number" && f.cardCount > 0 ? f.cardCount : DEFAULT_TARGET_CARDS;
-                const liveCount = pct > 5 ? Math.round((pct / 100) * targetCount) : 0;
+                const liveCount = f.liveCardCount ?? 0;
                 return (
                 <div className="space-y-2 pt-0.5">
                   <GenerationStageStepper activeStage={stageFromGenerating(pct, f.generatingMessage ?? "")} />

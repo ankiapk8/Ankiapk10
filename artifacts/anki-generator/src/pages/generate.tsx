@@ -465,6 +465,7 @@ export default function Generate() {
                 >
                   <GenerateQbankForm
                     prefilledDeckName={prefillDeckName}
+                    prefilledCustomPrompt={prefillCustomPrompt}
                     onDone={(deckId) => {
                       if (deckId !== undefined) setLocation(`/decks/${deckId}`);
                       else setLocation("/decks");
