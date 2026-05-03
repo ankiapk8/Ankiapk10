@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { motion } from "framer-motion";
 import {
   Plus, Pencil, Trash2, Clock, X, Search, Download,
   ExternalLink, FileText, Video, BookOpen, StickyNote, ChevronDown, ChevronUp,
@@ -212,7 +213,7 @@ export function TopicManager({ storageKey, subjectLabel, parentLabel, accentClas
             { label: "Not Started", value: notStarted, color: "text-gray-500" },
             { label: "High Priority", value: highPriority, color: "text-red-500" },
           ].map(s => (
-            <div key={s.label} className="rounded-lg border bg-card p-2 text-center">
+            <div key={s.label} className="rounded-lg border border-border/50 bg-card/70 backdrop-blur-sm p-2 text-center">
               <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
               <div className="text-[10px] text-muted-foreground">{s.label}</div>
             </div>
@@ -355,16 +356,22 @@ export function TopicManager({ storageKey, subjectLabel, parentLabel, accentClas
           )}
         </div>
       ) : (
-        <div className="space-y-1.5">
+        <motion.div
+          className="space-y-1.5"
+          initial="hidden"
+          animate="visible"
+          variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.055 } } }}
+        >
           {filtered.map(t => {
             const isExpanded = expanded.has(t.id);
             const hasExtra = hasDetails(t);
             const isDeleteConfirm = deleteConfirmId === t.id;
             return (
-              <div
+              <motion.div
                 key={t.id}
-                className={`rounded-xl border bg-card transition-colors ${
-                  selected.has(t.id) ? "border-primary/50 bg-primary/5" : "hover:bg-accent/20"
+                variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } } }}
+                className={`rounded-xl border backdrop-blur-sm transition-colors ${
+                  selected.has(t.id) ? "border-primary/50 bg-primary/5" : "border-border/50 bg-card/70 hover:bg-accent/30"
                 }`}
               >
                 {/* Main row */}
@@ -499,10 +506,10 @@ export function TopicManager({ storageKey, subjectLabel, parentLabel, accentClas
                     )}
                   </div>
                 )}
-              </div>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       )}
 
       {/* Bulk action bar */}
