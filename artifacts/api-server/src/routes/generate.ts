@@ -12,6 +12,15 @@ const router: IRouter = Router();
 
 const generateRateLimiter = createRateLimiter(10, 60_000);
 
+function rateLimitMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const ip = req.ip ?? "unknown";
+  if (!generateRateLimiter(ip)) {
+    res.status(429).json({ error: "Too many requests. Please wait a moment before generating again." });
+    return;
+  }
+  next();
+}
+
 const MAX_PAGE_IMAGES = Number.MAX_SAFE_INTEGER;
 const VISUAL_BATCH_SIZE = 6;
 const MAX_VISUAL_PAGES = Number.MAX_SAFE_INTEGER;
@@ -1712,7 +1721,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   }
 });
 
-router.post("/generate/commit", generateRateLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.post("/generate/commit", rateLimitMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { deckName, parentId, cards } = req.body as {
     deckName?: string;
     parentId?: number | null;
@@ -1783,7 +1792,7 @@ router.post("/generate/commit", generateRateLimiter, async (req: Request, res: R
   }
 });
 
-router.post("/generate/regenerate-card", generateRateLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.post("/generate/regenerate-card", rateLimitMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { front, back, deckName } = req.body as { front?: string; back?: string; deckName?: string };
   if (!front?.trim() || !back?.trim()) { res.status(400).json({ error: "front and back are required" }); return; }
 
@@ -1815,7 +1824,7 @@ router.post("/generate/regenerate-card", generateRateLimiter, async (req: Reques
   } catch (err) { next(err); }
 });
 
-router.post("/cards/:id/regenerate", generateRateLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.post("/cards/:id/regenerate", rateLimitMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const cardId = parseInt(String(req.params.id ?? ""), 10);
   if (isNaN(cardId)) { res.status(400).json({ error: "Invalid card ID" }); return; }
 
