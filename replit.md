@@ -2,175 +2,68 @@
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+This project is a pnpm workspace monorepo using TypeScript, designed to provide a comprehensive Anki flashcard generation and study planning solution. The core application, an Anki Card Generator, allows users to upload various file types (PDF, TXT) or paste text to generate Anki flashcards using AI. It also includes features for managing decks, editing cards, and exporting `.apkg` files for Anki import. A key component is a self-contained "Final Year Study Planner" for medical students, offering detailed subject management, a multi-month calendar, activity tracking, and data export options. The project aims to streamline the process of creating study materials and organizing academic efforts, leveraging AI for content generation and robust backend services for data management and export.
 
-## Stack
+## User Preferences
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
-- **AI**: OpenAI via Replit AI Integrations (`@workspace/integrations-openai-ai-server`)
+No explicit user preferences were found in the provided document.
 
-## Key Commands
+## System Architecture
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+The project is structured as a pnpm workspace monorepo.
 
-## Artifacts
+**UI/UX Decisions:**
 
-### Anki Card Generator (`artifacts/anki-generator`)
-- React + Vite web app at `/`
-- Upload files (PDF, TXT) or paste text to generate Anki flashcards via AI
-- Browse and manage decks, edit cards inline, export `.apkg` for Anki import
-- **Study mode** on deck detail page: flip cards, reveal answer, mark "Got It"/"Still Learning", shuffle, progress bar, completion screen with missed-card review
-- **Final Year Study Planner** at `/planner` — self-contained tab (MemoryRouter, `sp-` localStorage prefix, no authentication). Features: 14 medical subjects (Sub Medicine / Surgery / Psychiatry / Pediatrics / Gynecology) + fully custom subject groups, per-subject CRUD with search/filter/bulk actions (status cycling, priority cycling, bulk status/priority/delete with confirmation), expandable topic rows showing inline notes/lecturer/links, per-subject descriptions in card grid, priority breakdown bar (High/Medium/Low) in dashboard, multi-month study calendar with day detail, 8-week activity heatmap, streak counter, CSV + ZIP export (Notion-ready with column list), JSON backup/restore, user settings. Reference repo: https://github.com/ankiapk8/Study-planner.git. New packages: `jszip`, `html2canvas`. Key files: `src/lib/study-planner/topics.ts`, `src/hooks/use-study-topics.ts`, `src/context/study-topics-context.tsx`, `src/components/study-planner/topic-manager.tsx`, `src/components/study-planner/calendar-view.tsx`, `src/pages/study-planner-tab.tsx`, `src/pages/study-planner/`.
-- PDF extraction in `src/lib/pdf-extraction.ts`: files >20MB skip client and go straight to server; smaller files try embedded text first, then server, then client OCR
-- Server upload uses `FormData` multipart (avoids Replit proxy limits on raw binary bodies)
-- Safari/iPad compatibility uses a `Promise.withResolvers` polyfill in `src/main.tsx` before loading the app and the legacy PDF.js build
-- Direct API fetches use the Vite base path helper in `src/lib/utils.ts` so PDF extraction, explain, and `.apkg` export requests route correctly in the preview/deployed app
+*   **Anki Card Generator:** React + Vite web application. Features a study mode with card flipping, answer revelation, and progress tracking.
+*   **Final Year Study Planner:** Self-contained tab using MemoryRouter and `localStorage` for state management, featuring a grid of medical subjects, CRUD operations for topics, a multi-month study calendar, an 8-week activity heatmap, and streak counter.
+*   **Mobile Responsiveness:** Implemented with responsive design patterns, including tighter spacing, larger touch targets, and collapsing elements on smaller screens (e.g., nav labels, card-count badges, AI tool buttons stacking).
+*   **Generate Tab:** Features a mode toggle with a sliding gradient highlight (Flashcards / Question Bank), animated hero elements, and a big animated CTA card for the new Question Bank feature.
 
-### API Server (`artifacts/api-server`)
-- Express 5 backend at `/api`
-- In production (Docker / Render), the same Express server also serves the built React frontend from `STATIC_DIR` (defaults to `<cwd>/public`) with SPA fallback. In Replit dev the Vite dev server runs separately so this static block is just inactive.
-- Routes: `/api/decks`, `/api/cards`, `/api/generate`, `/api/extract-pdf`, `/api/export-apkg`, `/api/healthz`
-- AI generation uses **OpenRouter** as the API provider (OpenAI-compatible endpoint at `https://openrouter.ai/api/v1`). Required secret: `OPENROUTER_API_KEY` (legacy fallbacks: `OPENAI_API_KEY1`, `OPENAI_API_KEY`, `AI_INTEGRATIONS_OPENAI_API_KEY`). Optional override: `AI_INTEGRATIONS_OPENAI_BASE_URL`. Models in use: text/qbank/explain → `openai/gpt-oss-120b:free`; visual cards (vision-capable) → `google/gemma-3-27b-it:free`.
-- The AI client is loaded lazily so missing AI configuration returns a 503 from `/api/generate` instead of crashing the server
-- `/api/generate` retries transient AI rate-limit/server failures with backoff, and the frontend pauses briefly between multi-file generations while surfacing per-file error details
-- Route `/api/extract-pdf` accepts both `multipart/form-data` (via multer, field name `file`) and raw `application/pdf` body; embedded text → server OCR fallback. Multer file size limit is **200 MB** to match the Express body limit so large PDFs don't get silently rejected.
-- All long-running AI endpoints stream over SSE with 12 s heartbeat comments and `X-Accel-Buffering: no` to keep the Replit edge / Cloudflare proxy from buffering or closing the connection: `/api/generate/stream`, `/api/generate-qbank/stream`, and `/api/explain` (chunked text). The frontend always uses the streamed variants for these.
-- The server runs a safe startup schema initializer from `@workspace/db` before listening, creating/updating `decks` and `cards` if needed for fresh databases
-- System dependency `util-linux` (provides `libuuid.so.1`) is required by the `canvas` npm package; installed via Nix
-- `canvas` and `tesseract.js` are listed in `pnpm.onlyBuiltDependencies` in the root `package.json` so their native build scripts run
-- **APK builder requires the Android SDK at `/home/runner/android-sdk`** (cmdline-tools + `platforms/android-36` + `build-tools/36.0.0` + `platform-tools`) and JDK 21 from the Nix store. If `/home/runner/android-sdk/platforms` is missing, `buildSupported()` in `apk-builder.ts` returns false and the UI shows "APK download unavailable" / `unsupported`. Reinstall by:
-  1. Download `commandlinetools-linux-*.zip` from `dl.google.com/android/repository`, extract to `/home/runner/android-sdk/cmdline-tools/latest`.
-  2. With `JAVA_HOME` set to the JDK 21 in `/nix/store/*-openjdk-21*` and `PATH` including `cmdline-tools/latest/bin`, run `yes | sdkmanager --licenses` then `sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"`.
-  3. Restart the API server — `autoConfigureFromEnv()` will queue rebuilds for both dev and published slots automatically.
+**Technical Implementations:**
 
-## Database Schema
+*   **Monorepo:** pnpm workspaces.
+*   **Language & Runtime:** Node.js 24, TypeScript 5.9.
+*   **API Framework:** Express 5 backend.
+*   **Database:** PostgreSQL with Drizzle ORM.
+*   **Validation:** Zod (`zod/v4`), `drizzle-zod`.
+*   **API Codegen:** Orval (from OpenAPI spec).
+*   **Build System:** esbuild (CJS bundle).
+*   **AI Integration:** OpenAI via Replit AI Integrations (`@workspace/integrations-openai-ai-server`). AI client loaded lazily.
+*   **PDF Extraction:** Client-side processing for smaller files, server-side for larger, with OCR fallback. Uses `FormData` for server uploads to bypass proxy limits.
+*   **Server-side Rendering (Production):** The Express server serves the built React frontend and handles SPA fallback in production environments (Docker/Render).
+*   **Streaming Endpoints:** Long-running AI endpoints (`/api/generate/stream`, `/api/generate-qbank/stream`, `/api/explain`) use SSE with heartbeat comments and `X-Accel-Buffering: no` to prevent proxy buffering.
+*   **Database Schema:** `decks` (deck metadata, parentId for hierarchy, kind: 'deck' or 'qbank') and `cards` (flashcard data including front, back, tags, image, sourceImage, bbox, cardType: 'basic' or 'mcq', choices, correctIndex, pageNumber).
+*   **AI Visual-Card Generation:** Explicit prompting to identify and extract figures (charts, tables, diagrams) with tight bounding boxes, skipping non-figure pages. Server-side filtering discards oversized bboxes.
+*   **AI Text-Card Generation:** Splits long text into chunks, preserving `pageNumber` for paged inputs. Prioritizes existing multiple-choice questions for MCQ cards and generates atomic basic cards for other facts. Orders cards by `pageNumber` and `createdAt` for source-document reading order.
+*   **Deck Hierarchy:** Supports one-level deep sub-decks using `parentId`. Export uses Anki's `::` convention.
+*   **APK Builder:** Requires Android SDK and JDK 21 for building AnkiDroid packages.
+*   **Anki `.apkg` Export:** Hand-built using JSZip, ensuring iOS compatibility. Notes/cards use monotonic IDs and are sorted by `pageNumber`. Card content is HTML-escaped, and images are added as media files within the zip.
+*   **Library Backup / Restore (Transfer):** Provides endpoints for exporting all decks or single decks as JSON (`.ankigen.json` v2 format) and importing JSON backups. Includes `cardType`, `choices`, `correctIndex`, and `pageNumber` in exported cards.
 
-- `decks` — Deck metadata (id, name, description, parentId FK self-ref, kind, timestamps)
-  - `parentId` is nullable; if set, the deck is a sub-deck of the referenced deck
-  - `kind`: `'deck'` (default, flashcard deck) or `'qbank'` (MCQ-only question bank). The Library page filters by kind into two tabs.
-- `cards` — Flashcard data (id, deckId, front, back, tags, image, sourceImage, bbox, cardType, choices, correctIndex, pageNumber, timestamps)
-  - `cardType`: `'basic'` (default) or `'mcq'`
-  - `choices`: JSON-stringified array of MCQ option strings (only when cardType='mcq')
-  - `correctIndex`: 0-based index into `choices` for the correct answer
-  - `pageNumber`: original PDF page (1-indexed) the card was generated from; used to sort the merged deck in source order. Null for non-PDF inputs.
+**Development Features (Dev Only):**
 
-## AI Visual-Card Generation
+*   **Local Subscription Control:** Dev panel (`dev-panel.tsx`) for toggling Free/Pro plans, simulating subscriptions, and resetting quotas, persisting overrides via `localStorage`.
+*   **Dev Override Endpoints:** API routes (`/api/dev/*`) to control subscription status and usage for testing.
+*   **In-Memory Override Store:** `dev-overrides.ts` for storing dev overrides, resetting on server restart.
 
-- The visual prompt explicitly enumerates qualifying figure categories (charts, tables, radiology, flowcharts, diagrams, photomicrographs, traces, equations) and instructs the model to **skip pages with no real figure** instead of screenshotting them.
-- The model must return a `figureType` tag and a TIGHT bbox (3–5% margin); it is forbidden from returning `{0,0,1,1}` or any near-full-page bbox.
-- Server-side filter (`MAX_VISUAL_BBOX_AREA = 0.78`, `MAX_VISUAL_BBOX_DIM = 0.92`) drops any card whose bbox covers more than 78 % of the page area or spans >92 % in both width and height — the user does not want full-page screenshots, so those get logged and discarded.
-- `cropImage` always crops to the bbox; `CROP_PADDING` is 4 % and `MIN_CROP_DIMENSION` is 12 %.
+## External Dependencies
 
-## AI Text-Card Generation
-
-- Long text is split into ~6000-char chunks. When the client uploads a PDF, the frontend also sends `pageTexts[]` (one entry per page); the server then uses a page-aware chunker (`buildPagedChunks`) that packs whole pages into chunks (or splits oversize pages) and tags each chunk with its starting PDF page. Every text card produced from that chunk inherits that `pageNumber`. Plain (non-paged) text falls back to the old chunker with `pageNumber = null`. Concurrency is 3 with proportional card targets and a density floor.
-- Text + visual cards from one PDF go into ONE merged deck (no `– Text` / `– Visual` split). Cards are returned ordered by `pageNumber ASC NULLS LAST, createdAt ASC` so the deck reads in source-document order.
-- The system prompt instructs the model to (1) preserve any existing multiple-choice questions verbatim as MCQ cards (stem in `front`, options in `choices`, 0-based `correctIndex`, explanation in `back`) and (2) emit one atomic basic card per fact for the rest.
-- `normalizeCard` validates and normalizes both `basic` and `mcq` card shapes; `serializeCard` parses the JSON `choices` column before sending to the client.
-- Frontend Study mode renders MCQ cards as A/B/C/D options the learner can pre-select; on Show Answer the correct option turns green and a wrong selected option turns red. The card list shows an "MCQ" badge.
-
-## Deck Hierarchy
-
-- Decks can have a `parentId` pointing to another deck (one level deep)
-- Library shows parent decks as main topics with expandable sub-decks nested below
-- "New Deck" and Generate flows have a Main Topic selector to assign `parentId`
-- Export uses Anki's `::` convention: sub-deck cards are tagged `Parent::Child`
-- Deleting a parent nullifies `parentId` on children (they become standalone)
-
-## Local Subscription Control (Dev Only)
-
-All subscription-related dev tooling is compiled out in `NODE_ENV=production` and never reachable in deployed builds.
-
-### Dev Mode Panel (`artifacts/anki-generator/src/components/dev-panel.tsx`)
-- Floating panel at bottom-left, only rendered when `import.meta.env.DEV` is true
-- **Plan Controls tab**: Free / Pro toggle, Simulate Subscribe (mocks Stripe without real keys), Cancel Simulated Sub, Reset to real subscription
-- **Feature Access tab**: checklist of locked/unlocked features at the current plan level
-- **Live usage meters**: current deck count and today's export count shown as progress bars
-- **Reset quota button**: zeroes the daily apkg_export counter so devs can re-test the 1/day limit
-- Override persists across page refreshes via `localStorage` (`dev-pro-override`, `dev-simulated` keys)
-- On mount, re-applies persisted override to the backend so it survives server restart + page reload
-- Invalidates `["subscription/status"]` and `["subscription/usage"]` React Query caches on every change so generate/pricing pages update immediately
-
-### DevPlanBadge (`artifacts/anki-generator/src/components/dev-panel.tsx`)
-- Small badge in the header, only when an override is active
-- Shows `DEV FREE`, `DEV PRO`, or `SIMULATED PRO` to distinguish simulated from manually-forced
-
-### Dev Override Endpoints (`artifacts/api-server/src/routes/dev.ts`)
-- `POST /api/dev/set-pro` — force isPro=true or false
-- `DELETE /api/dev/set-pro` — clear override (fall back to real DB)
-- `POST /api/dev/simulate-subscribe` — set simulated Pro (`{ ok, isPro: true }`)
-- `DELETE /api/dev/simulate-subscribe` — force Free (`{ ok, isPro: false }`)
-- `GET /api/dev/status` — returns `{ authenticated, userId, devIsPro, simulated }`
-- `GET /api/dev/usage` — returns `{ decks: { count, max }, exportsToday: { count, max } }`
-- `POST /api/dev/reset-quota` — deletes today's apkg_export row from quota_usage
-
-### Override Store (`artifacts/api-server/src/lib/dev-overrides.ts`)
-- In-memory `Map<userId, { isPro, simulated }>` — resets on server restart
-- `setDevProOverride(userId, isPro, simulated?)` / `getDevOverrideEntry(userId)` / `clearDevProOverride(userId)`
-
-### Subscription Status Integration (`artifacts/api-server/src/routes/subscription.ts`)
-- `GET /subscription/status`: checks dev override first (via `getDevOverrideEntry`) before querying Stripe. Returns `{ isPro, devOverride: true, simulated }` when override is active.
-- `GET /subscription/usage`: returns `deckLimit/exportLimit = null` (unlimited) when dev override is Pro
-- `checkIsPro()` in `free-tier-limits.ts` also respects the dev override for all backend enforcement (deck creation, export quota, QBank access)
-
-### Free-Tier Limits (`artifacts/api-server/src/lib/free-tier-limits.ts`)
-- `FREE_TIER.MAX_DECKS = 2`, `FREE_TIER.MAX_CARDS_PER_DECK = 20`, `FREE_TIER.MAX_APKG_EXPORTS_PER_DAY = 1`
-- `checkIsPro(userId)` checks dev override when `NODE_ENV !== production`, falls back to Stripe subscriptions table
-
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
-
-## Docker & Local Development
-
-- `Dockerfile` (multi-stage): installs system deps for `canvas` (cairo/pango/jpeg/gif/rsvg/pixman), enables pnpm, builds the frontend with `BASE_PATH=/`, bundles the API server with esbuild, and produces a minimal runner image. Fixed: removed broken `COPY lib/integrations/package.json` (that directory has no package.json).
-- `docker-compose.yml`: spins up `postgres:16-alpine` + the app container together. `DATABASE_URL` is wired between them automatically. Reads `OPENROUTER_API_KEY` and other overrides from `.env`.
-- `.env.example`: template for required environment variables. Copy to `.env` and fill in `OPENROUTER_API_KEY` before running `docker compose up`.
-- `.vscode/extensions.json` + `.vscode/settings.json` + `.vscode/launch.json`: VS Code workspace configuration — Prettier format-on-save, ESLint, Tailwind IntelliSense, TypeScript workspace SDK, Docker extension.
-- `.prettierrc` / `.prettierignore`: Prettier config (2-space indent, double quotes, trailing commas).
-- `README.md`: full setup instructions for Docker, VS Code dev mode, project structure, and env var reference.
-
-## Render Deployment
-
-- `render.yaml` is a Render Blueprint: one Docker web service + one managed Postgres 16 database. `DATABASE_URL` is auto-injected; `AI_INTEGRATIONS_OPENAI_BASE_URL` is set to `https://openrouter.ai/api/v1`; `OPENROUTER_API_KEY` must be provided on first deploy.
-- `RENDER_DEPLOY.md`: step-by-step deploy guide, env var table, local test commands, and notes on auto-deploys.
-- Health check: `GET /api/healthz` (checks DB + AI provider). Render polls this every 30 s.
-
-## .apkg Export (iOS-Compatible)
-
-- `artifacts/api-server/src/routes/export-apkg.ts` builds the `.apkg` zip by hand with JSZip (`anki-apkg-export` is only used to bootstrap the SQLite template and `col` row).
-- Notes/cards use monotonic IDs (`baseId + index*2`) and sort by `pageNumber ASC NULLS LAST, createdAt ASC` so the deck reads in source-document order.
-- Card content runs through `toAnkiHtml` (HTML-escapes, then converts `\n` -> `<br>`). MCQs render as A/B/C/D with the correct option bolded; cards display a `p. N` page badge on the front when a `pageNumber` is present.
-- Visual cards' image data URLs are decoded via `decodeDataUrlImage` and added through `apkg.addMedia(filename, buffer)` so AnkiMobile (iOS) can resolve them; the `media` JSON manifest and the corresponding numeric-named files are written explicitly into the zip.
-- `jszip` is now an explicit dependency of `@workspace/api-server` (don't rely on it being a transitive of `anki-apkg-export`).
-
-## Mobile Responsiveness
-
-- Header/nav (`components/layout.tsx`): tighter gaps + larger touch targets on `<sm`; nav labels stay visible (icons get a small bump). Generate button also uses `py-2` on mobile for a 44px tap area.
-- Library list (`pages/decks.tsx`): nested indents drop from `ml-6/ml-5` to `ml-3/ml-2` on `<sm`, and the per-row card-count badge collapses to just the number on phones to keep Edit/Delete reachable.
-- Deck detail AI Tools (`pages/deck-detail.tsx`): switched from `grid-cols-3` to `grid-cols-1 sm:grid-cols-3` so the three AI buttons stack on phones instead of clipping their labels.
-
-## Generate Tab (`pages/generate.tsx`)
-
-- Mode toggle pill at the top (Flashcards / Question Bank) with a sliding gradient highlight (framer-motion `layoutId`). Hero title, subtitle, icon, and halo colors swap via `AnimatePresence` based on mode (emerald/green for decks, violet/fuchsia for qbank). The qbank mode also shows a big animated CTA card (rotating conic glow + pulsing sheen + bouncing stethoscope) above the form to make the new feature feel premium.
-- The form section swaps between `<GenerateForm>` (decks, supports PDF text + page screenshots for visual cards) and `<GenerateQbankForm>` (question banks, text-only).
-- `components/generate-qbank-form.tsx` mirrors the deck form's UX: drag-and-drop upload of PDF/TXT files, per-file editable name + question count + optional prompt, shared instructions, and a sequential generation loop that calls `/api/generate-qbank/stream` per file with progress bars and cancel buttons. PDF text is extracted via `extractPdf` from `lib/pdf-extraction` (OCR fallback for scanned PDFs); page screenshots are intentionally skipped because qbanks are MCQ-only and never render images.
-
-## Transfer (Library Backup / Restore)
-
-- `artifacts/api-server/src/routes/transfer.ts` exposes:
-  - `GET /api/export-all-json` — every top-level deck (with sub-decks) in one `.ankigen.json` file.
-  - `GET /api/decks/:id/export-json` — single top-level deck (with sub-decks).
-  - `POST /api/import-deck-json` — accepts either `{ root }` or `{ roots: [...] }`.
-- File format `version` is now **2**. Exported `ExportedCard` includes `cardType`, `choices`, `correctIndex`, and `pageNumber` (v1 dropped these, breaking MCQs and page-based sort on round-trip). `version > FORMAT_VERSION` is rejected, so old v1 files still import cleanly (the new fields are simply absent).
-- The Library page Transfer dropdown now has three actions: import a `.ankigen.json` backup, export the whole library as a single `.apkg` (calls `/api/export-apkg` with every root deck ID), and back the library up as JSON. The button + items are animated with framer-motion (sweep highlight on the trigger, staggered slide-in for items, idle/loading micro-animations on each icon).
+*   **Monorepo Tool:** pnpm workspaces
+*   **AI Provider:** OpenRouter (using OpenAI-compatible endpoint)
+*   **Database:** PostgreSQL
+*   **ORM:** Drizzle ORM
+*   **Validation:** Zod
+*   **API Codegen:** Orval
+*   **Build Tool:** esbuild
+*   **Web Framework:** Express 5
+*   **Frontend Framework:** React
+*   **Bundler:** Vite
+*   **PDF Handling:** `pdf.js` (legacy build for Safari/iPad)
+*   **Image Processing/OCR:** `canvas` npm package (requires `util-linux` system dependency), `tesseract.js`
+*   **File Uploads:** `multer` (for `multipart/form-data`)
+*   **Zip Archiving:** `jszip`
+*   **Anki Package Generation:** `anki-apkg-export` (for SQLite template)
+*   **UI Animation:** `framer-motion`
+*   **Payment Gateway Simulation:** Stripe (mocked for dev environment)
+*   **Containerization:** Docker (`docker-compose.yml`)
+*   **Deployment:** Render (`render.yaml`)
