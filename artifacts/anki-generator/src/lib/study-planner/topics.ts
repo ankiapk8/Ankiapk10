@@ -108,7 +108,7 @@ export const DIFFICULTY_COLORS: Record<Difficulty, string> = {
 };
 
 export const PARENT_DOT_COLORS: Record<string, string> = {
-  "Sub Medicine": "bg-blue-500",
+  "Sub Medicine": "bg-orange-500",
   "Psychiatric":  "bg-purple-500",
   "Sub Surgery":  "bg-orange-500",
   "Pediatric":    "bg-green-500",
