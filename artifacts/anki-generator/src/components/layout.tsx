@@ -14,7 +14,7 @@ import { useOfflineQueue } from "@/hooks/use-offline-queue";
 import { OfflineBadge } from "@/components/offline-indicator";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { IosInstallModal } from "@/components/ios-install-modal";
-import { DevPanel } from "@/components/dev-panel";
+import { DevPanel, DevPlanBadge } from "@/components/dev-panel";
 
 const NAV_ACCENTS: Record<string, { color: string; glow: string }> = {
   "/":        { color: "#34d399", glow: "hsl(152 72% 55% / 0.35)" },
@@ -228,6 +228,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
           </nav>
           <div className="ml-auto pl-2 flex items-center gap-1.5">
+            {import.meta.env.DEV && <DevPlanBadge />}
             <OfflineBadge />
             <SyncIndicator queueCount={queueCount} isSyncing={isSyncing} />
             {(canInstall || isIosInstallable) && (

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Crown, User, ChevronDown, ChevronUp, RotateCcw, Zap, Lock } from "lucide-react";
+import { Crown, ChevronDown, ChevronUp, RotateCcw, Zap, Lock, FlaskConical, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/+$/, "") ?? "";
+const LS_KEY = "dev-pro-override";
 
 interface DevStatus {
   authenticated: boolean;
@@ -37,6 +38,62 @@ async function clearDevOverride(): Promise<void> {
   });
 }
 
+async function simulateSubscribe(): Promise<void> {
+  await fetch(`${API_BASE}/api/dev/simulate-subscribe`, {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
+async function cancelSimulatedSubscribe(): Promise<void> {
+  await fetch(`${API_BASE}/api/dev/simulate-subscribe`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+}
+
+export function DevPlanBadge() {
+  const [devIsPro, setDevIsPro] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(LS_KEY);
+    if (stored === "true") setDevIsPro(true);
+    else if (stored === "false") setDevIsPro(false);
+    else setDevIsPro(null);
+
+    const handler = () => {
+      const v = localStorage.getItem(LS_KEY);
+      if (v === "true") setDevIsPro(true);
+      else if (v === "false") setDevIsPro(false);
+      else setDevIsPro(null);
+    };
+    window.addEventListener("dev-plan-changed", handler);
+    return () => window.removeEventListener("dev-plan-changed", handler);
+  }, []);
+
+  if (devIsPro === null) return null;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold font-mono tracking-wide border ${
+        devIsPro
+          ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300/50"
+          : "bg-muted text-muted-foreground border-border"
+      }`}
+      title="Dev subscription override"
+    >
+      {devIsPro ? <Crown className="h-2.5 w-2.5" /> : <Lock className="h-2.5 w-2.5" />}
+      {devIsPro ? "DEV PRO" : "DEV FREE"}
+    </span>
+  );
+}
+
+function syncToLocalStorage(isPro: boolean | null) {
+  if (isPro === null) localStorage.removeItem(LS_KEY);
+  else localStorage.setItem(LS_KEY, String(isPro));
+  window.dispatchEvent(new Event("dev-plan-changed"));
+}
+
 export function DevPanel() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<DevStatus | null>(null);
@@ -46,16 +103,29 @@ export function DevPanel() {
   async function refresh() {
     const s = await fetchDevStatus();
     setStatus(s);
+    syncToLocalStorage(s.devIsPro);
   }
 
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    refresh();
+
+    const stored = localStorage.getItem(LS_KEY);
+    if (stored !== null) {
+      const isPro = stored === "true";
+      setDevPro(isPro).then(() => refresh());
+    }
+  }, []);
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ["subscription/status"] });
+    queryClient.invalidateQueries({ queryKey: ["subscription/usage"] });
+  }
 
   async function handleSet(isPro: boolean) {
     setLoading(true);
     await setDevPro(isPro);
     await refresh();
-    queryClient.invalidateQueries({ queryKey: ["subscription/status"] });
-    queryClient.invalidateQueries({ queryKey: ["subscription/usage"] });
+    invalidate();
     setLoading(false);
   }
 
@@ -63,7 +133,23 @@ export function DevPanel() {
     setLoading(true);
     await clearDevOverride();
     await refresh();
-    queryClient.invalidateQueries({ queryKey: ["subscription/status"] });
+    invalidate();
+    setLoading(false);
+  }
+
+  async function handleSimulateSubscribe() {
+    setLoading(true);
+    await simulateSubscribe();
+    await refresh();
+    invalidate();
+    setLoading(false);
+  }
+
+  async function handleCancelSimulated() {
+    setLoading(true);
+    await cancelSimulatedSubscribe();
+    await refresh();
+    invalidate();
     setLoading(false);
   }
 
@@ -75,7 +161,8 @@ export function DevPanel() {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-xl border border-violet-400/40 bg-background/95 backdrop-blur shadow-xl shadow-violet-500/10 overflow-hidden w-64"
+        className="rounded-xl border border-violet-400/40 bg-background/95 backdrop-blur shadow-xl shadow-violet-500/10 overflow-hidden w-68"
+        style={{ width: "17rem" }}
       >
         <button
           type="button"
@@ -108,7 +195,10 @@ export function DevPanel() {
               className="overflow-hidden"
             >
               <div className="px-3 pb-3 pt-1 space-y-2.5 border-t border-border/40">
-                <div className="text-muted-foreground/70 text-[10px] uppercase tracking-widest pt-0.5">Subscription override</div>
+
+                <div className="text-muted-foreground/70 text-[10px] uppercase tracking-widest pt-0.5">
+                  Subscription override
+                </div>
 
                 <div className="flex gap-2">
                   <button
@@ -137,6 +227,34 @@ export function DevPanel() {
                     <Crown className="h-3 w-3" />
                     Pro
                   </button>
+                </div>
+
+                <div className="border-t border-border/40 pt-2">
+                  <div className="text-muted-foreground/70 text-[10px] uppercase tracking-widest mb-1.5">
+                    Simulate Stripe (no key needed)
+                  </div>
+                  {!hasOverride || !devIsPro ? (
+                    <button
+                      type="button"
+                      disabled={loading || !status?.authenticated}
+                      onClick={handleSimulateSubscribe}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-violet-400/60 hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/20 text-violet-600 dark:text-violet-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={!status?.authenticated ? "Log in first to use simulate" : ""}
+                    >
+                      <FlaskConical className="h-3 w-3" />
+                      Simulate Subscribe
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={handleCancelSimulated}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-red-400/60 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-500 dark:text-red-400 transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                      Cancel Simulated Sub
+                    </button>
+                  )}
                 </div>
 
                 {hasOverride && (
@@ -168,6 +286,16 @@ export function DevPanel() {
                     <span>Override</span>
                     <span>{hasOverride ? (devIsPro ? "Pro forced" : "Free forced") : "none (real DB)"}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span>Persisted</span>
+                    <span>{localStorage.getItem(LS_KEY) !== null ? "yes (localStorage)" : "no"}</span>
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40 pt-1.5 text-[9px] text-muted-foreground/40 leading-relaxed">
+                  Dev panel only — hidden in production builds.
+                  <br />
+                  Override persists across refreshes.
                 </div>
               </div>
             </motion.div>

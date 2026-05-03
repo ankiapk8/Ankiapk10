@@ -220,6 +220,76 @@ To add or edit env vars after deploy: Render Dashboard → your web service → 
 
 ---
 
+## Local Subscription Testing
+
+AnkiGen has a built-in dev-only subscription control panel (no Stripe required) and an optional path for real Stripe test-mode checkout.
+
+### Option A — Dev override panel (no Stripe key needed)
+
+When running in development (`NODE_ENV=development`), a **Dev Mode** panel appears in the bottom-left corner of the app. It lets you instantly switch between Free and Pro plans:
+
+1. Log in with Replit auth (visit `http://localhost:5173` and click the login link in the header).
+2. Open the **Dev Mode** panel in the bottom-left corner.
+3. Click **"Simulate Subscribe"** — this calls `POST /api/dev/simulate-subscribe` and marks your session as Pro without touching Stripe.
+4. The app immediately unlocks all Pro features (visual cards, Q-bank, mind maps, unlimited exports).
+5. Click **"Cancel Simulated Sub"** to revert to Free.
+6. The override **persists across page refreshes** (stored in `localStorage`).
+
+The override badge **DEV PRO** / **DEV FREE** also appears in the top navigation bar so you always know which mode is active.
+
+> Dev override routes are never registered in `NODE_ENV=production` — they are compiled-out and not reachable in deployed builds.
+
+---
+
+### Option B — Real Stripe test-mode checkout
+
+Use this when you want to test the actual Stripe checkout flow end-to-end.
+
+#### 1. Create a Stripe test product
+
+1. Sign up at https://stripe.com and enable **Test mode** (toggle in the dashboard).
+2. Go to **Products** → **+ Add product**.
+3. Name it (e.g. "AnkiGen Pro"), add a **recurring monthly price** (e.g. $9.99/month).
+4. Copy the **Price ID** — it looks like `price_1Abc...`.
+
+#### 2. Set environment variables
+
+Add these to your `.env`:
+
+```env
+STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxxxxxxxxx
+STRIPE_PRICE_ID=price_1AbcXxxxxxxxxxx
+```
+
+#### 3. Forward webhooks with the Stripe CLI
+
+Install the Stripe CLI: https://stripe.com/docs/stripe-cli
+
+```bash
+stripe listen --forward-to localhost:3001/api/stripe/webhook
+```
+
+Copy the **webhook signing secret** printed by the CLI (starts with `whsec_`) and add it to `.env`:
+
+```env
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxx
+```
+
+Restart the API server to pick up the new variables.
+
+#### 4. Test the checkout flow
+
+1. Open the app, go to **/pricing**.
+2. Click **Upgrade to Pro** → you'll be redirected to Stripe's hosted checkout page.
+3. Use test card `4242 4242 4242 4242`, any future date, any CVC.
+4. After success you'll be redirected back and the app shows Pro status.
+
+#### 5. Test subscription cancellation
+
+In the Stripe test dashboard: **Customers** → find the test customer → **Subscriptions** → cancel. The webhook updates the DB and the app reverts to Free on next status check.
+
+---
+
 ## Database Schema
 
 The schema is applied automatically on startup via `ensureDatabaseSchema()` — no manual migration needed. Tables created:
