@@ -356,6 +356,15 @@ export function getLast8Weeks(): { date: string; label: string; total: number; k
 
 const AVG_SECONDS_PER_CARD = 8;
 
+export function getLastStudiedByDeck(sessions: StudySession[]): Map<number, string> {
+  const map = new Map<number, string>();
+  for (const s of sessions) {
+    const ex = map.get(s.deckId);
+    if (!ex || s.completedAt > ex) map.set(s.deckId, s.completedAt);
+  }
+  return map;
+}
+
 export function getLast14DaysTotals(): { date: string; label: string; total: number; estimatedMinutes: number }[] {
   const sessions = getSessions();
   const result = [];

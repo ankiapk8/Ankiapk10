@@ -17,6 +17,7 @@ import {
   getStudyStreak,
   getLast7Days,
   getDeckStats,
+  getLastStudiedByDeck,
   getTodayStats,
   getWeeklyGoal,
   setWeeklyGoal,
@@ -68,29 +69,23 @@ export default function Dashboard() {
   };
 
   const [plannerDueTick, setPlannerDueTick] = useState(0);
+  const [statsTick, setStatsTick] = useState(0);
   useEffect(() => {
-    const refresh = () => setPlannerDueTick(t => t + 1);
+    const refresh = () => { setPlannerDueTick(t => t + 1); setStatsTick(t => t + 1); };
     window.addEventListener("focus", refresh);
     window.addEventListener("storage", refresh);
     return () => { window.removeEventListener("focus", refresh); window.removeEventListener("storage", refresh); };
   }, []);
   const plannerDueToday = useMemo(() => getDashboardPlannerDueTodayCount(), [plannerDueTick]);
 
-  const sessions = useMemo(() => getSessions(), []);
+  const sessions = useMemo(() => getSessions(), [statsTick]);
   const streak = useMemo(() => getStudyStreak(sessions), [sessions]);
-  const last7 = useMemo(() => getLast7Days(), []);
+  const last7 = useMemo(() => getLast7Days(), [statsTick]);
   const deckStats = useMemo(() => getDeckStats(sessions), [sessions]);
-  const lastStudiedByDeck = useMemo(() => {
-    const map = new Map<number, string>();
-    for (const s of sessions) {
-      const ex = map.get(s.deckId);
-      if (!ex || s.completedAt > ex) map.set(s.deckId, s.completedAt);
-    }
-    return map;
-  }, [sessions]);
+  const lastStudiedByDeck = useMemo(() => getLastStudiedByDeck(sessions), [sessions]);
   const todayStats = useMemo(() => getTodayStats(sessions), [sessions]);
   const thisWeekCards = useMemo(() => getThisWeekCards(sessions), [sessions]);
-  const sparklineDays = useMemo(() => getLast14DaysTotals(), []);
+  const sparklineDays = useMemo(() => getLast14DaysTotals(), [statsTick]);
 
   const [weeklyGoal, setWeeklyGoalState] = useState(() => getWeeklyGoal());
 
@@ -116,7 +111,7 @@ export default function Dashboard() {
       cursor.setDate(cursor.getDate() + 1);
     }
     return grid;
-  }, []);
+  }, [statsTick]);
 
   // Recent 28-day deck stats for Strongest / Weakest
   const recentDeckStatsList = useMemo(() => {
@@ -1048,7 +1043,7 @@ export default function Dashboard() {
                           <p className="text-xs text-muted-foreground">
                             {lastStudied
                               ? `Studied ${relativeDate(lastStudied)}`
-                              : format(new Date(deck.createdAt), "MMM d, yyyy")}
+                              : "Not studied yet"}
                           </p>
                           {deckPct !== null && (
                             <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${chip}`}>
