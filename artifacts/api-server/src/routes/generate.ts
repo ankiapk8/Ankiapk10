@@ -961,7 +961,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     ? Math.max(visualCardCount ?? cardCount, 1)
     : 0;
 
-  sseEmit(res, { type: "progress", percent: 5, message: "Connecting to AI…" });
+  sseEmit(res, { type: "progress", percent: 5, message: "Connecting to AI…", stage: "extracting" });
 
   let openai: Awaited<ReturnType<typeof getOpenAIClient>>;
   try {
@@ -974,7 +974,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     return;
   }
 
-  sseEmit(res, { type: "progress", percent: 12, message: wantText ? "Generating text cards…" : "Analyzing pages…" });
+  sseEmit(res, { type: "progress", percent: 12, message: wantText ? "Generating text cards…" : "Analyzing pages…", stage: wantText ? "generating" : "detecting" });
 
   const abortController = new AbortController();
   const onClientClose = () => abortController.abort();
@@ -1006,12 +1006,13 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
               percent: pct,
               message: `Generating text cards… (${done}/${total} chunks)`,
               cardsCreated,
+              stage: "generating",
             });
           },
           pageTexts,
         ).then(cards => {
           textCards = cards;
-          sseEmit(res, { type: "progress", percent: TEXT_DONE_PERCENT, message: `Text cards done (${cards.length} generated)` });
+          sseEmit(res, { type: "progress", percent: TEXT_DONE_PERCENT, message: `Text cards done (${cards.length} generated)`, stage: "generating" });
         })
       : Promise.resolve();
 
@@ -1020,7 +1021,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
           const frac = done / total;
           const pct = Math.round(VISUAL_START + frac * (VISUAL_END - VISUAL_START));
           const pages = Math.min(done * VISUAL_BATCH_SIZE, selectedImages.length);
-          sseEmit(res, { type: "progress", percent: pct, message: `Analyzing & cropping images… (${pages}/${selectedImages.length} pages)` });
+          sseEmit(res, { type: "progress", percent: pct, message: `Analyzing & cropping images… (${pages}/${selectedImages.length} pages)`, stage: "detecting" });
         }, signal, customPrompt, pageImageRegions ?? undefined).then(cards => { visualCards = cards; })
       : Promise.resolve();
 
@@ -1057,7 +1058,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     return;
   }
 
-  sseEmit(res, { type: "progress", percent: 90, message: "Saving cards to database…" });
+  sseEmit(res, { type: "progress", percent: 90, message: "Saving cards to database…", stage: "done" });
 
   try {
     const filteredText = textCards
@@ -1070,6 +1071,36 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     if (filteredText.length === 0 && filteredVisual.length === 0) {
       await recordRun("error", 0, "AI did not return any usable cards.");
       sseEmit(res, { type: "error", message: "AI did not return any usable cards." });
+      res.end();
+      return;
+    }
+
+    if (req.body.preview === true) {
+      // Preview mode: stream back generated cards WITHOUT saving to DB.
+      // The client will show a pre-commit review modal, then POST /generate/commit.
+      const previewCards = [
+        ...filteredText.map(c => ({
+          front: c.front,
+          back: c.back,
+          cardType: (c.type === "mcq" ? "mcq" : "basic") as string,
+          image: null as null,
+          pageNumber: c.pageNumber ?? null,
+        })),
+        ...filteredVisual.map(c => ({
+          front: c.front,
+          back: c.back,
+          cardType: "visual" as string,
+          image: c.image.startsWith("data:") ? c.image : `data:image/jpeg;base64,${c.image}`,
+          pageNumber: c.pageNumber ?? null,
+        })),
+      ].slice(0, 80);
+      await recordRun("success", previewCards.length);
+      sseEmit(res, {
+        type: "done",
+        percent: 100,
+        generatedCount: previewCards.length,
+        cards: previewCards,
+      });
       res.end();
       return;
     }
@@ -1612,6 +1643,79 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   } catch (err) {
     next(err);
   }
+});
+
+router.post("/generate/commit", generateRateLimiter, async (req, res, next): Promise<void> => {
+  const { deckName, parentId, cards } = req.body as {
+    deckName?: string;
+    parentId?: number | null;
+    cards?: Array<{ front?: string; back?: string; cardType?: string; image?: string | null; pageNumber?: number | null }>;
+  };
+  if (!deckName?.trim()) { res.status(400).json({ error: "deckName is required" }); return; }
+  if (!Array.isArray(cards) || cards.length === 0) { res.status(400).json({ error: "cards array is required" }); return; }
+
+  try {
+    const [deck] = await db
+      .insert(decksTable)
+      .values({ name: deckName.trim(), parentId: parentId ?? null })
+      .returning();
+    if (!deck) { res.status(500).json({ error: "Failed to create deck" }); return; }
+
+    const validCardTypes = new Set(["basic", "visual", "mcq"]);
+    const cardRows = cards
+      .filter(c => c.front?.trim() && c.back?.trim())
+      .map(c => ({
+        deckId: deck.id,
+        front: c.front!.trim(),
+        back: c.back!.trim(),
+        image: c.image ?? null,
+        cardType: (validCardTypes.has(c.cardType ?? "") ? c.cardType : "basic") as "basic" | "visual" | "mcq",
+        pageNumber: c.pageNumber ?? null,
+      }));
+
+    const inserted = cardRows.length > 0
+      ? await db.insert(cardsTable).values(cardRows).returning()
+      : [];
+
+    res.json({
+      deck: { id: deck.id, name: deck.name, cardCount: inserted.length, createdAt: deck.createdAt.toISOString() },
+      cardCount: inserted.length,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/generate/regenerate-card", generateRateLimiter, async (req, res, next): Promise<void> => {
+  const { front, back, deckName } = req.body as { front?: string; back?: string; deckName?: string };
+  if (!front?.trim() || !back?.trim()) { res.status(400).json({ error: "front and back are required" }); return; }
+
+  let openai: Awaited<ReturnType<typeof getOpenAIClient>>;
+  try { openai = await getOpenAIClient(); } catch (err) {
+    res.status(503).json({ error: err instanceof Error ? err.message : "AI not configured" }); return;
+  }
+
+  try {
+    const completion = await createChatCompletionWithRetry(openai, {
+      model: FREE_TEXT_MODEL,
+      max_completion_tokens: 1024,
+      stream: false as const,
+      messages: [
+        { role: "system", content: `You are an expert Anki flashcard writer. Rewrite the given card to be clearer and more memorable while keeping the same concept.\nReturn ONLY {"front":"...","back":"..."} — no markdown, no extra text.` },
+        { role: "user", content: `Deck: "${deckName ?? "Unknown"}"\nFront: ${front}\nBack: ${back}\n\nRewrite this card.` },
+      ],
+    }, req.log, undefined);
+
+    const raw = (completion as { choices: Array<{ message: { content: string | null } }> }).choices[0]?.message?.content ?? "{}";
+    const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+    let parsed: { front?: string; back?: string } = {};
+    try { parsed = JSON.parse(cleaned); } catch { /* fallback */ }
+
+    res.json({
+      front: typeof parsed.front === "string" && parsed.front.trim() ? parsed.front.trim() : front,
+      back: typeof parsed.back === "string" && parsed.back.trim() ? parsed.back.trim() : back,
+    });
+  } catch (err) { next(err); }
 });
 
 router.post("/cards/:id/regenerate", generateRateLimiter, async (req, res, next): Promise<void> => {

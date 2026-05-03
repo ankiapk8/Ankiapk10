@@ -62,6 +62,14 @@ function getProgressPhase(message: string): "text" | "images" | "ocr" | "server"
 type FileStatus = "extracting" | "ready" | "error" | "generating" | "done";
 type DeckType = "text" | "visual" | "both";
 
+type StagedCard = {
+  front: string;
+  back: string;
+  cardType: string;
+  image?: string | null;
+  pageNumber?: number | null;
+};
+
 type FileEntry = {
   id: string;
   name: string;
@@ -83,6 +91,8 @@ type FileEntry = {
   customPrompt?: string;
   generatedDeckId?: number;
   liveCardCount?: number;
+  stagedCards?: StagedCard[];
+  generatingStage?: string;
 };
 
 function formatEta(ms: number): string {
@@ -155,7 +165,7 @@ export function GenerateForm({
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [successOverlay, setSuccessOverlay] = useState<{ open: boolean; decks: number; cards: number }>({ open: false, decks: 0, cards: 0 });
   const pendingDoneRef = useRef<(() => void) | null>(null);
-  const [reviewState, setReviewState] = useState<{ deckId: number; deckName: string; autoClose?: () => void } | null>(null);
+  const [reviewState, setReviewState] = useState<{ deckId?: number; deckName: string; autoClose?: () => void; stagedCards?: StagedCard[]; onCommit?: (cards: StagedCard[]) => Promise<void> } | null>(null);
   const [manualText, setManualText] = useState("");
   const [manualDeckName, setManualDeckName] = useState("");
   const [manualCardCount, setManualCardCount] = useState<number | "">("");
@@ -289,7 +299,7 @@ export function GenerateForm({
     customPrompt?: string,
     pageTexts?: string[],
     pageImageRegions?: ImageRegion[][],
-  ): Promise<{ count: number; deckId?: number }> =>
+  ): Promise<{ count: number; deckId?: number; stagedCards?: StagedCard[] }> =>
     new Promise((resolve, reject) => {
       const trimmedPrompt = (customPrompt ?? "").trim();
       const body = JSON.stringify({
@@ -302,6 +312,7 @@ export function GenerateForm({
         pageTexts: pageTexts && pageTexts.length > 0 ? pageTexts : undefined,
         pageImageRegions: pageImageRegions && pageImageRegions.length > 0 ? pageImageRegions : undefined,
         customPrompt: trimmedPrompt || undefined,
+        preview: true,
       });
 
       const controller = new AbortController();
@@ -334,16 +345,16 @@ export function GenerateForm({
             try {
               const event = JSON.parse(line.slice(5).trim()) as {
                 type: string; percent?: number; message?: string; generatedCount?: number;
-                deck?: { id?: number }; cardsCreated?: number;
+                deck?: { id?: number }; cardsCreated?: number; cards?: StagedCard[]; stage?: string;
               };
               if (event.type === "progress" && fileId) {
                 setFiles(prev => prev.map(f =>
                   f.id === fileId
-                    ? { ...f, generatingPercent: event.percent, generatingMessage: event.message, liveCardCount: event.cardsCreated ?? f.liveCardCount }
+                    ? { ...f, generatingPercent: event.percent, generatingMessage: event.message, liveCardCount: event.cardsCreated ?? f.liveCardCount, generatingStage: event.stage ?? f.generatingStage }
                     : f
                 ));
               } else if (event.type === "done") {
-                resolve({ count: event.generatedCount ?? 0, deckId: event.deck?.id });
+                resolve({ count: event.generatedCount ?? 0, deckId: event.deck?.id, stagedCards: event.cards });
                 return;
               } else if (event.type === "error") {
                 reject(new Error(event.message ?? "Generation failed"));
@@ -393,6 +404,8 @@ export function GenerateForm({
     let ok = 0, fail = 0, cancelled = 0, totalCards = 0;
     let lastDoneId: number | undefined;
     let lastDoneName = "";
+    let lastStagedCards: StagedCard[] | undefined;
+    let lastDoneFileId: string | undefined;
     const sharedTrim = sharedCustomPrompt.trim();
     const fileEffectivePrompt = (f: FileEntry) => {
       const own = (f.customPrompt ?? "").trim();
@@ -426,12 +439,14 @@ export function GenerateForm({
 
       if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…", generatingStartedAt: Date.now() });
       try {
-        const { count, deckId: doneId } = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts, t.pageImageRegions);
-        if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count, generatedDeckId: doneId });
+        const { count, deckId: doneId, stagedCards } = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts, t.pageImageRegions);
+        if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count, generatedDeckId: doneId, stagedCards });
         ok++;
         totalCards += count;
         lastDoneId = doneId;
         lastDoneName = t.deckName;
+        lastStagedCards = stagedCards;
+        lastDoneFileId = t.id;
       } catch (error) {
         const wasCancelled = cancelledIdsRef.current.has(key) || cancelledIdsRef.current.has(manualCancelKey);
         if (wasCancelled) {
@@ -458,20 +473,47 @@ export function GenerateForm({
 
     if (ok > 0) {
       const cleanRun = fail === 0 && cancelled === 0;
-      if (cleanRun && ok === 1 && lastDoneId) {
-        // Single clean run: auto-open card review so user can review/edit cards
-        // before being navigated away. Modal close then triggers success overlay.
-        const capturedId = lastDoneId;
+      if (cleanRun && ok === 1) {
         const capturedName = lastDoneName;
         const capturedCards = totalCards;
-        setReviewState({
-          deckId: capturedId,
-          deckName: capturedName,
-          autoClose: () => {
-            setSuccessOverlay({ open: true, decks: 1, cards: capturedCards });
-            pendingDoneRef.current = () => { resetState(); onDone?.(); };
-          },
-        });
+        const capturedFileId = lastDoneFileId;
+
+        if (lastStagedCards && lastStagedCards.length > 0) {
+          // Pre-commit: cards not yet in DB — show review modal first, commit on confirm
+          const commitAndFinish = async (editedCards: StagedCard[]) => {
+            try {
+              const resp = await fetch(apiUrl("api/generate/commit"), {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ deckName: capturedName, parentId: resolvedParentId, cards: editedCards }),
+              });
+              if (!resp.ok) throw new Error("Save failed");
+              const data = await resp.json() as { deck: { id: number }; cardCount: number };
+              if (capturedFileId) updateFile(capturedFileId, { generatedDeckId: data.deck.id, generatedCount: data.cardCount });
+              queryClient.invalidateQueries({ queryKey: getListDecksQueryKey() });
+              setReviewState(null);
+              setSuccessOverlay({ open: true, decks: 1, cards: data.cardCount });
+              pendingDoneRef.current = () => { resetState(); onDone?.(); };
+            } catch {
+              toast({ title: "Failed to save deck", description: "Please try again.", variant: "destructive" });
+            }
+          };
+          setReviewState({ deckName: capturedName, stagedCards: lastStagedCards, onCommit: commitAndFinish });
+        } else if (lastDoneId) {
+          // Already saved: open post-save review before navigating
+          const capturedId = lastDoneId;
+          setReviewState({
+            deckId: capturedId,
+            deckName: capturedName,
+            autoClose: () => {
+              setSuccessOverlay({ open: true, decks: 1, cards: capturedCards });
+              pendingDoneRef.current = () => { resetState(); onDone?.(); };
+            },
+          });
+        } else {
+          setSuccessOverlay({ open: true, decks: 1, cards: capturedCards });
+          pendingDoneRef.current = () => { resetState(); onDone?.(); };
+        }
       } else {
         setSuccessOverlay({ open: true, decks: ok, cards: totalCards });
         if (cleanRun) {
@@ -560,6 +602,8 @@ export function GenerateForm({
           deckId={reviewState.deckId}
           deckName={reviewState.deckName}
           isOpen={!!reviewState}
+          preloadedCards={reviewState.stagedCards}
+          onCommit={reviewState.onCommit}
           onClose={() => {
             const autoClose = reviewState.autoClose;
             setReviewState(null);
@@ -745,7 +789,13 @@ export function GenerateForm({
                 const liveCount = f.liveCardCount ?? 0;
                 return (
                 <div className="space-y-2 pt-0.5">
-                  <GenerationStageStepper activeStage={stageFromGenerating(pct, f.generatingMessage ?? "")} />
+                  <GenerationStageStepper activeStage={
+                    f.generatingStage === "extracting" ? 0
+                    : f.generatingStage === "detecting" ? 1
+                    : f.generatingStage === "generating" ? 2
+                    : f.generatingStage === "done" ? 3
+                    : stageFromGenerating(pct, f.generatingMessage ?? "")
+                  } />
                   <div className="flex justify-between items-center gap-2 mt-0.5">
                     <span className="text-[11px] text-muted-foreground truncate pr-2">
                       {f.generatingMessage ?? "Generating…"}

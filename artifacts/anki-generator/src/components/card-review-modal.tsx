@@ -33,16 +33,27 @@ function initEdit(card: ReviewCard): EditState {
   return { front: card.front, back: card.back, dirty: false, saving: false, regenerating: false, saved: false };
 }
 
+type StagedCardPreview = {
+  front: string;
+  back: string;
+  cardType: string;
+  image?: string | null;
+};
+
 export function CardReviewModal({
   deckId,
   deckName,
   isOpen,
   onClose,
+  preloadedCards,
+  onCommit,
 }: {
-  deckId: number;
+  deckId?: number;
   deckName: string;
   isOpen: boolean;
   onClose: () => void;
+  preloadedCards?: StagedCardPreview[];
+  onCommit?: (cards: StagedCardPreview[]) => Promise<void>;
 }) {
   const { toast } = useToast();
   const [cards, setCards] = useState<ReviewCard[]>([]);
@@ -53,9 +64,23 @@ export function CardReviewModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    setLoading(true);
     setIdx(0);
-    fetch(apiUrl(`api/decks/${deckId}/cards`))
+    if (preloadedCards) {
+      const reviewCards: ReviewCard[] = preloadedCards.slice(0, 5).map((c, i) => ({
+        id: -(i + 1),
+        front: c.front,
+        back: c.back,
+        cardType: c.cardType,
+        image: c.image ?? null,
+      }));
+      setCards(reviewCards);
+      const editMap: Record<number, EditState> = {};
+      for (const c of reviewCards) editMap[c.id] = initEdit(c);
+      setEdits(editMap);
+      return;
+    }
+    setLoading(true);
+    fetch(apiUrl(`api/decks/${deckId!}/cards`))
       .then(r => r.json())
       .then((data: ReviewCard[]) => {
         const preview = data.slice(0, 5);
@@ -66,7 +91,7 @@ export function CardReviewModal({
       })
       .catch(() => toast({ title: "Could not load cards for review", variant: "destructive" }))
       .finally(() => setLoading(false));
-  }, [isOpen, deckId]);
+  }, [isOpen, deckId, preloadedCards]);
 
   const current = cards[idx];
   const edit = current ? (edits[current.id] ?? initEdit(current)) : null;
@@ -78,6 +103,12 @@ export function CardReviewModal({
   const handleSaveCard = useCallback(async (card: ReviewCard) => {
     const e = edits[card.id];
     if (!e?.dirty) return;
+    if (card.id < 0) {
+      // Staged card (pre-commit): no DB call — mark clean locally
+      updateEdit(card.id, { dirty: false, saved: true });
+      setTimeout(() => updateEdit(card.id, { saved: false }), 2000);
+      return;
+    }
     updateEdit(card.id, { saving: true });
     try {
       const resp = await fetch(apiUrl(`api/cards/${card.id}`), {
@@ -97,30 +128,55 @@ export function CardReviewModal({
   const handleRegenerateCard = useCallback(async (card: ReviewCard) => {
     updateEdit(card.id, { regenerating: true });
     try {
-      const resp = await fetch(apiUrl(`api/cards/${card.id}/regenerate`), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!resp.ok) throw new Error("Regeneration failed");
-      const updated: ReviewCard = await resp.json();
-      setCards(prev => prev.map(c => c.id === card.id ? { ...c, ...updated } : c));
-      updateEdit(card.id, {
-        front: updated.front,
-        back: updated.back,
-        dirty: false,
-        regenerating: false,
-        saved: true,
-      });
+      let newFront: string;
+      let newBack: string;
+      if (card.id < 0) {
+        // Staged card: use stateless regenerate (no DB ID required)
+        const currentFront = edits[card.id]?.front ?? card.front;
+        const currentBack = edits[card.id]?.back ?? card.back;
+        const resp = await fetch(apiUrl("api/generate/regenerate-card"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ front: currentFront, back: currentBack, deckName }),
+        });
+        if (!resp.ok) throw new Error("Regeneration failed");
+        const data: { front: string; back: string } = await resp.json();
+        newFront = data.front;
+        newBack = data.back;
+      } else {
+        const resp = await fetch(apiUrl(`api/cards/${card.id}/regenerate`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({}),
+        });
+        if (!resp.ok) throw new Error("Regeneration failed");
+        const updated: ReviewCard = await resp.json();
+        newFront = updated.front;
+        newBack = updated.back;
+        setCards(prev => prev.map(c => c.id === card.id ? { ...c, ...updated } : c));
+      }
+      updateEdit(card.id, { front: newFront, back: newBack, dirty: false, regenerating: false, saved: true });
       setTimeout(() => updateEdit(card.id, { saved: false }), 2000);
     } catch {
       toast({ title: "Could not regenerate card", variant: "destructive" });
       updateEdit(card.id, { regenerating: false });
     }
-  }, [updateEdit, toast]);
+  }, [updateEdit, toast, deckName, edits]);
 
   const handleSaveAll = async () => {
     setSaving(true);
+    if (onCommit) {
+      // Pre-commit flow: merge local edits into card list and commit in one request
+      const finalCards: StagedCardPreview[] = cards.map(c => ({
+        front: (edits[c.id]?.front ?? c.front).trim(),
+        back: (edits[c.id]?.back ?? c.back).trim(),
+        cardType: c.cardType,
+        image: c.image ?? null,
+      }));
+      try { await onCommit(finalCards); } catch { /* onCommit shows its own toast */ }
+      setSaving(false);
+      return;
+    }
     const dirty = cards.filter(c => edits[c.id]?.dirty);
     for (const card of dirty) {
       await handleSaveCard(card);
@@ -142,7 +198,12 @@ export function CardReviewModal({
             Review Generated Cards
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            {cards.length > 0 ? `Showing ${cards.length} of ${deckName} — edit or regenerate before saving.` : "Loading cards…"}
+            {cards.length > 0
+              ? onCommit
+                ? `Review first ${cards.length} card${cards.length !== 1 ? "s" : ""} from "${deckName}" — edit, then save.`
+                : `Showing ${cards.length} of ${deckName} — edit or regenerate before saving.`
+              : "Loading cards…"
+            }
           </DialogDescription>
         </DialogHeader>
 
@@ -292,7 +353,14 @@ export function CardReviewModal({
               disabled={saving}
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-              {saving ? "Saving…" : dirtyCount > 0 ? `Save ${dirtyCount} edit${dirtyCount !== 1 ? "s" : ""} & close` : "Done"}
+              {saving
+                ? "Saving…"
+                : onCommit
+                  ? "Looks good, save all"
+                  : dirtyCount > 0
+                    ? `Save ${dirtyCount} edit${dirtyCount !== 1 ? "s" : ""} & close`
+                    : "Done"
+              }
             </Button>
           </div>
         )}
