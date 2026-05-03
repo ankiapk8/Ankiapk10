@@ -58,7 +58,7 @@ export async function startCheckout(priceId: string): Promise<string | null> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ priceId }),
+    body: JSON.stringify({ priceId, origin: window.location.origin }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -71,7 +71,9 @@ export async function startCheckout(priceId: string): Promise<string | null> {
 export async function openBillingPortal(): Promise<string | null> {
   const res = await fetch(`${API_BASE}/api/subscription/portal`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
+    body: JSON.stringify({ origin: window.location.origin }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

@@ -25,6 +25,7 @@ import { apiUrl } from "@/lib/utils";
 import { GenerationSuccessOverlay } from "@/components/generation-success-overlay";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
 import { useOfflineQueue } from "@/hooks/use-offline-queue";
+import { UpgradeBanner } from "@/components/upgrade-gate";
 
 const DEFAULT_TARGET_CARDS = 20;
 const CHARS_PER_CARD = 220;
@@ -168,6 +169,7 @@ export function GenerateForm({
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
+  const [limitReachedFeature, setLimitReachedFeature] = useState<string | null>(null);
   const [successOverlay, setSuccessOverlay] = useState<{ open: boolean; decks: number; cards: number }>({ open: false, decks: 0, cards: 0 });
   const pendingDoneRef = useRef<(() => void) | null>(null);
   const [reviewState, setReviewState] = useState<{ deckId?: number; deckName: string; autoClose?: () => void; stagedCards?: StagedCard[]; onCommit?: (cards: StagedCard[]) => Promise<void> } | null>(null);
@@ -340,8 +342,15 @@ export function GenerateForm({
         signal: controller.signal,
       }).then(async resp => {
         if (!resp.ok || !resp.body) {
-          const err = await resp.json().catch(() => ({}));
-          reject(new Error((err as { error?: string }).error ?? "Generation failed"));
+          const err = await resp.json().catch(() => ({}) as Record<string, unknown>);
+          if ((err as Record<string, unknown>).limitReached === true) {
+            const e = new Error(typeof (err as any).message === 'string' ? (err as any).message : 'This feature requires a Pro subscription.');
+            (e as any).limitReached = true;
+            (e as any).feature = typeof (err as any).feature === 'string' ? (err as any).feature : 'Pro feature';
+            reject(e);
+          } else {
+            reject(new Error((err as { error?: string }).error ?? "Generation failed"));
+          }
           return;
         }
 
@@ -537,6 +546,11 @@ export function GenerateForm({
         if (wasCancelled) {
           if (t.id) updateFile(t.id, { status: "ready", progress: "Cancelled", generatingPercent: 0, generatingMessage: undefined });
           cancelled++;
+        } else if (error && typeof error === "object" && (error as any).limitReached === true) {
+          const feature = (error as any).feature ?? "Pro feature";
+          if (t.id) updateFile(t.id, { status: "error", progress: "Pro feature required" });
+          setLimitReachedFeature(feature);
+          fail++;
         } else {
           const message = getGenerationErrorMessage(error);
           if (t.id) updateFile(t.id, { status: "error", progress: message });
@@ -671,6 +685,9 @@ export function GenerateForm({
 
   return (
     <Wrapper className="space-y-5" {...(wrapperAnim as object)}>
+      {limitReachedFeature && (
+        <UpgradeBanner feature={limitReachedFeature} compact={false} />
+      )}
       <GenerationSuccessOverlay
         open={successOverlay.open}
         deckCount={successOverlay.decks}

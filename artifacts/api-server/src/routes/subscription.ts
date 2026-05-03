@@ -6,6 +6,21 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
+function resolveBaseUrl(clientOrigin?: string): string {
+  if (process.env.REPLIT_DOMAINS) {
+    return `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
+  }
+  if (clientOrigin) {
+    try {
+      const u = new URL(clientOrigin);
+      if (u.protocol === 'http:' || u.protocol === 'https:') {
+        return u.origin;
+      }
+    } catch { }
+  }
+  return `http://localhost:${process.env.FRONTEND_PORT ?? '5173'}`;
+}
+
 async function getActiveSubscription(userId: string) {
   const result = await db.execute(
     sql`
@@ -97,8 +112,10 @@ router.post("/subscription/checkout", async (req, res, next): Promise<void> => {
       return;
     }
 
-    const { priceId } = req.body as { priceId?: string };
-    if (!priceId) {
+    const { priceId, origin } = req.body as { priceId?: string; origin?: string };
+
+    const effectivePriceId = priceId || process.env.STRIPE_PRICE_ID;
+    if (!effectivePriceId) {
       res.status(400).json({ error: "priceId is required" });
       return;
     }
@@ -125,11 +142,11 @@ router.post("/subscription/checkout", async (req, res, next): Promise<void> => {
       customerId = customer.id;
     }
 
-    const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    const baseUrl = resolveBaseUrl(origin);
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: effectivePriceId, quantity: 1 }],
       mode: 'subscription',
       success_url: `${baseUrl}/pricing?success=1`,
       cancel_url: `${baseUrl}/pricing?canceled=1`,
@@ -156,8 +173,9 @@ router.post("/subscription/portal", async (req, res, next): Promise<void> => {
       return;
     }
 
+    const { origin } = req.body as { origin?: string };
     const stripe = await getUncachableStripeClient();
-    const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    const baseUrl = resolveBaseUrl(origin);
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
       return_url: `${baseUrl}/pricing`,
