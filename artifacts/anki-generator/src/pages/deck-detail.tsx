@@ -23,7 +23,7 @@ import {
   ArrowLeft, Download, Trash2, Edit2, Check, X, 
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
-  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network, CheckCircle2
+  Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network, CheckCircle2, CalendarClock, Zap
 } from "lucide-react";
 import {
   Dialog,
@@ -46,6 +46,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/utils";
 import { saveSession, getSavePoint, saveSavePoint, clearSavePoint, type StudySavePoint } from "@/lib/study-stats";
+import {
+  getSrsState, saveSrsState, getDefaultSrsState, computeNextState,
+  getNextInterval, intervalLabel, getDueCardIds, getDaysUntilDue,
+  type SrsRating,
+} from "@/lib/srs";
 import type { Card, Deck } from "@workspace/api-client-react/src/generated/api.schemas";
 import { Drawer } from "vaul";
 import ReactMarkdown from "react-markdown";
@@ -201,13 +206,14 @@ function BriefBreakdownView({ text, isStreaming }: { text: string; isStreaming: 
   );
 }
 
-function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
+function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMode = false }: {
   cards: Card[];
   deckId: number;
   deckName: string;
   deckKind?: string;
   onExit: () => void;
   savePoint?: StudySavePoint | null;
+  srsMode?: boolean;
 }) {
   const isQbank = deckKind === "qbank";
   const buildInitialDeck = () => {
@@ -425,19 +431,37 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
     goNext();
   }, [current?.id, goNext]);
 
+  const rateCard = useCallback((rating: SrsRating) => {
+    if (!current) return;
+    const existing = getSrsState(current.id);
+    const state = existing ?? getDefaultSrsState(current.id, deckId);
+    const next = computeNextState(state, rating);
+    saveSrsState(next);
+    if (rating >= 3) {
+      setKnown(prev => new Set([...prev, current.id]));
+      setUnknown(prev => { const s = new Set(prev); s.delete(current.id); return s; });
+    } else {
+      setUnknown(prev => new Set([...prev, current.id]));
+      setKnown(prev => { const s = new Set(prev); s.delete(current.id); return s; });
+    }
+    goNext();
+  }, [current, deckId, goNext]);
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (sourceModalCardId !== null) return;
       if (e.key === "Escape") { setLightboxSrc(null); return; }
-      if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (!revealed) setRevealed(true); else markKnown(); }
+      if (e.key === " " || e.key === "Enter") { e.preventDefault(); if (!revealed) setRevealed(true); else rateCard(3); }
       if (e.key === "ArrowRight") { e.preventDefault(); goNext(); }
       if (e.key === "ArrowLeft") { e.preventDefault(); goPrev(); }
-      if (e.key === "1" && revealed) markKnown();
-      if (e.key === "2" && revealed) markUnknown();
+      if (e.key === "1" && revealed) rateCard(1);
+      if (e.key === "2" && revealed) rateCard(2);
+      if (e.key === "3" && revealed) rateCard(3);
+      if (e.key === "4" && revealed) rateCard(4);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [revealed, goNext, goPrev, markKnown, markUnknown, sourceModalCardId]);
+  }, [revealed, goNext, goPrev, rateCard, sourceModalCardId]);
 
   if (done) {
     return (
@@ -446,16 +470,17 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
           <div className="text-5xl mb-4">🎉</div>
           <h2 className="text-2xl font-serif font-bold text-primary">Study session complete!</h2>
           <p className="text-muted-foreground">You went through all {total} cards.</p>
+          {srsMode && <p className="text-xs text-muted-foreground mt-1">Cards scheduled for review based on your ratings.</p>}
         </div>
         <div className="flex gap-8 text-center">
           <div className="space-y-1">
             <p className="text-3xl font-bold text-green-600">{known.size}</p>
-            <p className="text-sm text-muted-foreground">Got it</p>
+            <p className="text-sm text-muted-foreground">Good / Easy</p>
           </div>
           <div className="w-px bg-border" />
           <div className="space-y-1">
             <p className="text-3xl font-bold text-red-500">{unknown.size}</p>
-            <p className="text-sm text-muted-foreground">Still learning</p>
+            <p className="text-sm text-muted-foreground">Again / Hard</p>
           </div>
         </div>
         {total > 0 && (
@@ -546,10 +571,12 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
               <p className="text-xs font-semibold mb-2 text-foreground">Keyboard shortcuts</p>
               <div className="space-y-1.5">
                 {[
-                  ["Space / →", "Flip / Next"],
+                  ["Space / →", "Flip / Good"],
                   ["←", "Previous"],
-                  ["1", "Mark \"Got it\""],
-                  ["2", "Mark \"Still learning\""],
+                  ["1", "Again"],
+                  ["2", "Hard"],
+                  ["3", "Good"],
+                  ["4", "Easy"],
                 ].map(([key, action]) => (
                   <div key={key} className="flex items-center justify-between">
                     <kbd className="text-[10px] bg-muted border border-border rounded px-1.5 py-0.5 font-mono">{key}</kbd>
@@ -832,25 +859,39 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint }: {
 
       {revealed && (
         <motion.div
-          className="flex flex-col sm:flex-row gap-3"
+          className="flex flex-col gap-2"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 300, damping: 28, delay: !isMcq && !hasImage ? 0.45 : isMcq ? 0.5 : 0.1 }}
         >
-          <button
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl border-2 border-red-200 dark:border-red-800/50 text-red-500 dark:text-red-400 bg-red-500/5 hover:bg-red-500/10 transition-all font-semibold text-base"
-            onClick={markUnknown}
-          >
-            <XCircle className="h-5 w-5" /> Still learning
-            <span className="ml-auto text-xs opacity-50 font-normal">2</span>
-          </button>
-          <button
-            className="flex-1 flex items-center justify-center gap-2 py-3.5 px-6 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white transition-all font-semibold text-base shadow-lg shadow-emerald-500/20"
-            onClick={markKnown}
-          >
-            <CheckCircle2 className="h-5 w-5" /> Got it!
-            <span className="ml-auto text-xs opacity-70 font-normal">1</span>
-          </button>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-center text-muted-foreground">How well did you know this?</p>
+          <div className="grid grid-cols-4 gap-2">
+            {(
+              [
+                { rating: 1 as SrsRating, label: "Again", cls: "border-rose-200 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 bg-rose-500/5 hover:bg-rose-500/12", kbd: "1" },
+                { rating: 2 as SrsRating, label: "Hard",  cls: "border-orange-200 dark:border-orange-800/50 text-orange-600 dark:text-orange-400 bg-orange-500/5 hover:bg-orange-500/12", kbd: "2" },
+                { rating: 3 as SrsRating, label: "Good",  cls: "border-sky-200 dark:border-sky-800/50 text-sky-600 dark:text-sky-400 bg-sky-500/5 hover:bg-sky-500/12", kbd: "3" },
+                { rating: 4 as SrsRating, label: "Easy",  cls: "border-emerald-200 dark:border-emerald-800/50 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 hover:bg-emerald-500/12", kbd: "4" },
+              ] as Array<{ rating: SrsRating; label: string; cls: string; kbd: string }>
+            ).map(({ rating, label, cls, kbd }) => {
+              const srsState = getSrsState(current?.id ?? 0);
+              const days = getNextInterval(rating, srsState);
+              const lbl = intervalLabel(days);
+              return (
+                <motion.button
+                  key={rating}
+                  whileHover={{ y: -2 }}
+                  whileTap={{ scale: 0.96 }}
+                  className={`flex flex-col items-center justify-center gap-1 py-3 rounded-2xl border-2 transition-all font-semibold text-sm ${cls}`}
+                  onClick={() => rateCard(rating)}
+                >
+                  <span>{label}</span>
+                  <span className="text-[10px] font-medium opacity-60">{lbl}</span>
+                  <span className="text-[9px] opacity-35 font-normal">{kbd}</span>
+                </motion.button>
+              );
+            })}
+          </div>
         </motion.div>
       )}
 
@@ -1113,6 +1154,9 @@ export default function DeckDetail() {
   const deckWithSubs = deck as DeckWithSubDecks | undefined;
   const subDecks = [...(deckWithSubs?.subDecks ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   const hasSubDecks = subDecks.length > 0;
+  const dueCardIds = useMemo(() => getDueCardIds(cardList.map(c => c.id)), [cardList]);
+  const dueCount = dueCardIds.length;
+  const [studyDueOnly, setStudyDueOnly] = useState(false);
 
   const handleExportJson = async () => {
     if (!deck) return;
@@ -1220,7 +1264,11 @@ export default function DeckDetail() {
       })
     : tabFilteredCards;
 
-  if (studyMode && filteredCards.length > 0) {
+  const studyCards = studyDueOnly
+    ? cardList.filter(c => dueCardIds.includes(c.id))
+    : filteredCards;
+
+  if (studyMode && studyCards.length > 0) {
     return (
       <div className="space-y-6 animate-in fade-in duration-300 pb-20">
         <div className="flex items-center gap-3 flex-wrap">
@@ -1229,6 +1277,10 @@ export default function DeckDetail() {
             <Badge className="gap-1.5 bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20 hover:bg-violet-500/10">
               <Stethoscope className="h-3.5 w-3.5" /> Question Bank
             </Badge>
+          ) : studyDueOnly ? (
+            <Badge className="gap-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20 hover:bg-amber-500/10">
+              <CalendarClock className="h-3.5 w-3.5" /> Due Review
+            </Badge>
           ) : (
             <Badge className="gap-1.5 bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
               <GraduationCap className="h-3.5 w-3.5" /> Study Mode
@@ -1236,12 +1288,13 @@ export default function DeckDetail() {
           )}
         </div>
         <StudyMode
-          cards={filteredCards}
+          cards={studyCards}
           deckId={deck.id}
           deckName={deck.name}
           deckKind={(deck as Deck & { kind?: string }).kind}
-          savePoint={activeSavePoint}
-          onExit={() => { setStudyMode(false); setActiveSavePoint(null); }}
+          savePoint={studyDueOnly ? null : activeSavePoint}
+          srsMode={studyDueOnly}
+          onExit={() => { setStudyMode(false); setActiveSavePoint(null); setStudyDueOnly(false); }}
         />
       </div>
     );
@@ -1386,6 +1439,19 @@ export default function DeckDetail() {
                 <Play className="h-4 w-4" /> Practice Mode
               </Button>
             </Link>
+          )}
+          {!isQbank && dueCount > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => { setStudyDueOnly(true); setActiveSavePoint(null); setStudyMode(true); }}
+              className="gap-2 border-amber-400/50 text-amber-700 dark:text-amber-300 hover:bg-amber-500/8 hover:border-amber-500/60"
+            >
+              <CalendarClock className="h-4 w-4" />
+              Review Due
+              <Badge className="ml-0.5 h-4 px-1.5 text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
+                {dueCount}
+              </Badge>
+            </Button>
           )}
           {filteredCards.length > 0 && (
             <Button 
@@ -1572,6 +1638,7 @@ function EditableCard({
   onUpdate: (id: number, data: { front: string; back: string }) => void; 
   onDelete: (id: number) => void;
 }) {
+  const daysUntilDue = getDaysUntilDue(card.id);
   const [isEditing, setIsEditing] = useState(false);
   const [front, setFront] = useState(card.front);
   const [back, setBack] = useState(card.back);
@@ -1639,6 +1706,18 @@ function EditableCard({
         <div className="flex-1 p-4 sm:p-5 border-b sm:border-b-0 sm:border-r border-border/40">
           <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5 flex-wrap">
             Front
+            {daysUntilDue !== null && (
+              <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+                daysUntilDue <= 0
+                  ? "bg-amber-500/12 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+                  : daysUntilDue <= 2
+                  ? "bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20"
+                  : "bg-muted text-muted-foreground border border-border/40"
+              }`}>
+                <CalendarClock className="h-2.5 w-2.5" />
+                {daysUntilDue <= 0 ? "Due now" : `Due in ${daysUntilDue}d`}
+              </span>
+            )}
             {(card as Card & { image?: string | null }).image && (
               <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
                 <ImageIcon className="h-2.5 w-2.5" /> Visual

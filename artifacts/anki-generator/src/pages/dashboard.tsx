@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Layers, FileText, Sparkles, TrendingUp, ChevronRight, PlusCircle,
-  Clock, Flame, Brain, CheckCircle2, BookOpen, Stethoscope,
+  Clock, Flame, Brain, CheckCircle2, BookOpen, Stethoscope, CalendarClock,
 } from "lucide-react";
 import {
   getSessions,
@@ -17,6 +17,7 @@ import {
   getDeckStats,
   getTodayStats,
 } from "@/lib/study-stats";
+import { getTotalScheduledDueCount } from "@/lib/srs";
 import type { Qbank } from "@workspace/api-client-react";
 import { AppDownloads } from "@/components/app-downloads";
 import { FeaturesShowcase } from "@/components/features-showcase";
@@ -41,6 +42,7 @@ export default function Dashboard() {
   const totalSessionCards = sessions.reduce((sum, s) => sum + s.total, 0);
   const totalKnown = sessions.reduce((sum, s) => sum + s.known, 0);
   const overallPct = totalSessionCards > 0 ? Math.round((totalKnown / totalSessionCards) * 100) : 0;
+  const dueNowCount = useMemo(() => getTotalScheduledDueCount(), []);
 
   const maxDay = Math.max(...last7.map(d => d.total), 1);
 
@@ -300,6 +302,26 @@ export default function Dashboard() {
             </Link>
           </CardContent>
         </Card>
+      )}
+
+      {/* Due today widget */}
+      {dueNowCount > 0 && (
+        <Link href="/decks">
+          <Card className="border-amber-400/40 dark:border-amber-600/30 bg-amber-500/5 shadow-sm hover:border-amber-500/60 hover:shadow-md transition-all cursor-pointer group">
+            <CardContent className="flex items-center gap-4 p-5">
+              <div className="h-10 w-10 rounded-full bg-amber-500/15 flex items-center justify-center shrink-0 group-hover:bg-amber-500/25 transition-colors">
+                <CalendarClock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-amber-800 dark:text-amber-200">
+                  {dueNowCount} card{dueNowCount !== 1 ? "s" : ""} due for review
+                </p>
+                <p className="text-sm text-amber-700/70 dark:text-amber-400/70">Open a deck to review scheduled cards</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            </CardContent>
+          </Card>
+        </Link>
       )}
 
       {/* Quick actions */}

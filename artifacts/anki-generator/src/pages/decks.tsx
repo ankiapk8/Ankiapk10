@@ -28,7 +28,7 @@ import {
   Trash2, Layers, Plus, Download, CheckSquare, X, Search,
   FileText, FolderOpen, ChevronDown, ChevronRight, Pencil,
   Sparkles, BookOpen, Upload, Combine, History as HistoryIcon,
-  Stethoscope, Play,
+  Stethoscope, Play, CalendarClock,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -38,6 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/utils";
 import type { Deck } from "@workspace/api-client-react/src/generated/api.schemas";
 import type { Qbank } from "@workspace/api-client-react";
+import { getDueCountByDeckId } from "@/lib/srs";
 
 type DeckWithParent = Deck & { parentId?: number | null };
 
@@ -252,6 +253,7 @@ function DeckRow({
   const isSelected = selectedIds.has(deck.id);
   const allDescendants = getAllDescendants(deck.id, deckChildrenMap);
   const totalCards = deck.cardCount + allDescendants.reduce((s, d) => s + d.cardCount, 0);
+  const dueCount = !isQbank && depth === 0 ? getDueCountByDeckId(deck.id) : 0;
 
   const clampedDepth = Math.min(depth, 2);
 
@@ -394,6 +396,12 @@ function DeckRow({
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0 ml-auto">
+                  {dueCount > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400 bg-amber-500/12 border border-amber-500/30 px-1.5 py-0.5 rounded">
+                      <CalendarClock className="h-2.5 w-2.5" />
+                      {dueCount} due
+                    </span>
+                  )}
                   <span className={cardCountClass}>
                     {cardCount}<span className="hidden xs:inline sm:inline"> {isQbank ? "MCQ" : "card"}{cardCount !== 1 ? "s" : ""}</span>
                   </span>
