@@ -6,7 +6,7 @@ import { serializeCard } from "../lib/serialize-card";
 import { createRateLimiter } from "../lib/rate-limiter";
 import { FREE_TEXT_MODEL, FREE_VISION_MODEL } from "../lib/models";
 import { eq } from "drizzle-orm";
-import { checkIsPro, checkDeckQuota, recordDeckCreation, FREE_TIER, sendLimitError } from "../lib/free-tier-limits";
+import { getEffectiveIsPro, checkDeckQuota, recordDeckCreation, FREE_TIER, sendLimitError } from "../lib/free-tier-limits";
 
 const router: IRouter = Router();
 
@@ -906,7 +906,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
   }
 
   const userId = req.isAuthenticated() ? req.user!.id : null;
-  const isPro = userId ? await checkIsPro(userId) : false;
+  const isPro = await getEffectiveIsPro(req, userId);
   const streamDeckKey = userId ?? (req.ip ?? "unknown");
   if (!isPro) {
     const hasVisualRequest = Array.isArray(pageImages) && pageImages.length > 0 &&
@@ -1362,7 +1362,7 @@ router.post("/generate-qbank", async (req, res, next): Promise<void> => {
   }
 
   const userId = req.isAuthenticated() ? req.user!.id : null;
-  const isPro = userId ? await checkIsPro(userId) : false;
+  const isPro = await getEffectiveIsPro(req, userId);
   if (!isPro) {
     sendLimitError(res, "qbank", "QBank generation is a Pro feature. Upgrade to Pro to unlock question banks.");
     return;
@@ -1466,7 +1466,7 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
   }
 
   const userId = req.isAuthenticated() ? req.user!.id : null;
-  const isPro = userId ? await checkIsPro(userId) : false;
+  const isPro = await getEffectiveIsPro(req, userId);
   if (!isPro) {
     sendLimitError(res, "qbank", "QBank generation is a Pro feature. Upgrade to Pro to unlock question banks.");
     return;
@@ -1584,7 +1584,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   }
 
   const userId = req.isAuthenticated() ? req.user!.id : null;
-  const isPro = userId ? await checkIsPro(userId) : false;
+  const isPro = await getEffectiveIsPro(req, userId);
   const deckKey = userId ?? (req.ip ?? "unknown");
   if (!isPro) {
     const hasVisualRequest = Array.isArray(pageImages) && pageImages.length > 0 &&
@@ -1722,7 +1722,7 @@ router.post("/generate/commit", generateRateLimiter, async (req: Request, res: R
   if (!Array.isArray(cards) || cards.length === 0) { res.status(400).json({ error: "cards array is required" }); return; }
 
   const commitUserId = req.isAuthenticated() ? req.user!.id : null;
-  const commitIsPro = commitUserId ? await checkIsPro(commitUserId) : false;
+  const commitIsPro = await getEffectiveIsPro(req, commitUserId);
   const commitDeckKey = commitUserId ?? (req.ip ?? "unknown");
   if (!commitIsPro) {
     if (cards.length > FREE_TIER.MAX_CARDS_PER_DECK) {

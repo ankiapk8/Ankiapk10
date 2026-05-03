@@ -3,7 +3,7 @@ import { db, usersTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { getUncachableStripeClient } from "../stripeClient";
 import { logger } from "../lib/logger";
-import { getDevOverrideEntry } from "../lib/dev-overrides";
+import { getDevOverrideForRequest } from "../lib/dev-overrides";
 
 const router: IRouter = Router();
 
@@ -43,15 +43,8 @@ router.get("/subscription/stripe-configured", async (_req, res): Promise<void> =
 
 router.get("/subscription/status", async (req, res, next): Promise<void> => {
   try {
-    if (!req.isAuthenticated()) {
-      res.json({ isPro: false, subscription: null, reason: "unauthenticated" });
-      return;
-    }
-
-    const userId = req.user!.id;
-
     if (process.env.NODE_ENV !== "production") {
-      const devEntry = getDevOverrideEntry(userId);
+      const devEntry = getDevOverrideForRequest(req);
       if (devEntry !== undefined) {
         res.json({
           isPro: devEntry.isPro,
@@ -65,6 +58,12 @@ router.get("/subscription/status", async (req, res, next): Promise<void> => {
       }
     }
 
+    if (!req.isAuthenticated()) {
+      res.json({ isPro: false, subscription: null, reason: "unauthenticated" });
+      return;
+    }
+
+    const userId = req.user!.id;
     const sub = await getActiveSubscription(userId);
 
     res.json({
@@ -182,28 +181,23 @@ router.post("/subscription/checkout", async (req, res, next): Promise<void> => {
 
 router.get("/subscription/usage", async (req, res, next): Promise<void> => {
   try {
-    if (!req.isAuthenticated()) {
+    const devEntry = process.env.NODE_ENV !== "production" ? getDevOverrideForRequest(req) : undefined;
+    if (!req.isAuthenticated() && !devEntry) {
       res.json({ decks: 0, deckLimit: 2, exports: 0, exportLimit: 1 });
       return;
     }
-    const userId = req.user!.id;
+    const userId = req.isAuthenticated() ? req.user!.id : null;
+    const isPro = devEntry ? devEntry.isPro : false;
 
-    const isPro = (() => {
-      if (process.env.NODE_ENV !== "production") {
-        const devEntry = getDevOverrideEntry(userId);
-        if (devEntry !== undefined) return devEntry.isPro;
-      }
-      return false;
-    })();
-
-    const deckResult = await db.execute(
-      sql`SELECT cast(count(*) as int) AS cnt FROM decks WHERE user_id = ${userId}`
-    );
+    const deckResult = userId
+      ? await db.execute(sql`SELECT cast(count(*) as int) AS cnt FROM decks WHERE user_id = ${userId}`)
+      : { rows: [{ cnt: 0 }] };
     const deckCount = (deckResult.rows[0] as { cnt?: number } | undefined)?.cnt ?? 0;
 
     const today = new Date().toISOString().slice(0, 10);
+    const exportKey = userId ?? (req.cookies?.["dev-sid"] as string | undefined) ?? "anon";
     const exportResult = await db.execute(
-      sql`SELECT count FROM quota_usage WHERE key = ${userId} AND metric = 'apkg_export' AND period = ${today}`
+      sql`SELECT count FROM quota_usage WHERE key = ${exportKey} AND metric = 'apkg_export' AND period = ${today}`
     );
     const exportCount = typeof (exportResult.rows[0] as { count?: unknown } | undefined)?.count === 'number'
       ? (exportResult.rows[0] as { count: number }).count

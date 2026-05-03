@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, sql, inArray, asc } from "drizzle-orm";
 import { db, qbanksTable, questionsTable } from "@workspace/db";
-import { checkIsPro, sendLimitError } from "../lib/free-tier-limits";
+import { getEffectiveIsPro, sendLimitError } from "../lib/free-tier-limits";
 
 const router: IRouter = Router();
 
@@ -33,7 +33,7 @@ router.post("/qbanks", async (req, res, next): Promise<void> => {
   if (!name) { res.status(400).json({ error: "name is required" }); return; }
 
   const userId = req.isAuthenticated() ? req.user!.id : null;
-  const isPro = userId ? await checkIsPro(userId) : false;
+  const isPro = await getEffectiveIsPro(req, userId);
   if (!isPro) {
     sendLimitError(res, "qbank", "QBank generation is a Pro feature. Upgrade to Pro to unlock question banks.");
     return;

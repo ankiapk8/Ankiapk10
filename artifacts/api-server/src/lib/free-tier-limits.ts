@@ -1,7 +1,7 @@
-import { type Response } from "express";
+import { type Request, type Response } from "express";
 import { db, decksTable } from "@workspace/db";
 import { sql, eq } from "drizzle-orm";
-import { getDevProOverride } from "./dev-overrides";
+import { getDevProOverride, getDevOverrideForRequest } from "./dev-overrides";
 
 export const FREE_TIER = {
   MAX_CARDS_PER_DECK: 20,
@@ -50,6 +50,15 @@ export async function checkIsPro(userId: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function getEffectiveIsPro(req: Request, userId: string | null): Promise<boolean> {
+  if (userId) return checkIsPro(userId);
+  if (process.env.NODE_ENV !== "production") {
+    const entry = getDevOverrideForRequest(req);
+    if (entry !== undefined) return entry.isPro;
+  }
+  return false;
 }
 
 export async function countAllDecksByUser(userId: string): Promise<number> {

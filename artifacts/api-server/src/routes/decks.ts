@@ -10,7 +10,7 @@ import {
   UpdateDeckBody,
 } from "@workspace/api-zod";
 import { serializeCard } from "../lib/serialize-card";
-import { checkIsPro, checkDeckQuota, recordDeckCreation, FREE_TIER, sendLimitError } from "../lib/free-tier-limits";
+import { getEffectiveIsPro, checkDeckQuota, recordDeckCreation, FREE_TIER, sendLimitError } from "../lib/free-tier-limits";
 
 const router: IRouter = Router();
 
@@ -45,7 +45,7 @@ router.post("/decks", async (req, res, next): Promise<void> => {
   }
 
   const userId = req.isAuthenticated() ? req.user!.id : null;
-  const isPro = userId ? await checkIsPro(userId) : false;
+  const isPro = await getEffectiveIsPro(req, userId);
   const deckKey = userId ?? (req.ip ?? "unknown");
 
   if (!isPro && parsed.data.parentId == null) {
@@ -148,7 +148,7 @@ router.patch("/decks/:id", async (req, res, next): Promise<void> => {
   const promotingToRoot = "parentId" in parsed.data && (parsed.data.parentId === null || parsed.data.parentId === undefined);
   if (promotingToRoot) {
     const patchUserId = req.isAuthenticated() ? req.user!.id : null;
-    const patchIsPro = patchUserId ? await checkIsPro(patchUserId) : false;
+    const patchIsPro = await getEffectiveIsPro(req, patchUserId);
     if (!patchIsPro) {
       const patchKey = patchUserId ?? (req.ip ?? "unknown");
       const existing = await db.select({ parentId: decksTable.parentId }).from(decksTable).where(eq(decksTable.id, id));
@@ -232,7 +232,7 @@ router.post("/decks/merge", async (req, res, next): Promise<void> => {
   }
 
   const mergeUserId = req.isAuthenticated() ? req.user!.id : null;
-  const mergeIsPro = mergeUserId ? await checkIsPro(mergeUserId) : false;
+  const mergeIsPro = await getEffectiveIsPro(req, mergeUserId);
   if (!mergeIsPro && parentId === null) {
     const mergeKey = mergeUserId ?? (req.ip ?? "unknown");
     const { allowed } = await checkDeckQuota(mergeKey, mergeUserId);

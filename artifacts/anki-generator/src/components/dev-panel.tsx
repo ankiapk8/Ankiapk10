@@ -379,10 +379,10 @@ export function DevPanel() {
                     {!isSimulated ? (
                       <button
                         type="button"
-                        disabled={loading || !status?.authenticated}
+                        disabled={loading}
                         onClick={handleSimulateSubscribe}
                         className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-violet-400/60 hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/20 text-violet-600 dark:text-violet-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={!status?.authenticated ? "Log in first to use simulate" : ""}
+                        title=""
                       >
                         <FlaskConical className="h-3 w-3" />
                         Simulate Subscribe
