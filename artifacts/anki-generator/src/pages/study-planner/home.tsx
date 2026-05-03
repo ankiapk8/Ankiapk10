@@ -365,18 +365,7 @@ ${monthsHtml}</body></html>`;
       )}
 
       {/* ── Page header ───────────────────────────────────────────────── */}
-      <div className="px-4 pt-6 pb-4 text-center relative w-full">
-        <div className="absolute top-4 right-4 left-4 flex items-center justify-end gap-2 flex-wrap sm:right-6 sm:left-6">
-          {todayCount > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full border border-orange-200 dark:border-orange-700/60">
-              {todayCount} due today
-            </span>
-          )}
-          <span className="text-xs text-muted-foreground hidden sm:block">{displayName}</span>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => nav("/settings")}>
-            <Settings className="h-4 w-4" />
-          </Button>
-        </div>
+      <div className="px-4 pt-6 pb-4 w-full space-y-3">
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -390,6 +379,17 @@ ${monthsHtml}</body></html>`;
             Schedule {formatDateLabel(startDate)} → {formatDateLabel(endDate)} · {daysBetween(startDate, endDate)} days
           </p>
         </motion.div>
+        <div className="flex items-center justify-end gap-2 flex-wrap">
+          {todayCount > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full border border-orange-200 dark:border-orange-700/60">
+              {todayCount} due today
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground hidden sm:block">{displayName}</span>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => nav("/settings")}>
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="w-full p-4 space-y-4">
