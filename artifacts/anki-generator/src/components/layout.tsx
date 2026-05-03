@@ -1,13 +1,21 @@
 import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays, Download, Crown, CreditCard, Loader2 } from "lucide-react";
+import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays, Download, Crown, CreditCard, Loader2, LogIn, LogOut, User } from "lucide-react";
 import { useSubscription, openBillingPortal } from "@/hooks/useSubscription";
+import { useAuth, getLoginUrl, getLogoutUrl } from "@/hooks/useAuth";
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
 import { PomodoroTimer } from "@/components/pomodoro-timer";
 import { FeedbackButton } from "@/components/feedback-button";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { SyncIndicator } from "@/components/sync-indicator";
 import { useOfflineQueue } from "@/hooks/use-offline-queue";
@@ -60,6 +68,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [dark, setDark] = useDarkMode();
   const { queueCount, isSyncing } = useOfflineQueue();
   const { isPro } = useSubscription();
+  const { user, isLoggedIn, isLoading: authLoading, displayName, initials } = useAuth();
   const [billingLoading, setBillingLoading] = useState(false);
 
   async function handleManageBilling() {
@@ -280,7 +289,72 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            
+
+            {/* Auth button */}
+            {authLoading ? (
+              <div className="h-8 w-8 flex items-center justify-center">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+              </div>
+            ) : isLoggedIn && user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full overflow-hidden border border-border/60 hover:border-border p-0"
+                    aria-label={`Account: ${displayName}`}
+                    title={displayName ?? "Account"}
+                  >
+                    {user.profileImageUrl ? (
+                      <img
+                        src={user.profileImageUrl}
+                        alt={displayName ?? "User"}
+                        className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <span className="h-full w-full flex items-center justify-center bg-primary/10 text-primary text-xs font-bold">
+                        {initials}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <div className="px-2 py-1.5">
+                    <p className="text-sm font-medium truncate">{displayName}</p>
+                    {user.email && (
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    )}
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/pricing">
+                      <Crown className="h-3.5 w-3.5 mr-2 text-amber-500" />
+                      {isPro ? "Manage subscription" : "Upgrade to Pro"}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <a href={getLogoutUrl()} className="flex items-center text-destructive focus:text-destructive">
+                      <LogOut className="h-3.5 w-3.5 mr-2" />
+                      Sign out
+                    </a>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1.5 text-muted-foreground hover:text-foreground px-2"
+                onClick={() => { window.location.href = getLoginUrl(window.location.pathname); }}
+                aria-label="Sign in"
+                title="Sign in to save your progress"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-xs font-medium">Sign in</span>
+              </Button>
+            )}
           </div>
         </div>
       </header>

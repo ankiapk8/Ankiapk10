@@ -905,18 +905,25 @@ export function SplashScreen({ children }: { children: React.ReactNode }) {
     return () => observer.disconnect();
   }, []);
 
-  const [phase, setPhase] = useState<"logo" | "features" | "done">("logo");
+  const SPLASH_SEEN_KEY = "ankigen-splash-seen-v1";
+  const alreadySeen = (() => {
+    try { return localStorage.getItem(SPLASH_SEEN_KEY) === "1"; } catch { return false; }
+  })();
+
+  const [phase, setPhase] = useState<"logo" | "features" | "done">(alreadySeen ? "done" : "logo");
   const [featureIndex, setFeatureIndex] = useState(0);
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(alreadySeen);
   const [direction, setDirection] = useState<1 | -1>(1);
 
   const dismiss = useCallback(() => {
+    try { localStorage.setItem(SPLASH_SEEN_KEY, "1"); } catch {}
     setPhase("done");
     setTimeout(() => setDismissed(true), 700);
   }, []);
 
   // Logo → features (auto-advance logo only, no auto-advance in features)
   useEffect(() => {
+    if (alreadySeen) return;
     const t = setTimeout(() => setPhase("features"), LOGO_PHASE_MS);
     return () => clearTimeout(t);
   }, []);
