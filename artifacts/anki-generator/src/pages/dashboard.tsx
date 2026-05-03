@@ -5,12 +5,13 @@ import { useListDecks, useListQbanks } from "@workspace/api-client-react";
 import { format, isThisWeek } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Layers, FileText, Sparkles, ChevronRight, PlusCircle,
   Clock, Flame, Brain, CheckCircle2, BookOpen, Stethoscope, CalendarClock,
   LayoutDashboard, Target, TrendingUp, TrendingDown, Compass, Timer,
-  Trophy, Play, X,
+  Trophy, Play, X, Search, Tag,
 } from "lucide-react";
 import {
   getSessions,
@@ -26,6 +27,7 @@ import {
   getLast8Weeks,
 } from "@/lib/study-stats";
 import { getDashboardPlannerDueTodayCount } from "@/lib/study-planner/topics";
+import { getAllDeckTags, addDeckTag, removeDeckTag } from "@/lib/deck-tags";
 import { getTotalScheduledDueCount, getDueCountByDeckId, getReviewedCountByDeckId } from "@/lib/srs";
 import type { Qbank } from "@workspace/api-client-react";
 import { AppDownloads } from "@/components/app-downloads";
@@ -88,6 +90,10 @@ export default function Dashboard() {
   const sparklineDays = useMemo(() => getLast14DaysTotals(), [statsTick]);
 
   const [weeklyGoal, setWeeklyGoalState] = useState(() => getWeeklyGoal());
+  const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagEditDeckId, setTagEditDeckId] = useState<number | null>(null);
+  const [tagInput, setTagInput] = useState("");
 
   // 8-week heatmap grid: 8 cols (oldest→newest) × 7 rows (Mon→Sun)
   const heatmap = useMemo(() => {
@@ -138,22 +144,47 @@ export default function Dashboard() {
 
   const maxDay = Math.max(...last7.map(d => d.total), 1);
 
-  const recentDecks = [...(decks ?? [])].filter((d: { kind?: string }) => (d.kind ?? "deck") !== "qbank").sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  ).slice(0, 5);
+  const allDecks = useMemo(() =>
+    [...(decks ?? [])].filter((d: { kind?: string }) => (d.kind ?? "deck") !== "qbank")
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [decks]
+  );
+
+  const allDeckTags = useMemo(() => getAllDeckTags(), [statsTick]);
+
+  const allUniqueTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    for (const [deckId, tags] of allDeckTags) {
+      if (allDecks.some(d => d.id === deckId)) tags.forEach(t => tagSet.add(t));
+    }
+    return [...tagSet].sort();
+  }, [allDeckTags, allDecks]);
+
+  const filteredDecks = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    return allDecks.filter(d => {
+      const tags = allDeckTags.get(d.id) ?? [];
+      const matchesSearch = !q || d.name.toLowerCase().includes(q) || tags.some(t => t.toLowerCase().includes(q));
+      const matchesTag = !tagFilter || tags.includes(tagFilter);
+      return matchesSearch && matchesTag;
+    });
+  }, [allDecks, allDeckTags, search, tagFilter]);
+
+  const isFiltering = search.trim() !== "" || tagFilter !== null;
+  const displayedDecks = isFiltering ? filteredDecks : filteredDecks.slice(0, 5);
 
   const recentDeckDueCounts = useMemo(() => {
     const map = new Map<number, number>();
-    for (const d of recentDecks) {
+    for (const d of allDecks) {
       const reviewedCount = getReviewedCountByDeckId(d.id);
-      if (reviewedCount === 0) continue; // SRS not started for this deck — no badge
+      if (reviewedCount === 0) continue;
       const reviewedDue = getDueCountByDeckId(d.id);
       const unseenNew = Math.max(0, (d.cardCount ?? 0) - reviewedCount);
       const total = reviewedDue + unseenNew;
       if (total > 0) map.set(d.id, total);
     }
     return map;
-  }, [recentDecks]);
+  }, [allDecks]);
 
   const deckStatsList = [...deckStats.entries()]
     .map(([id, s]) => ({ id, ...s, pct: s.total > 0 ? Math.round((s.known / s.total) * 100) : 0 }))
@@ -1007,12 +1038,14 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Recent decks */}
-      {recentDecks.length > 0 && (
+      {/* Deck library with search + tag filter */}
+      {allDecks.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold tracking-tight">Recent Decks</h2>
-            {totalDecks > 5 && (
+            <h2 className="text-lg font-semibold tracking-tight">
+              {isFiltering ? "Decks" : "Recent Decks"}
+            </h2>
+            {!isFiltering && totalDecks > 5 && (
               <Link href="/decks">
                 <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
                   View all <ChevronRight className="h-3 w-3" />
@@ -1020,55 +1053,159 @@ export default function Dashboard() {
               </Link>
             )}
           </div>
-          <div className="space-y-2">
-            {recentDecks.map((deck, idx) => {
-              const ds = deckStats.get(deck.id);
-              const deckPct = ds && ds.total > 0 ? Math.round((ds.known / ds.total) * 100) : null;
-              const lastStudied = lastStudiedByDeck.get(deck.id);
-              const { chip } = masteryColor(deckPct);
-              return (
-                <Link key={deck.id} href={`/decks/${deck.id}`}>
-                  <Card
-                    className="border-border/50 shadow-sm hover:border-primary/40 hover:shadow-md transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
-                    style={{ animationDelay: `${idx * 40}ms` }}
-                  >
-                    <CardContent className="flex items-center gap-4 py-3 px-4">
-                      <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                        <Layers className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{deck.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <p className="text-xs text-muted-foreground">
-                            {lastStudied
-                              ? `Studied ${relativeDate(lastStudied)}`
-                              : "Not studied yet"}
-                          </p>
-                          {deckPct !== null && (
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${chip}`}>
-                              {deckPct}% known
+
+          {/* Search bar */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name or tag…"
+              className="pl-9 h-9"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Tag filter chips */}
+          {allUniqueTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {allUniqueTags.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                    tagFilter === tag
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-muted/60 border-border/50 text-muted-foreground hover:bg-muted hover:text-foreground hover:border-primary/30"
+                  }`}
+                >
+                  <Tag className="h-2.5 w-2.5" />
+                  {tag}
+                  {tagFilter === tag && <X className="h-2.5 w-2.5 ml-0.5" />}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {displayedDecks.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground text-sm rounded-xl border border-dashed border-border/50">
+              No decks match your search.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {displayedDecks.map((deck, idx) => {
+                const ds = deckStats.get(deck.id);
+                const deckPct = ds && ds.total > 0 ? Math.round((ds.known / ds.total) * 100) : null;
+                const lastStudied = lastStudiedByDeck.get(deck.id);
+                const { chip } = masteryColor(deckPct);
+                const tags = allDeckTags.get(deck.id) ?? [];
+                const isEditingTags = tagEditDeckId === deck.id;
+                return (
+                  <Link key={deck.id} href={`/decks/${deck.id}`}>
+                    <Card
+                      className="border-border/50 shadow-sm hover:border-primary/40 hover:shadow-md transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
+                      style={{ animationDelay: `${idx * 40}ms` }}
+                    >
+                      <CardContent className="flex items-center gap-4 py-3 px-4">
+                        <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                          <Layers className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{deck.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <p className="text-xs text-muted-foreground">
+                              {lastStudied ? `Studied ${relativeDate(lastStudied)}` : "Not studied yet"}
+                            </p>
+                            {deckPct !== null && (
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded border font-medium ${chip}`}>
+                                {deckPct}% known
+                              </span>
+                            )}
+                          </div>
+                          {/* Tag chips + inline tag editor */}
+                          <div
+                            className="flex items-center gap-1 flex-wrap mt-1.5"
+                            onClick={e => e.preventDefault()}
+                          >
+                            {tags.map(tag => (
+                              <span
+                                key={tag}
+                                onClick={e => { e.preventDefault(); e.stopPropagation(); setTagFilter(tag === tagFilter ? null : tag); }}
+                                className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-primary/8 text-primary border border-primary/20 cursor-pointer hover:bg-primary/15 transition-colors"
+                              >
+                                {tag}
+                                <button
+                                  onClick={e => { e.preventDefault(); e.stopPropagation(); removeDeckTag(deck.id, tag); }}
+                                  className="ml-0.5 opacity-50 hover:opacity-100 hover:text-destructive transition-opacity"
+                                >
+                                  <X className="h-2 w-2" />
+                                </button>
+                              </span>
+                            ))}
+                            {isEditingTags ? (
+                              <input
+                                autoFocus
+                                value={tagInput}
+                                onChange={e => setTagInput(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter" && tagInput.trim()) {
+                                    e.preventDefault();
+                                    addDeckTag(deck.id, tagInput.trim());
+                                    setTagInput("");
+                                  } else if (e.key === "Escape") {
+                                    setTagEditDeckId(null);
+                                    setTagInput("");
+                                  }
+                                }}
+                                onBlur={() => { setTagEditDeckId(null); setTagInput(""); }}
+                                placeholder="Tag name…"
+                                className="text-[10px] h-5 w-20 px-1.5 rounded-full border border-primary/30 bg-background/80 outline-none focus:ring-1 focus:ring-primary/30"
+                              />
+                            ) : (
+                              <button
+                                onClick={e => { e.preventDefault(); e.stopPropagation(); setTagEditDeckId(deck.id); setTagInput(""); }}
+                                className="text-[10px] px-1.5 py-0.5 rounded-full border border-dashed border-muted-foreground/25 text-muted-foreground/60 hover:border-primary/40 hover:text-primary transition-colors"
+                              >
+                                + tag
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {(recentDeckDueCounts.get(deck.id) ?? 0) > 0 && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                              {recentDeckDueCounts.get(deck.id)} to review
                             </span>
                           )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {(recentDeckDueCounts.get(deck.id) ?? 0) > 0 && (
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
-                            {recentDeckDueCounts.get(deck.id)} to review
+                          <span className="text-sm font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-md">
+                            {deck.cardCount} {deck.cardCount === 1 ? "card" : "cards"}
                           </span>
-                        )}
-                        <span className="text-sm font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-md">
-                          {deck.cardCount} {deck.cardCount === 1 ? "card" : "cards"}
-                        </span>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+              {!isFiltering && totalDecks > 5 && (
+                <div className="text-center pt-1">
+                  <Link href="/decks">
+                    <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
+                      View all {totalDecks} decks <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

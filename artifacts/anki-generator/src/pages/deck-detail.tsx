@@ -24,7 +24,7 @@ import {
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
   Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network, CheckCircle2, CalendarClock, Zap,
-  Lightbulb, Activity, Copy, BookmarkPlus, StickyNote, Clock
+  Lightbulb, Activity, Copy, BookmarkPlus, StickyNote, Clock, Tag
 } from "lucide-react";
 import {
   Dialog,
@@ -47,6 +47,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiUrl } from "@/lib/utils";
 import { saveSession, getSavePoint, saveSavePoint, clearSavePoint, type StudySavePoint } from "@/lib/study-stats";
+import { getDeckTags, addDeckTag, removeDeckTag } from "@/lib/deck-tags";
 import {
   getSrsState, saveSrsState, getDefaultSrsState, computeNextState,
   getNextInterval, intervalLabel, getDueCardIds, getDaysUntilDue,
@@ -1418,6 +1419,29 @@ export default function DeckDetail() {
   const [addBack, setAddBack] = useState("");
   const [addingCard, setAddingCard] = useState(false);
   const [deckSourceModalCardId, setDeckSourceModalCardId] = useState<number | null>(null);
+  const [deckTags, setDeckTagsLocal] = useState<string[]>(() => getDeckTags(deckId));
+  const [tagAddInput, setTagAddInput] = useState("");
+  const [tagAddOpen, setTagAddOpen] = useState(false);
+
+  useEffect(() => { setDeckTagsLocal(getDeckTags(deckId)); }, [deckId]);
+  useEffect(() => {
+    const onStorage = () => setDeckTagsLocal(getDeckTags(deckId));
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [deckId]);
+
+  const handleAddDeckTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    addDeckTag(deckId, trimmed);
+    setDeckTagsLocal(getDeckTags(deckId));
+    setTagAddInput("");
+    setTagAddOpen(false);
+  };
+  const handleRemoveDeckTag = (tag: string) => {
+    removeDeckTag(deckId, tag);
+    setDeckTagsLocal(getDeckTags(deckId));
+  };
 
   const handleAddCard = async () => {
     if (!addFront.trim() || !addBack.trim() || !deck) return;
@@ -1735,6 +1759,47 @@ export default function DeckDetail() {
             )}
           </div>
           {deck.description && <p className="text-muted-foreground mt-1">{deck.description}</p>}
+          {/* Deck tags */}
+          <div className="flex items-center gap-1.5 flex-wrap mt-2">
+            {deckTags.map(tag => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary border border-primary/25 px-2.5 py-0.5 rounded-full font-medium"
+              >
+                <Tag className="h-2.5 w-2.5 opacity-60" />
+                {tag}
+                <button
+                  onClick={() => handleRemoveDeckTag(tag)}
+                  className="ml-0.5 opacity-50 hover:opacity-100 hover:text-destructive transition-opacity"
+                  aria-label={`Remove tag ${tag}`}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            {tagAddOpen ? (
+              <input
+                autoFocus
+                value={tagAddInput}
+                onChange={e => setTagAddInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") handleAddDeckTag(tagAddInput);
+                  if (e.key === "Escape") { setTagAddOpen(false); setTagAddInput(""); }
+                }}
+                onBlur={() => { if (!tagAddInput.trim()) { setTagAddOpen(false); } }}
+                placeholder="Tag name…"
+                className="h-6 w-24 px-2 text-xs rounded-full border border-primary/30 bg-background/80 outline-none focus:ring-1 focus:ring-primary/30"
+              />
+            ) : (
+              <button
+                onClick={() => setTagAddOpen(true)}
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground/60 border border-dashed border-muted-foreground/25 hover:border-primary/40 hover:text-primary px-2 py-0.5 rounded-full transition-colors"
+              >
+                <Tag className="h-2.5 w-2.5" />
+                {deckTags.length > 0 ? "+ tag" : "Add tags"}
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex gap-2 shrink-0 flex-wrap">
           {isQbank && cardList.filter(c => c.cardType === "mcq" && Array.isArray((c as { choices?: unknown[] }).choices) && (c as { choices?: unknown[] }).choices!.length >= 2).length > 0 && (
