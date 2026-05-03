@@ -76,7 +76,15 @@ interface Session {
 function loadSessions(): Session[] {
   try {
     const raw = localStorage.getItem(LS_SESSIONS);
-    if (raw) return JSON.parse(raw) as Session[];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    /* tolerate legacy ISO-string-only format */
+    return (parsed as Array<unknown>).map(item =>
+      typeof item === "string"
+        ? { ts: item, minutes: 0 }
+        : (item as Session)
+    );
   } catch { /* ignore */ }
   return [];
 }
@@ -299,12 +307,14 @@ function StatsRow({ sessions }: { sessions: Session[] }) {
   const today   = getTodaySessions(sessions);
   const count   = today.length;
   const minutes = today.reduce((acc, s) => acc + s.minutes, 0);
-  if (count === 0) return null;
   return (
     <div className="flex items-center justify-center gap-3 px-4 pb-2">
       <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-        <Flame className="h-3 w-3 text-orange-400" />
-        <span><span className="font-semibold text-foreground/80">{count}</span> session{count !== 1 ? "s" : ""} today</span>
+        <Flame className={`h-3 w-3 ${count > 0 ? "text-orange-400" : "text-muted-foreground/40"}`} />
+        <span>
+          <span className="font-semibold text-foreground/80">{count}</span>
+          {" "}session{count !== 1 ? "s" : ""} today
+        </span>
       </div>
       <span className="text-muted-foreground/30 text-[10px]">·</span>
       <div className="text-[10px] text-muted-foreground">
@@ -447,7 +457,12 @@ export function PomodoroTimer() {
       {running ? (
         <>
           <span className="text-[10px]">{phase.emoji}</span>
-          <span>{fmt(timeLeft)}</span>
+          {label ? (
+            <span className="max-w-[72px] truncate text-[10px]">{label}</span>
+          ) : (
+            <span>{fmt(timeLeft)}</span>
+          )}
+          {label && <span className="text-[9px] opacity-70">{fmt(timeLeft)}</span>}
         </>
       ) : started ? (
         <>
