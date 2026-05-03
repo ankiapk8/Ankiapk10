@@ -1,6 +1,6 @@
 import { type Response } from "express";
 import { db, decksTable } from "@workspace/db";
-import { sql, and, eq, isNull } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 
 export const FREE_TIER = {
   MAX_CARDS_PER_DECK: 20,
@@ -47,11 +47,11 @@ export async function checkIsPro(userId: string): Promise<boolean> {
   }
 }
 
-export async function countRootDecksByUser(userId: string): Promise<number> {
+export async function countAllDecksByUser(userId: string): Promise<number> {
   const result = await db
     .select({ cnt: sql<number>`cast(count(*) as int)` })
     .from(decksTable)
-    .where(and(eq(decksTable.userId, userId), isNull(decksTable.parentId)));
+    .where(eq(decksTable.userId, userId));
   return result[0]?.cnt ?? 0;
 }
 
@@ -98,10 +98,8 @@ export async function checkDeckQuota(
   userId: string | null,
 ): Promise<{ allowed: boolean; currentCount: number }> {
   if (userId) {
-    const dbCount = await countRootDecksByUser(userId);
-    if (dbCount > 0) {
-      return { allowed: dbCount < FREE_TIER.MAX_DECKS, currentCount: dbCount };
-    }
+    const dbCount = await countAllDecksByUser(userId);
+    return { allowed: dbCount < FREE_TIER.MAX_DECKS, currentCount: dbCount };
   }
   const count = await getQuotaCount(key, "deck_create", "all");
   return { allowed: count < FREE_TIER.MAX_DECKS, currentCount: count };
