@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { apiUrl } from "@/lib/utils";
 import {
   getSrsState, saveSrsState, getDefaultSrsState, computeNextState,
@@ -10,16 +10,41 @@ import {
 } from "@/lib/srs";
 import { saveSession } from "@/lib/study-stats";
 import { Button } from "@/components/ui/button";
-import { CalendarClock, ChevronLeft, RotateCcw, CheckCircle2 } from "lucide-react";
+import { CalendarClock, ChevronLeft, CheckCircle2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Card, Deck } from "@workspace/api-client-react/src/generated/api.schemas";
 
 type DueCard = Card & { deckName: string; deckId: number };
+
+function getSrsMap(): Record<number, { deckId: number; lastReviewedAt: string; dueDate: string }> {
+  try {
+    const raw = localStorage.getItem("ankigen_srs_data");
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function getDueDeckIds(): number[] {
+  const map = getSrsMap();
+  const today = new Date().toISOString().slice(0, 10);
+  const ids = new Set<number>();
+  for (const s of Object.values(map)) {
+    if (s.deckId && s.lastReviewedAt && s.dueDate <= today) {
+      ids.add(s.deckId);
+    }
+  }
+  return Array.from(ids);
+}
 
 export default function StudyDue() {
   const [flipped, setFlipped] = useState(false);
   const [cursor, setCursor] = useState(0);
   const [done, setDone] = useState(false);
   const [sessionStats, setSessionStats] = useState({ total: 0, known: 0 });
+
+  const dueDeckIds = useMemo(() => getDueDeckIds(), []);
 
   const { data: decks } = useQuery<Deck[]>({
     queryKey: ["/api/decks"],
@@ -31,22 +56,40 @@ export default function StudyDue() {
     staleTime: 1000 * 60,
   });
 
+  const deckNameMap = useMemo(() => {
+    const m: Record<number, string> = {};
+    for (const d of decks ?? []) m[d.id] = d.name;
+    return m;
+  }, [decks]);
+
+  const cardQueries = useQueries({
+    queries: dueDeckIds.map(deckId => ({
+      queryKey: [`/api/decks/${deckId}/cards`],
+      queryFn: async () => {
+        const r = await fetch(apiUrl(`api/decks/${deckId}/cards`));
+        if (!r.ok) return [] as Card[];
+        return r.json() as Promise<Card[]>;
+      },
+      staleTime: 1000 * 60,
+    })),
+  });
+
+  const isLoading = dueDeckIds.length > 0 && cardQueries.some(q => q.isPending);
+
   const allCards = useMemo<DueCard[]>(() => {
-    if (!decks) return [];
+    if (isLoading) return [];
     const out: DueCard[] = [];
-    for (const deck of decks) {
-      const d = deck as Deck & { cards?: Card[]; kind?: string };
-      if ((d.kind ?? "deck") === "qbank") continue;
-      const cards = d.cards ?? [];
+    dueDeckIds.forEach((deckId, i) => {
+      const cards: Card[] = cardQueries[i]?.data ?? [];
       const dueIds = new Set(getDueCardIds(cards.map(c => c.id)));
       for (const card of cards) {
         if (dueIds.has(card.id)) {
-          out.push({ ...card, deckName: d.name, deckId: d.id });
+          out.push({ ...card, deckName: deckNameMap[deckId] ?? `Deck ${deckId}`, deckId });
         }
       }
-    }
+    });
     return out;
-  }, [decks]);
+  }, [isLoading, dueDeckIds, cardQueries, deckNameMap]);
 
   const current = allCards[cursor];
   const total = allCards.length;
@@ -78,7 +121,7 @@ export default function StudyDue() {
     const handler = (e: KeyboardEvent) => {
       if (e.key === " " || e.key === "f" || e.key === "F") {
         e.preventDefault();
-        if (!flipped) setFlipped(true);
+        if (!flipped && !done) setFlipped(true);
       }
       if (flipped && !done) {
         if (e.key === "1") rateCard(1);
@@ -91,30 +134,41 @@ export default function StudyDue() {
     return () => window.removeEventListener("keydown", handler);
   }, [flipped, done, rateCard]);
 
-  if (decks === undefined) {
+  if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <CalendarClock className="h-10 w-10 text-muted-foreground animate-pulse" />
-        <p className="text-muted-foreground">Loading due cards…</p>
+      <div className="max-w-xl mx-auto px-4 py-6 space-y-5">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <CalendarClock className="h-5 w-5 animate-pulse" />
+          <span className="text-sm">Loading due cards…</span>
+        </div>
+        <Skeleton className="h-44 w-full rounded-2xl" />
+        <div className="grid grid-cols-4 gap-2">
+          {[0,1,2,3].map(i => <Skeleton key={i} className="h-16 rounded-2xl" />)}
+        </div>
       </div>
     );
   }
 
-  if (total === 0 || done) {
+  if (dueDeckIds.length === 0 || done || (total === 0 && !isLoading)) {
     const pct = sessionStats.total > 0 ? Math.round((sessionStats.known / sessionStats.total) * 100) : 0;
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4">
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}>
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 260, damping: 20 }}
+          className="text-center"
+        >
           <div className="h-20 w-20 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 className="h-10 w-10 text-emerald-500" />
           </div>
-          <h2 className="text-2xl font-bold text-center">
+          <h2 className="text-2xl font-bold">
             {done ? "All caught up!" : "Nothing due right now"}
           </h2>
-          <p className="text-muted-foreground text-center mt-2">
+          <p className="text-muted-foreground mt-2">
             {done && sessionStats.total > 0
               ? `Reviewed ${sessionStats.total} card${sessionStats.total !== 1 ? "s" : ""} · ${pct}% known`
-              : "No cards are due for review at the moment. Keep studying to build your schedule!"}
+              : "No cards are due for review. Keep studying to build your schedule!"}
           </p>
         </motion.div>
         <div className="flex gap-3">
@@ -147,14 +201,14 @@ export default function StudyDue() {
         <motion.div
           className="h-1.5 rounded-full bg-primary"
           initial={{ width: 0 }}
-          animate={{ width: `${((cursor) / total) * 100}%` }}
+          animate={{ width: `${(cursor / total) * 100}%` }}
           transition={{ type: "spring", stiffness: 200, damping: 30 }}
         />
       </div>
 
-      <div className="text-xs text-muted-foreground text-center">
+      <p className="text-xs text-muted-foreground text-center">
         from <span className="font-medium text-foreground">{current.deckName}</span>
-      </div>
+      </p>
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -184,7 +238,9 @@ export default function StudyDue() {
             transition={{ type: "spring", stiffness: 300, damping: 28, delay: 0.05 }}
             className="space-y-2"
           >
-            <p className="text-[10px] font-bold uppercase tracking-widest text-center text-muted-foreground">How well did you know this?</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-center text-muted-foreground">
+              How well did you know this?
+            </p>
             <div className="grid grid-cols-4 gap-2">
               {(
                 [
@@ -217,9 +273,9 @@ export default function StudyDue() {
       </AnimatePresence>
 
       {!flipped && (
-        <div className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-muted-foreground">
           Space or F to flip · 1–4 to rate after flipping
-        </div>
+        </p>
       )}
     </div>
   );
