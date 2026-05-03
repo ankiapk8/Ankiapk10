@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useMemo } from "react";
+import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, FileText, ImageIcon, Layers, Plus, Stethoscope, Library } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,7 +35,11 @@ const features = [
 
 export default function Generate() {
   const [, setLocation] = useLocation();
-  const [mode, setMode] = useState<Mode>("deck");
+  const rawSearch = useSearch();
+  const urlParams = useMemo(() => new URLSearchParams(rawSearch), [rawSearch]);
+  const prefillDeckName = urlParams.get("deckName") ?? undefined;
+  const prefillCustomPrompt = urlParams.get("customPrompt") ?? undefined;
+  const [mode, setMode] = useState<Mode>(urlParams.get("mode") === "qbank" ? "qbank" : "deck");
 
   const isQbank = mode === "qbank";
 
@@ -460,6 +464,7 @@ export default function Generate() {
                   transition={{ duration: 0.25 }}
                 >
                   <GenerateQbankForm
+                    prefilledDeckName={prefillDeckName}
                     onDone={(deckId) => {
                       if (deckId !== undefined) setLocation(`/decks/${deckId}`);
                       else setLocation("/decks");
@@ -478,6 +483,8 @@ export default function Generate() {
                     variant="page"
                     animated
                     onDone={() => setLocation("/decks")}
+                    prefilledDeckName={prefillDeckName}
+                    prefilledCustomPrompt={prefillCustomPrompt}
                   />
                 </motion.div>
               )}

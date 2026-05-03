@@ -5,6 +5,7 @@ import { createCanvas, loadImage } from "canvas";
 import { serializeCard } from "../lib/serialize-card";
 import { createRateLimiter } from "../lib/rate-limiter";
 import { FREE_TEXT_MODEL, FREE_VISION_MODEL } from "../lib/models";
+import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -1607,6 +1608,63 @@ router.post("/generate", async (req, res, next): Promise<void> => {
       cards: allInserted.map(serializeCard),
       generatedCount: allInserted.length,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/cards/:id/regenerate", generateRateLimiter, async (req, res, next): Promise<void> => {
+  const cardId = parseInt(req.params.id ?? "", 10);
+  if (isNaN(cardId)) { res.status(400).json({ error: "Invalid card ID" }); return; }
+
+  const [card] = await db.select().from(cardsTable).where(eq(cardsTable.id, cardId));
+  if (!card) { res.status(404).json({ error: "Card not found" }); return; }
+
+  const [deck] = await db
+    .select({ name: decksTable.name })
+    .from(decksTable)
+    .where(eq(decksTable.id, card.deckId));
+
+  let openai: Awaited<ReturnType<typeof getOpenAIClient>>;
+  try {
+    openai = await getOpenAIClient();
+  } catch (err) {
+    res.status(503).json({ error: err instanceof Error ? err.message : "AI not configured" });
+    return;
+  }
+
+  try {
+    const completion = await createChatCompletionWithRetry(openai, {
+      model: FREE_TEXT_MODEL,
+      max_completion_tokens: 1024,
+      stream: false as const,
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert Anki flashcard writer. Given a flashcard, produce one improved version that is clearer, more memorable, and more effective for studying. Keep the same concept but improve the wording and structure.\nReturn ONLY a JSON object with exactly two keys: {"front": "...", "back": "..."}. No markdown, no explanation, no extra text.`,
+        },
+        {
+          role: "user",
+          content: `Deck: "${deck?.name ?? "Unknown"}"\n\nCurrent card:\nFront: ${card.front}\nBack: ${card.back}\n\nRewrite this card to be clearer and more effective for Anki spaced repetition. Keep the same concept.`,
+        },
+      ],
+    }, req.log, undefined);
+
+    const raw = (completion as { choices: Array<{ message: { content: string | null } }> }).choices[0]?.message?.content ?? "{}";
+    const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+    let parsed: { front?: string; back?: string } = {};
+    try { parsed = JSON.parse(cleaned); } catch { /* fallback to original */ }
+
+    const newFront = typeof parsed.front === "string" && parsed.front.trim() ? parsed.front.trim() : card.front;
+    const newBack = typeof parsed.back === "string" && parsed.back.trim() ? parsed.back.trim() : card.back;
+
+    const [updated] = await db
+      .update(cardsTable)
+      .set({ front: newFront, back: newBack })
+      .where(eq(cardsTable.id, cardId))
+      .returning();
+
+    res.json(serializeCard(updated!));
   } catch (err) {
     next(err);
   }

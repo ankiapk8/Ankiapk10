@@ -14,8 +14,10 @@ import { Progress } from "@/components/ui/progress";
 import { BatteryProgress } from "@/components/ui/battery-progress";
 import {
   UploadCloud, X, CheckCircle2, AlertCircle, Loader2, FileText, Sparkles,
-  FolderOpen, ImageIcon, Type, Layers, StopCircle,
+  FolderOpen, ImageIcon, Type, Layers, StopCircle, Eye,
 } from "lucide-react";
+import { GenerationStageStepper, stageFromGenerating } from "@/components/generation-stage-stepper";
+import { CardReviewModal } from "@/components/card-review-modal";
 import { extractPdf, isPdfFile, isTextFile, isImageFile, isPptxFile, isDocxFile, extractImage, extractOffice, type ImageRegion } from "@/lib/pdf-extraction";
 import { apiUrl } from "@/lib/utils";
 import { GenerationSuccessOverlay } from "@/components/generation-success-overlay";
@@ -79,6 +81,7 @@ type FileEntry = {
   generatingMessage?: string;
   generatingStartedAt?: number;
   customPrompt?: string;
+  generatedDeckId?: number;
 };
 
 function formatEta(ms: number): string {
@@ -125,6 +128,7 @@ export interface GenerateFormProps {
   defaultParentId?: number | null;
   prefilledText?: string;
   prefilledDeckName?: string;
+  prefilledCustomPrompt?: string;
   onDone?: () => void;
   onClose?: () => void;
   animated?: boolean;
@@ -135,6 +139,7 @@ export function GenerateForm({
   defaultParentId,
   prefilledText,
   prefilledDeckName,
+  prefilledCustomPrompt,
   onDone,
   onClose,
   animated = false,
@@ -149,6 +154,7 @@ export function GenerateForm({
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
   const [successOverlay, setSuccessOverlay] = useState<{ open: boolean; decks: number; cards: number }>({ open: false, decks: 0, cards: 0 });
   const pendingDoneRef = useRef<(() => void) | null>(null);
+  const [reviewState, setReviewState] = useState<{ deckId: number; deckName: string } | null>(null);
   const [manualText, setManualText] = useState("");
   const [manualDeckName, setManualDeckName] = useState("");
   const [manualCardCount, setManualCardCount] = useState<number | "">("");
@@ -166,11 +172,12 @@ export function GenerateForm({
   }, [isAnyGenerating]);
 
   useEffect(() => {
-    if (prefilledText || prefilledDeckName) {
+    if (prefilledText || prefilledDeckName || prefilledCustomPrompt) {
       if (prefilledText) setManualText(prev => prev || prefilledText);
       if (prefilledDeckName) setManualDeckName(prev => prev || prefilledDeckName);
+      if (prefilledCustomPrompt) setManualCustomPrompt(prev => prev || prefilledCustomPrompt);
     }
-  }, [prefilledText, prefilledDeckName]);
+  }, [prefilledText, prefilledDeckName, prefilledCustomPrompt]);
 
   const isExtracting = files.some(f => f.status === "extracting");
   const readyFiles = files.filter(f => f.status === "ready");
@@ -281,7 +288,7 @@ export function GenerateForm({
     customPrompt?: string,
     pageTexts?: string[],
     pageImageRegions?: ImageRegion[][],
-  ): Promise<number> =>
+  ): Promise<{ count: number; deckId?: number }> =>
     new Promise((resolve, reject) => {
       const trimmedPrompt = (customPrompt ?? "").trim();
       const body = JSON.stringify({
@@ -326,6 +333,7 @@ export function GenerateForm({
             try {
               const event = JSON.parse(line.slice(5).trim()) as {
                 type: string; percent?: number; message?: string; generatedCount?: number;
+                deck?: { id?: number };
               };
               if (event.type === "progress" && fileId) {
                 setFiles(prev => prev.map(f =>
@@ -334,7 +342,7 @@ export function GenerateForm({
                     : f
                 ));
               } else if (event.type === "done") {
-                resolve(event.generatedCount ?? 0);
+                resolve({ count: event.generatedCount ?? 0, deckId: event.deck?.id });
                 return;
               } else if (event.type === "error") {
                 reject(new Error(event.message ?? "Generation failed"));
@@ -415,8 +423,8 @@ export function GenerateForm({
 
       if (t.id) updateFile(t.id, { status: "generating", progress: "Generating…", generatingPercent: 0, generatingMessage: "Starting…", generatingStartedAt: Date.now() });
       try {
-        const count = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts, t.pageImageRegions);
-        if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count });
+        const { count, deckId: doneId } = await generateOne(t.text, t.deckName, t.cardCount, resolvedParentId, t.pageImages, t.id, t.deckType, t.visualCardCount, t.customPrompt, t.pageTexts, t.pageImageRegions);
+        if (t.id) updateFile(t.id, { status: "done", progress: "", generatedCount: count, generatedDeckId: doneId });
         ok++;
         totalCards += count;
       } catch (error) {
@@ -528,6 +536,14 @@ export function GenerateForm({
           if (fn) fn();
         }}
       />
+      {reviewState && (
+        <CardReviewModal
+          deckId={reviewState.deckId}
+          deckName={reviewState.deckName}
+          isOpen={!!reviewState}
+          onClose={() => setReviewState(null)}
+        />
+      )}
       <ParentSelector />
 
       {/* Shared custom instructions */}
@@ -654,7 +670,16 @@ export function GenerateForm({
                   </div>
                 )}
                 {f.status === "generating" && <span className="text-xs text-primary font-medium shrink-0">Generating…</span>}
-                {f.status === "done"       && <Badge className="text-[10px] shrink-0 bg-green-600 hover:bg-green-600 px-1.5 py-0 h-5">{f.generatedCount} cards</Badge>}
+                {f.status === "done" && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge className="text-[10px] bg-green-600 hover:bg-green-600 px-1.5 py-0 h-5">{f.generatedCount} cards</Badge>
+                    {f.generatedDeckId && (
+                      <Button size="sm" variant="outline" className="h-5 px-1.5 text-[10px] gap-0.5 font-medium" onClick={() => setReviewState({ deckId: f.generatedDeckId!, deckName: f.deckName })}>
+                        <Eye className="h-2.5 w-2.5" />Review
+                      </Button>
+                    )}
+                  </div>
+                )}
                 {f.status === "error"      && <span className="text-xs text-destructive shrink-0 max-w-[140px] truncate">{f.progress}</span>}
                 <button onClick={() => setFiles(p => p.filter(x => x.id !== f.id))} className="text-muted-foreground hover:text-foreground ml-0.5 shrink-0 p-0.5 rounded hover:bg-muted transition-colors" disabled={isGeneratingAll || f.status === "generating"}>
                   <X className="h-3.5 w-3.5" />
@@ -694,13 +719,19 @@ export function GenerateForm({
                 } else if (startedAt && pct < 8 && nowTick - startedAt > 4000) {
                   etaLabel = "estimating…";
                 }
+                const targetCount = typeof f.cardCount === "number" && f.cardCount > 0 ? f.cardCount : DEFAULT_TARGET_CARDS;
+                const liveCount = pct > 5 ? Math.round((pct / 100) * targetCount) : 0;
                 return (
-                <div className="space-y-1 pt-0.5">
-                  <div className="flex justify-between items-center gap-2">
+                <div className="space-y-2 pt-0.5">
+                  <GenerationStageStepper activeStage={stageFromGenerating(pct, f.generatingMessage ?? "")} />
+                  <div className="flex justify-between items-center gap-2 mt-0.5">
                     <span className="text-[11px] text-muted-foreground truncate pr-2">
                       {f.generatingMessage ?? "Generating…"}
                     </span>
                     <span className="flex items-center gap-1.5 shrink-0">
+                      {liveCount > 0 && (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium tabular-nums">~{liveCount} cards</span>
+                      )}
                       {etaLabel && (
                         <span className="text-[10px] text-muted-foreground/80 tabular-nums">{etaLabel}</span>
                       )}

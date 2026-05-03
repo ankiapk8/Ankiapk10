@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useListGenerations, useClearGenerations, getListGenerationsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft, Trash2, History as HistoryIcon, CheckCircle2, XCircle, Ban,
-  Clock, Layers, FileText, Sparkles, Type, Image as ImageIcon,
+  Clock, Layers, FileText, Sparkles, Type, Image as ImageIcon, RotateCcw,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AmbientOrbs } from "@/components/ambient-orbs";
@@ -64,6 +64,7 @@ export default function History() {
   const clearMutation = useClearGenerations();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [confirmClear, setConfirmClear] = useState(false);
 
   const stats = useMemo(() => {
@@ -218,6 +219,23 @@ export default function History() {
                         </div>
                       )}
                     </div>
+                    {g.status === "success" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1 shrink-0 h-7 text-xs mt-0.5"
+                        onClick={() => {
+                          const p = new URLSearchParams();
+                          if (g.deckName) p.set("deckName", g.deckName);
+                          if (g.customPrompt) p.set("customPrompt", g.customPrompt);
+                          if (g.deckType === "qbank") p.set("mode", "qbank");
+                          setLocation(`/generate?${p}`);
+                        }}
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Re-run
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

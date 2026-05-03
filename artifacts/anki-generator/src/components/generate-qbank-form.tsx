@@ -17,6 +17,7 @@ import {
   Loader2, Stethoscope, FolderOpen, FileText, ListOrdered, Wand2,
   UploadCloud, X, CheckCircle2, AlertCircle, StopCircle,
 } from "lucide-react";
+import { GenerationStageStepper, stageFromGenerating } from "@/components/generation-stage-stepper";
 import type { Qbank } from "@workspace/api-client-react";
 
 const DEFAULT_TARGET_QUESTIONS = 20;
@@ -522,8 +523,9 @@ export function GenerateQbankForm({ defaultParentId, prefilledText, prefilledDec
               )}
 
               {f.status === "generating" && (
-                <div className="space-y-1 pt-0.5">
-                  <div className="flex justify-between items-center gap-2">
+                <div className="space-y-2 pt-0.5">
+                  <GenerationStageStepper activeStage={stageFromGenerating(f.generatingPercent ?? 0, f.generatingMessage ?? "")} accentColor="violet" />
+                  <div className="flex justify-between items-center gap-2 mt-0.5">
                     <span className="text-[11px] text-muted-foreground truncate pr-2">
                       {f.generatingMessage ?? "Generating…"}
                     </span>
