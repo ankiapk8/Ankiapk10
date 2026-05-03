@@ -238,7 +238,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             >
               {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <SettingsSheet />
+            
           </div>
         </div>
       </header>
