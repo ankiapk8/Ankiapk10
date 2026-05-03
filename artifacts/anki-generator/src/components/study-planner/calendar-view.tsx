@@ -168,27 +168,27 @@ export function CalendarView({
     <div className="space-y-3">
       {/* Today's checklist panel — always visible if today has items */}
       {todayItems.length > 0 && (
-        <div className="rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/20 p-4">
+        <div className="rounded-xl border border-orange-200/60 dark:border-orange-800/40 bg-orange-50/60 dark:bg-orange-950/20 p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded-md bg-amber-500/20 flex items-center justify-center">
-                <CalendarIcon className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+              <div className="h-6 w-6 rounded-md bg-orange-500/20 flex items-center justify-center">
+                <CalendarIcon className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
               </div>
-              <span className="text-sm font-semibold text-amber-900 dark:text-amber-200">Today's Topics</span>
-              <span className="text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded-full">
+              <span className="text-sm font-semibold text-orange-900 dark:text-orange-200">Today's Topics</span>
+              <span className="text-[11px] font-medium text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/40 px-1.5 py-0.5 rounded-full">
                 {todayCheckedCount}/{todayItems.length}
               </span>
             </div>
             {todayCheckedCount === todayItems.length && todayItems.length > 0 && (
-              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-orange-600 dark:text-orange-400 flex items-center gap-1">
                 <CheckCircle2 className="h-3.5 w-3.5" /> All done!
               </span>
             )}
           </div>
           {/* Progress bar */}
-          <div className="h-1.5 w-full bg-amber-200/60 dark:bg-amber-900/40 rounded-full overflow-hidden mb-3">
+          <div className="h-1.5 w-full bg-orange-200/60 dark:bg-orange-900/40 rounded-full overflow-hidden mb-3">
             <div
-              className="h-full bg-amber-500 rounded-full transition-all duration-500"
+              className="h-full bg-orange-500 rounded-full transition-all duration-500"
               style={{ width: `${todayItems.length > 0 ? (todayCheckedCount / todayItems.length) * 100 : 0}%` }}
             />
           </div>
@@ -197,10 +197,10 @@ export function CalendarView({
               const live = (topicsMap[item.storageKey] ?? []).find(t => t.id === item.topic.id) ?? item.topic;
               const isChecked = checkedItems.has(item.topic.id);
               return (
-                <div key={i} className={`flex items-center gap-2.5 rounded-lg p-2 transition-all ${isChecked ? "opacity-60 bg-emerald-50/60 dark:bg-emerald-950/20" : "bg-white/70 dark:bg-black/20 border border-amber-100/60 dark:border-amber-900/30"}`}>
-                  <button onClick={() => handleToggleCheck(item.topic.id)} className="shrink-0 text-amber-600 dark:text-amber-400 hover:scale-110 transition-transform">
+                <div key={i} className={`flex items-center gap-2.5 rounded-lg p-2 transition-all ${isChecked ? "opacity-60 bg-orange-50/60 dark:bg-orange-950/20" : "bg-white/70 dark:bg-black/20 border border-orange-100/60 dark:border-orange-900/30"}`}>
+                  <button onClick={() => handleToggleCheck(item.topic.id)} className="shrink-0 text-orange-600 dark:text-orange-400 hover:scale-110 transition-transform">
                     {isChecked
-                      ? <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                      ? <CheckCircle2 className="h-4 w-4 text-orange-500" />
                       : <Circle className="h-4 w-4" />
                     }
                   </button>
@@ -342,8 +342,8 @@ export function CalendarView({
                         ${isStart    ? "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30 z-10" :
                           isEnd      ? "ring-2 ring-red-500 bg-red-50 dark:bg-red-950/30 z-10" :
                           isSelected ? "bg-primary/15 border border-primary/40" :
-                          isToday    ? "bg-amber-50 dark:bg-amber-950/20 border border-amber-300/50 dark:border-amber-700/40" :
-                          isInRange  ? "bg-blue-50/60 dark:bg-blue-950/10" :
+                          isToday    ? "bg-orange-50 dark:bg-orange-950/20 border border-orange-300/50 dark:border-orange-700/40" :
+                          isInRange  ? "bg-orange-50/60 dark:bg-orange-950/10" :
                           "hover:bg-accent"}
                         ${isSelecting ? "cursor-crosshair" : "cursor-pointer"}
                       `}
@@ -351,7 +351,7 @@ export function CalendarView({
                       <span className={`font-medium text-[11px] leading-none ${
                         isStart    ? "text-green-700 dark:text-green-400 font-bold" :
                         isEnd      ? "text-red-700 dark:text-red-400 font-bold" :
-                        isToday    ? "text-amber-700 dark:text-amber-400 font-bold" :
+                        isToday    ? "text-orange-700 dark:text-orange-400 font-bold" :
                         isSelected ? "text-primary" :
                         "text-foreground/70"
                       }`}>
@@ -360,7 +360,7 @@ export function CalendarView({
                       {isStart && <span className="text-[7px] text-green-600 font-bold leading-none mt-0.5">START</span>}
                       {isEnd   && <span className="text-[7px] text-red-600 font-bold leading-none mt-0.5">END</span>}
                       {isToday && dayItems.length > 0 && (
-                        <span className="text-[7px] text-amber-600 dark:text-amber-400 font-bold leading-none mt-0.5">
+                        <span className="text-[7px] text-orange-600 dark:text-orange-400 font-bold leading-none mt-0.5">
                           {dayChecked}/{dayItems.length}
                         </span>
                       )}

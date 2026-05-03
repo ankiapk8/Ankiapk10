@@ -368,7 +368,7 @@ ${monthsHtml}</body></html>`;
       <div className="px-4 pt-6 pb-4 text-center relative">
         <div className="absolute top-4 right-4 flex items-center gap-2">
           {todayCount > 0 && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-700/60">
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full border border-orange-200 dark:border-orange-700/60">
               {todayCount} due today
             </span>
           )}
@@ -396,14 +396,14 @@ ${monthsHtml}</body></html>`;
 
         {/* Backup reminder */}
         {showBackupReminder && (
-          <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2">
-            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-            <p className="text-xs text-amber-700 dark:text-amber-400 flex-1">It's been a while since your last backup.</p>
-            <Button size="sm" variant="outline" className="h-7 text-xs border-amber-300"
+          <div className="flex items-center gap-3 rounded-xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 px-3 py-2">
+            <AlertTriangle className="h-4 w-4 text-orange-600 shrink-0" />
+            <p className="text-xs text-orange-700 dark:text-orange-400 flex-1">It's been a while since your last backup.</p>
+            <Button size="sm" variant="outline" className="h-7 text-xs border-orange-300"
               onClick={() => exportBackup(allGroups, topicsMap)}>
               Download Now
             </Button>
-            <button onClick={() => setBackupDismissed(true)} className="text-amber-500 hover:text-amber-700">
+            <button onClick={() => setBackupDismissed(true)} className="text-orange-500 hover:text-orange-700">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -418,13 +418,13 @@ ${monthsHtml}</body></html>`;
           transition={{ duration: 0.15 }}
           className={`w-full text-left rounded-xl border px-3 py-2.5 transition-colors ${
             smartScheduleExists
-              ? "border-amber-200/70 dark:border-amber-700/40 bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/60"
-              : "border-dashed border-amber-200/80 dark:border-amber-700/50 hover:bg-amber-50/40"
+              ? "border-orange-200/70 dark:border-orange-700/40 bg-orange-50/60 dark:bg-orange-950/20 hover:bg-orange-100/60"
+              : "border-dashed border-orange-200/80 dark:border-orange-700/50 hover:bg-orange-50/40"
           }`}
         >
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-amber-100 dark:bg-amber-900/30">
-              <Wand2 className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+            <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-orange-100 dark:bg-orange-900/30">
+              <Wand2 className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs font-semibold leading-tight">
@@ -488,10 +488,10 @@ ${monthsHtml}</body></html>`;
               {/* Stat cards */}
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  { label: "Total",        value: totalTopics,  hexColor: "#818cf8" },
-                  { label: "High Priority",value: highPriority, hexColor: "#f87171" },
-                  { label: "Completed",    value: completed,    hexColor: "#34d399" },
-                  { label: "Not Started",  value: notStarted,   hexColor: "#94a3b8" },
+                  { label: "Total",        value: totalTopics,  hexColor: "#f97316" },
+                  { label: "High Priority",value: highPriority, hexColor: "#f97316" },
+                  { label: "Completed",    value: completed,    hexColor: "#fb923c" },
+                  { label: "Not Started",  value: notStarted,   hexColor: "#fb923c" },
                 ].map((s, idx) => (
                   <motion.div
                     key={s.label}
@@ -510,18 +510,18 @@ ${monthsHtml}</body></html>`;
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-semibold">Overall Progress</span>
-                  <span className="text-xs font-bold text-green-600">{completionPct}% complete</span>
+                  <span className="text-xs font-bold text-orange-600">{completionPct}% complete</span>
                 </div>
                 <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-green-500 rounded-full transition-all"
+                  <div className="h-full bg-orange-500 rounded-full transition-all"
                     style={{ width: `${completionPct}%` }} />
                 </div>
                 <div className="flex flex-wrap gap-3 mt-1.5">
                   {([
                     { s: "Not Started" as Status, color: "bg-slate-300" },
-                    { s: "In Progress" as Status, color: "bg-amber-400" },
-                    { s: "Done" as Status,         color: "bg-emerald-400" },
-                    { s: "Revised" as Status,      color: "bg-green-600" },
+                    { s: "In Progress" as Status, color: "bg-orange-400" },
+                    { s: "Done" as Status,         color: "bg-orange-500" },
+                    { s: "Revised" as Status,      color: "bg-orange-600" },
                   ] as const).map(({ s, color }) => {
                     const count = allTopics.filter(t => t.status === s).length;
                     return count > 0 ? (
@@ -546,14 +546,14 @@ ${monthsHtml}</body></html>`;
                       <span className="text-xs font-semibold">Priority Breakdown</span>
                     </div>
                     <div className="h-2.5 rounded-full overflow-hidden flex bg-muted">
-                      {highC > 0 && <div className="h-full bg-red-500 transition-all" style={{ width: `${(highC/totalTopics)*100}%` }} />}
-                      {medC  > 0 && <div className="h-full bg-amber-400 transition-all" style={{ width: `${(medC/totalTopics)*100}%` }} />}
+                      {highC > 0 && <div className="h-full bg-orange-500 transition-all" style={{ width: `${(highC/totalTopics)*100}%` }} />}
+                      {medC  > 0 && <div className="h-full bg-orange-400 transition-all" style={{ width: `${(medC/totalTopics)*100}%` }} />}
                       {lowC  > 0 && <div className="h-full bg-blue-400 transition-all" style={{ width: `${(lowC/totalTopics)*100}%` }} />}
                     </div>
                     <div className="flex gap-3 mt-1.5 flex-wrap">
                       {[
-                        { label: "High", val: highC, color: "bg-red-500" },
-                        { label: "Medium", val: medC, color: "bg-amber-400" },
+                        { label: "High", val: highC, color: "bg-orange-500" },
+                        { label: "Medium", val: medC, color: "bg-orange-400" },
                         { label: "Low", val: lowC, color: "bg-blue-400" },
                       ].map(p => (
                         <span key={p.label} className="flex items-center gap-1 text-[10px] text-muted-foreground">
@@ -592,7 +592,7 @@ ${monthsHtml}</body></html>`;
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-semibold">Schedule Progress</span>
-                    <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${onTrack ? "text-green-600" : "text-amber-500"}`}>
+                    <span className={`text-[10px] font-semibold flex items-center gap-0.5 ${onTrack ? "text-orange-600" : "text-orange-500"}`}>
                       {onTrack ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                       {onTrack ? "On Track" : "Behind Schedule"}
                     </span>
@@ -618,11 +618,11 @@ ${monthsHtml}</body></html>`;
                   </ResponsiveContainer>
                   <div className="flex items-center gap-3 mt-1">
                     <span className="flex items-center gap-1">
-                      <span className="inline-block h-2 w-4 rounded" style={{ background: "rgba(129,140,248,0.5)", border: "1px solid #818cf8" }} />
+                      <span className="inline-block h-2 w-4 rounded" style={{ background: "rgba(249,115,22,0.5)", border: "1px solid #f97316" }} />
                       <span className="text-[9px] text-muted-foreground">Expected</span>
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="inline-block h-0.5 w-4 border-t-2 border-green-500" />
+                      <span className="inline-block h-0.5 w-4 border-t-2 border-orange-500" />
                       <span className="text-[9px] text-muted-foreground">Actual (daily checklist)</span>
                     </span>
                   </div>
@@ -651,15 +651,15 @@ ${monthsHtml}</body></html>`;
                     <div key={wi} className="flex flex-col gap-0.5">
                       {heatmapCells.slice(wi * 7, wi * 7 + 7).map((cell, di) => (
                         <div key={di} title={isoDate(cell.date)}
-                          className={`h-3 w-3 rounded-sm transition-colors ${cell.today ? "ring-1 ring-primary ring-offset-1" : ""}
-                            ${cell.future ? "bg-muted/40" : cell.active ? "bg-green-500" : "bg-muted"}`} />
+                            className={`h-3 w-3 rounded-sm transition-colors ${cell.today ? "ring-1 ring-primary ring-offset-1" : ""}
+                            ${cell.future ? "bg-muted/40" : cell.active ? "bg-orange-500" : "bg-muted"}`} />
                       ))}
                     </div>
                   ))}
                 </div>
                 <div className="flex items-center gap-3 mt-1.5">
                   <div className="flex items-center gap-1"><div className="h-2.5 w-2.5 rounded-sm bg-muted" /><span className="text-[9px] text-muted-foreground">No activity</span></div>
-                  <div className="flex items-center gap-1"><div className="h-2.5 w-2.5 rounded-sm bg-green-500" /><span className="text-[9px] text-muted-foreground">Studied</span></div>
+                  <div className="flex items-center gap-1"><div className="h-2.5 w-2.5 rounded-sm bg-orange-500" /><span className="text-[9px] text-muted-foreground">Studied</span></div>
                 </div>
               </div>
             </div>
