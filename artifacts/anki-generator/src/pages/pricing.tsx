@@ -1,14 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Crown, Check, Sparkles, Zap, Brain, FileText, BarChart3,
   ChevronRight, Star, Loader2, BookOpen, FileStack, Image,
   MessageSquare, Map, Download, CalendarDays, CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { AmbientOrbs } from "@/components/ambient-orbs";
-import { useSubscription, fetchProducts, startCheckout, openBillingPortal } from "@/hooks/useSubscription";
+import { useSubscription, useUsage, fetchProducts, startCheckout, openBillingPortal } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { useSearch } from "wouter";
 
@@ -53,23 +54,69 @@ function formatPrice(unitAmount: number, currency: string) {
   }).format(unitAmount / 100);
 }
 
+function UsageBar({ label, used, limit }: { label: string; used: number; limit: number }) {
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  const isNearLimit = pct >= 80;
+  const isAtLimit = used >= limit;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className={`font-medium tabular-nums ${isAtLimit ? "text-red-500 dark:text-red-400" : isNearLimit ? "text-amber-500 dark:text-amber-400" : "text-foreground"}`}>
+          {used} / {limit}
+        </span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+        <motion.div
+          className={`h-full rounded-full transition-colors ${isAtLimit ? "bg-red-500" : isNearLimit ? "bg-amber-400" : "bg-emerald-500"}`}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function Pricing() {
   const { isPro, subscription, isLoading: subLoading, refetch } = useSubscription();
+  const { decks, deckLimit, exports, exportLimit, isLoading: usageLoading } = useUsage();
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [pollingForPro, setPollingForPro] = useState(false);
   const { toast } = useToast();
   const rawSearch = useSearch();
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(rawSearch);
     if (params.get("success") === "1") {
-      toast({ title: "Welcome to Pro!", description: "Your subscription is now active. Enjoy full access." });
-      refetch();
+      if (!isPro && !subLoading) {
+        setPollingForPro(true);
+        let attempts = 0;
+        pollingRef.current = setInterval(async () => {
+          attempts++;
+          const result = await refetch();
+          if (result.data?.isPro || attempts >= 7) {
+            clearInterval(pollingRef.current!);
+            pollingRef.current = null;
+            setPollingForPro(false);
+            if (result.data?.isPro) {
+              toast({ title: "You're now Pro!", description: "Full access is active. Enjoy unlimited generation." });
+            } else {
+              toast({ title: "Checkout complete!", description: "Your subscription is processing — refresh in a moment if Pro isn't active yet." });
+            }
+          }
+        }, 1500);
+      } else if (isPro) {
+        toast({ title: "You're on Pro!", description: "Your subscription is active." });
+      }
     } else if (params.get("canceled") === "1") {
       toast({ title: "Checkout canceled", description: "You can upgrade any time from this page.", variant: "destructive" });
     }
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, [rawSearch]);
 
   useEffect(() => {
@@ -91,8 +138,9 @@ export default function Pricing() {
     try {
       const url = await startCheckout(priceId);
       if (url) window.location.href = url;
-    } catch (err: any) {
-      toast({ title: "Checkout failed", description: err.message ?? "Please try again.", variant: "destructive" });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Please try again.";
+      toast({ title: "Checkout failed", description: msg, variant: "destructive" });
     } finally {
       setCheckoutLoading(null);
     }
@@ -102,13 +150,17 @@ export default function Pricing() {
     setPortalLoading(true);
     try {
       const url = await openBillingPortal();
-      if (url) window.location.href = url;
-    } catch (err: any) {
-      toast({ title: "Could not open billing portal", description: err.message ?? "Please try again.", variant: "destructive" });
+      if (url) window.open(url, "_blank", "noopener");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Please try again.";
+      toast({ title: "Could not open billing portal", description: msg, variant: "destructive" });
     } finally {
       setPortalLoading(false);
     }
   }
+
+  const showUsage = !isPro && !usageLoading;
+  const anyNearLimit = !isPro && (decks / deckLimit >= 0.8 || exports / exportLimit >= 0.8);
 
   return (
     <div className="relative space-y-10 animate-in fade-in duration-500 pb-16">
@@ -123,7 +175,23 @@ export default function Pricing() {
         subtitle="Unlock unlimited card generation, QBanks, AI explanations, and more."
       />
 
-      {isPro && subscription && (
+      {/* Polling spinner */}
+      {pollingForPro && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-amber-300/50 dark:border-amber-700/50 bg-amber-50/80 dark:bg-amber-950/20 p-4 flex items-center gap-3"
+        >
+          <Loader2 className="h-5 w-5 text-amber-500 animate-spin shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">Activating your Pro subscription…</p>
+            <p className="text-xs text-amber-700/70 dark:text-amber-400/70">This usually takes a few seconds.</p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Active Pro banner */}
+      {isPro && subscription && !pollingForPro && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -149,8 +217,34 @@ export default function Pricing() {
             onClick={handlePortal}
             disabled={portalLoading}
           >
-            {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Manage"}
+            {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Manage billing"}
           </Button>
+        </motion.div>
+      )}
+
+      {/* Free-tier usage card */}
+      {showUsage && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className={`rounded-xl border p-4 space-y-3 ${anyNearLimit ? "border-amber-300/60 dark:border-amber-700/50 bg-amber-50/60 dark:bg-amber-950/15" : "border-border/60 bg-card/60"}`}
+        >
+          <div className="flex items-center gap-2">
+            {anyNearLimit
+              ? <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+              : <BarChart3 className="h-4 w-4 text-muted-foreground shrink-0" />}
+            <span className="text-sm font-medium">
+              {anyNearLimit ? "You're approaching your free-tier limits" : "Your free-tier usage"}
+            </span>
+          </div>
+          <UsageBar label="Decks created" used={decks} limit={deckLimit} />
+          <UsageBar label="Anki exports today" used={exports} limit={exportLimit} />
+          {anyNearLimit && (
+            <p className="text-xs text-amber-700/80 dark:text-amber-400/70 pt-0.5">
+              Upgrade to Pro for unlimited decks and exports.
+            </p>
+          )}
         </motion.div>
       )}
 
@@ -179,7 +273,7 @@ export default function Pricing() {
             ))}
           </ul>
           <Button variant="outline" className="w-full" disabled>
-            Current plan
+            {isPro ? "Previous plan" : "Current plan"}
           </Button>
         </motion.div>
 
@@ -202,7 +296,7 @@ export default function Pricing() {
               {loadingProducts ? (
                 <div className="flex items-center gap-2 h-10">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  <span className="text-muted-foreground text-sm">Loading pricing...</span>
+                  <span className="text-muted-foreground text-sm">Loading pricing…</span>
                 </div>
               ) : monthlyPrice ? (
                 <div className="flex items-end gap-1">
@@ -248,7 +342,7 @@ export default function Pricing() {
                 <Button
                   className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-sm"
                   onClick={() => handleCheckout(monthlyPrice.id)}
-                  disabled={checkoutLoading !== null || subLoading}
+                  disabled={checkoutLoading !== null || subLoading || pollingForPro}
                 >
                   {checkoutLoading === monthlyPrice.id
                     ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -260,7 +354,7 @@ export default function Pricing() {
                     variant="outline"
                     className="w-full gap-2 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                     onClick={() => handleCheckout(yearlyPrice.id)}
-                    disabled={checkoutLoading !== null || subLoading}
+                    disabled={checkoutLoading !== null || subLoading || pollingForPro}
                   >
                     {checkoutLoading === yearlyPrice.id && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Annual — {formatPrice(yearlyPrice.unitAmount, yearlyPrice.currency)}/yr
@@ -301,25 +395,6 @@ export default function Pricing() {
             <div key={q}>
               <p className="text-sm font-medium">{q}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{a}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-border/60 bg-card/60 p-5">
-        <h3 className="font-semibold mb-3 text-sm flex items-center gap-2">
-          <Star className="h-4 w-4 text-amber-500" />
-          Plans to improve
-        </h3>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {[
-            "Add Google Pay checkout",
-            "Add card payment support",
-            "Add Apple Pay checkout",
-            "Smarter card quality checks",
-          ].map((item) => (
-            <div key={item} className="rounded-lg border border-border/60 bg-background/60 px-3 py-2 text-sm text-muted-foreground">
-              {item}
             </div>
           ))}
         </div>

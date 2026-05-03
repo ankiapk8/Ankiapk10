@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays, Download, Crown } from "lucide-react";
+import { BookOpen, LayoutDashboard, Library, Sparkles, Moon, Sun, History, CalendarDays, Download, Crown, CreditCard, Loader2 } from "lucide-react";
+import { useSubscription, openBillingPortal } from "@/hooks/useSubscription";
 import { ApkWelcomeBanner } from "@/components/apk-welcome-banner";
 import { PomodoroTimer } from "@/components/pomodoro-timer";
 import { FeedbackButton } from "@/components/feedback-button";
@@ -57,6 +58,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [dark, setDark] = useDarkMode();
   const { queueCount, isSyncing } = useOfflineQueue();
+  const { isPro } = useSubscription();
+  const [billingLoading, setBillingLoading] = useState(false);
+
+  async function handleManageBilling() {
+    setBillingLoading(true);
+    try {
+      const url = await openBillingPortal();
+      if (url) window.open(url, "_blank", "noopener");
+    } finally {
+      setBillingLoading(false);
+    }
+  }
 
   const navLinks = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -229,17 +242,33 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </Button>
             )}
             <PomodoroTimer />
-            <Link href="/pricing">
+            {isPro ? (
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                aria-label="Upgrade to Pro"
-                title="Upgrade to Pro"
+                aria-label="Manage billing"
+                title="Manage billing"
+                onClick={handleManageBilling}
+                disabled={billingLoading}
               >
-                <Crown className="h-4 w-4" />
+                {billingLoading
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <CreditCard className="h-4 w-4" />}
               </Button>
-            </Link>
+            ) : (
+              <Link href="/pricing">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                  aria-label="Upgrade to Pro"
+                  title="Upgrade to Pro"
+                >
+                  <Crown className="h-4 w-4" />
+                </Button>
+              </Link>
+            )}
             <Button
               variant="ghost"
               size="icon"

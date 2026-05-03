@@ -11,6 +11,13 @@ export interface SubscriptionStatus {
   reason?: string;
 }
 
+export interface UsageStatus {
+  decks: number;
+  deckLimit: number;
+  exports: number;
+  exportLimit: number;
+}
+
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/+$/, "") ?? "";
 
 async function fetchSubscriptionStatus(): Promise<SubscriptionStatus> {
@@ -22,6 +29,18 @@ async function fetchSubscriptionStatus(): Promise<SubscriptionStatus> {
     return res.json();
   } catch {
     return { isPro: false, subscription: null };
+  }
+}
+
+async function fetchUsageStatus(): Promise<UsageStatus> {
+  try {
+    const res = await fetch(`${API_BASE}/api/subscription/usage`, {
+      credentials: "include",
+    });
+    if (!res.ok) return { decks: 0, deckLimit: 2, exports: 0, exportLimit: 1 };
+    return res.json();
+  } catch {
+    return { decks: 0, deckLimit: 2, exports: 0, exportLimit: 1 };
   }
 }
 
@@ -39,6 +58,24 @@ export function useSubscription() {
     subscription: data?.subscription ?? null,
     isLoading,
     refetch,
+  };
+}
+
+export function useUsage() {
+  const { data, isLoading } = useQuery<UsageStatus>({
+    queryKey: ["subscription/usage"],
+    queryFn: fetchUsageStatus,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+    retry: 1,
+  });
+
+  return {
+    decks: data?.decks ?? 0,
+    deckLimit: data?.deckLimit ?? 2,
+    exports: data?.exports ?? 0,
+    exportLimit: data?.exportLimit ?? 1,
+    isLoading,
   };
 }
 

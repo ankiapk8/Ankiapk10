@@ -156,6 +156,34 @@ router.post("/subscription/checkout", async (req, res, next): Promise<void> => {
   }
 });
 
+router.get("/subscription/usage", async (req, res, next): Promise<void> => {
+  try {
+    if (!req.isAuthenticated()) {
+      res.json({ decks: 0, deckLimit: 2, exports: 0, exportLimit: 1 });
+      return;
+    }
+    const userId = req.user!.id;
+
+    const deckResult = await db.execute(
+      sql`SELECT cast(count(*) as int) AS cnt FROM decks WHERE user_id = ${userId}`
+    );
+    const deckCount = (deckResult.rows[0] as { cnt?: number } | undefined)?.cnt ?? 0;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const exportResult = await db.execute(
+      sql`SELECT count FROM quota_usage WHERE key = ${userId} AND metric = 'apkg_export' AND period = ${today}`
+    );
+    const exportCount = typeof (exportResult.rows[0] as { count?: unknown } | undefined)?.count === 'number'
+      ? (exportResult.rows[0] as { count: number }).count
+      : parseInt(String((exportResult.rows[0] as { count?: unknown } | undefined)?.count ?? '0'), 10);
+
+    res.json({ decks: deckCount, deckLimit: 2, exports: exportCount, exportLimit: 1 });
+  } catch (err) {
+    logger.error({ err }, 'Failed to get usage');
+    res.json({ decks: 0, deckLimit: 2, exports: 0, exportLimit: 1 });
+  }
+});
+
 router.post("/subscription/portal", async (req, res, next): Promise<void> => {
   try {
     if (!req.isAuthenticated()) {
