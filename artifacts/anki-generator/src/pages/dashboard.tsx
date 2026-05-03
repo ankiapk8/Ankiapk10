@@ -948,7 +948,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2 shrink-0">
                       {(recentDeckDueCounts.get(deck.id) ?? 0) > 0 && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
-                          {recentDeckDueCounts.get(deck.id)} due
+                          {recentDeckDueCounts.get(deck.id)} to review
                         </span>
                       )}
                       <span className="text-sm font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-md">

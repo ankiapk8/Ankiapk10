@@ -490,14 +490,23 @@ function StudyMode({ cards, deckId, deckName, deckKind, onExit, savePoint, srsMo
 
   const handleRestart = useCallback(() => {
     clearSavePoint(deckId);
-    setDeck(shuffled ? shuffleArray(cards) : cards);
+    let ordered: Card[];
+    if (srsMode && !shuffled) {
+      const { due, unseen, future } = partitionCardsByDue(cards.map(c => c.id));
+      const byId = new Map(cards.map(c => [c.id, c]));
+      const pick = (ids: number[]) => ids.map(id => byId.get(id)).filter(Boolean) as Card[];
+      ordered = [...pick(due), ...pick(unseen), ...pick(future)];
+    } else {
+      ordered = shuffled ? shuffleArray(cards) : cards;
+    }
+    setDeck(ordered);
     setIndex(0);
     setRevealed(false);
     setMcqSelected(null);
     setKnown(new Set());
     setUnknown(new Set());
     setDone(false);
-  }, [shuffled, cards, deckId]);
+  }, [shuffled, cards, deckId, srsMode]);
 
   const transition = useCallback((fn: () => void) => {
     setFlipping(true);
