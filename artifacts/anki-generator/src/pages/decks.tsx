@@ -4,6 +4,8 @@ import {
   useListQbanks, useDeleteQbank, getListQbanksQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { AmbientOrbs } from "@/components/ambient-orbs";
+import { PageHeader } from "@/components/page-header";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,7 +30,7 @@ import {
   Trash2, Layers, Plus, Download, CheckSquare, X, Search,
   FileText, FolderOpen, ChevronDown, ChevronRight, Pencil,
   Sparkles, BookOpen, Upload, Combine, History as HistoryIcon,
-  Stethoscope, Play, CalendarClock,
+  Stethoscope, Play, CalendarClock, Library,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState, useMemo, useEffect, useRef } from "react";
@@ -79,7 +81,7 @@ function QbankRow({
   const cardClass = [
     "cursor-pointer transition-all border",
     clampedDepth === 0
-      ? "border-border/50 shadow-sm hover:border-violet-500/40 hover:shadow-md"
+      ? "border-border/50 bg-card/70 backdrop-blur-sm shadow-sm hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-500/5"
       : clampedDepth === 1
       ? "border-border/30 bg-muted/20 hover:border-violet-500/30 hover:shadow-sm"
       : "border-border/20 bg-muted/30 hover:border-violet-500/20",
@@ -261,8 +263,8 @@ function DeckRow({
     "cursor-pointer transition-all border",
     clampedDepth === 0
       ? isQbank
-        ? "border-border/50 shadow-sm hover:border-violet-500/40 hover:shadow-md"
-        : "border-border/50 shadow-sm hover:border-primary/40 hover:shadow-md"
+        ? "border-border/50 bg-card/70 backdrop-blur-sm shadow-sm hover:border-violet-500/40 hover:shadow-md hover:shadow-violet-500/5"
+        : "border-border/50 bg-card/70 backdrop-blur-sm shadow-sm hover:border-indigo-500/40 hover:shadow-md hover:shadow-indigo-500/5"
       : clampedDepth === 1
       ? isQbank
         ? "border-border/30 bg-muted/20 hover:border-violet-500/30 hover:shadow-sm"
@@ -863,23 +865,22 @@ export default function Decks() {
   const allDecksCount = (decks as DeckWithParent[])?.length ?? 0;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-32">
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center shrink-0 shadow-sm">
-            <Layers className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-serif font-bold text-primary tracking-tight leading-none">Library</h1>
-            <p className="text-muted-foreground text-sm mt-1.5">
-              {isLoading
-                ? "Loading…"
-                : allDecksCount === 0
-                ? "Your topics and flashcard decks will appear here."
-                : `${allDecksCount} deck${allDecksCount !== 1 ? "s" : ""} · ${totalCards} card${totalCards !== 1 ? "s" : ""} total`}
-            </p>
-          </div>
-        </div>
+    <div className="relative space-y-6 animate-in fade-in duration-500 pb-32">
+      <AmbientOrbs color="hsl(239 84% 68% / 0.10)" className="rounded-3xl" />
+
+      <div className="relative flex items-start justify-between flex-wrap gap-4">
+        <PageHeader
+          icon={Library}
+          iconColor="#818cf8"
+          iconGlow="hsl(239 84% 68% / 0.5)"
+          gradient="from-indigo-400 via-violet-400 to-purple-500"
+          title="Library"
+          subtitle={isLoading
+            ? "Loading…"
+            : allDecksCount === 0
+            ? "Your topics and flashcard decks will appear here."
+            : `${allDecksCount} deck${allDecksCount !== 1 ? "s" : ""} · ${totalCards} card${totalCards !== 1 ? "s" : ""} total`}
+        />
 
         <div className="flex items-center gap-2">
           {!selectMode ? (
@@ -1222,14 +1223,24 @@ export default function Decks() {
         </div>
       ) : (
         <Tabs value={libraryTab} onValueChange={(v) => setLibraryTab(v as "decks" | "qbanks")} className="w-full">
-          <TabsList className="w-full sm:w-auto h-10 p-1 bg-muted/60">
-            <TabsTrigger value="decks" className="flex-1 sm:flex-none gap-1.5 h-8 px-4 data-[state=active]:shadow-sm">
+          <TabsList className="w-full sm:w-auto h-10 p-1 rounded-xl bg-muted/40 border border-border/50 backdrop-blur-sm">
+            <TabsTrigger
+              value="decks"
+              className="flex-1 sm:flex-none gap-1.5 h-8 px-4 rounded-lg text-sm font-medium transition-all duration-200
+                data-[state=active]:bg-indigo-500/15 data-[state=active]:text-indigo-400 data-[state=active]:shadow-none
+                data-[state=active]:[box-shadow:0_0_0_1px_hsl(239_84%_68%_/_0.3),inset_0_0_12px_hsl(239_84%_68%_/_0.08)]"
+            >
               <BookOpen className="h-3.5 w-3.5" /> Decks
-              <span className="ml-1 text-xs text-muted-foreground">{rootFlashcardDecks.length}</span>
+              <span className="ml-1 text-xs opacity-60">{rootFlashcardDecks.length}</span>
             </TabsTrigger>
-            <TabsTrigger value="qbanks" className="flex-1 sm:flex-none gap-1.5 h-8 px-4 data-[state=active]:shadow-sm">
+            <TabsTrigger
+              value="qbanks"
+              className="flex-1 sm:flex-none gap-1.5 h-8 px-4 rounded-lg text-sm font-medium transition-all duration-200
+                data-[state=active]:bg-violet-500/15 data-[state=active]:text-violet-400 data-[state=active]:shadow-none
+                data-[state=active]:[box-shadow:0_0_0_1px_hsl(262_84%_68%_/_0.3),inset_0_0_12px_hsl(262_84%_68%_/_0.08)]"
+            >
               <Stethoscope className="h-3.5 w-3.5" /> Question Banks
-              <span className="ml-1 text-xs text-muted-foreground">{rootQbankDecks.length}</span>
+              <span className="ml-1 text-xs opacity-60">{rootQbankDecks.length}</span>
             </TabsTrigger>
           </TabsList>
 

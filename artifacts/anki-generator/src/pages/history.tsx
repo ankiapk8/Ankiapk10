@@ -2,6 +2,7 @@ import { Link } from "wouter";
 import { useListGenerations, useClearGenerations, getListGenerationsQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, useMemo } from "react";
+import { motion } from "framer-motion";
 import { format, formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,6 +16,8 @@ import {
   Clock, Layers, FileText, Sparkles, Type, Image as ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AmbientOrbs } from "@/components/ambient-orbs";
+import { PageHeader } from "@/components/page-header";
 
 function formatDuration(ms: number): string {
   if (ms <= 0) return "—";
@@ -91,64 +94,61 @@ export default function History() {
   };
 
   return (
-    <div className="container max-w-4xl mx-auto px-4 py-6 space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <Link href="/decks" className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-2">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to decks
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center">
-              <HistoryIcon className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-serif font-bold leading-tight">Generation History</h1>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Past AI runs with timing and card counts.
-              </p>
-            </div>
-          </div>
-        </div>
-        {(generations?.length ?? 0) > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
-            onClick={() => setConfirmClear(true)}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Clear
-          </Button>
-        )}
+    <div className="relative container max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <AmbientOrbs color="hsl(199 89% 60% / 0.10)" className="rounded-3xl" />
+
+      <div className="relative">
+        <Link href="/decks" className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors mb-3">
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to decks
+        </Link>
+        <PageHeader
+          icon={HistoryIcon}
+          iconColor="#38bdf8"
+          iconGlow="hsl(199 89% 60% / 0.5)"
+          gradient="from-sky-400 via-cyan-400 to-blue-500"
+          title="Generation History"
+          subtitle="Past AI runs with timing and card counts."
+          action={
+            (generations?.length ?? 0) > 0 ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setConfirmClear(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Clear
+              </Button>
+            ) : undefined
+          }
+        />
       </div>
 
       {(generations?.length ?? 0) > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-border/60 bg-card/60 p-3.5">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-              <Sparkles className="h-3 w-3" /> Runs
-            </div>
-            <div className="mt-1 text-2xl font-serif font-bold">{stats.total}</div>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-card/60 p-3.5">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-              <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Successful
-            </div>
-            <div className="mt-1 text-2xl font-serif font-bold">{stats.successes}</div>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-card/60 p-3.5">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-              <Layers className="h-3 w-3 text-violet-500" /> Cards made
-            </div>
-            <div className="mt-1 text-2xl font-serif font-bold">{stats.totalCards}</div>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-card/60 p-3.5">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-              <Clock className="h-3 w-3 text-blue-500" /> Avg duration
-            </div>
-            <div className="mt-1 text-2xl font-serif font-bold">{formatDuration(stats.avgDuration)}</div>
-          </div>
+        <div className="relative grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Runs", value: stats.total, icon: Sparkles, color: "#38bdf8", glow: "56,189,248" },
+            { label: "Successful", value: stats.successes, icon: CheckCircle2, color: "#34d399", glow: "52,211,153" },
+            { label: "Cards made", value: stats.totalCards, icon: Layers, color: "#a78bfa", glow: "167,139,250" },
+            { label: "Avg duration", value: formatDuration(stats.avgDuration), icon: Clock, color: "#fb923c", glow: "251,146,60" },
+          ].map(({ label, value, icon: Icon, color, glow }, idx) => (
+            <motion.div
+              key={label}
+              className="rounded-xl border border-border/40 bg-card/70 p-3.5 relative overflow-hidden"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              whileHover={{ y: -2, transition: { duration: 0.15 } }}
+              style={{ boxShadow: `inset 0 0 0 1px ${color}18` }}
+            >
+              <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(circle at 15% 50%, rgba(${glow},0.08) 0%, transparent 70%)` }} />
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground font-medium relative">
+                <Icon className="h-3 w-3" style={{ color }} /> {label}
+              </div>
+              <div className="mt-1 text-2xl font-serif font-bold relative" style={{ color }}>{value}</div>
+            </motion.div>
+          ))}
         </div>
       )}
 
@@ -167,10 +167,16 @@ export default function History() {
         </div>
       ) : (
         <div className="space-y-2">
-          {(generations ?? []).map(g => {
+          {(generations ?? []).map((g, idx) => {
             const startedDate = new Date(g.startedAt);
             return (
-              <Card key={g.id} className="border-border/60 bg-card/60">
+              <motion.div
+                key={g.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.04, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              >
+              <Card className="border-border/50 bg-card/70 hover:border-sky-500/25 hover:shadow-sm transition-all">
                 <CardContent className="p-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -215,6 +221,7 @@ export default function History() {
                   </div>
                 </CardContent>
               </Card>
+              </motion.div>
             );
           })}
         </div>

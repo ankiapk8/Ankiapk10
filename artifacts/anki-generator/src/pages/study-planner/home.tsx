@@ -1,9 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
+import { motion } from "framer-motion";
+import { AmbientOrbs } from "@/components/ambient-orbs";
 import {
   BookOpen, Settings, BarChart3, Flame, Download, RefreshCw,
   ChevronDown, ChevronUp, X, AlertTriangle, ArrowRight, FolderPlus,
-  Target,
+  Target, CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -219,7 +221,9 @@ export default function SPHome() {
   };
 
   return (
-    <div className="sp-root min-h-screen bg-background pb-24">
+    <div className="sp-root relative min-h-screen bg-background pb-24">
+      <AmbientOrbs color="hsl(38 95% 60% / 0.10)" />
+
       {/* Shift dialog */}
       {showShiftDialog && (
         <ShiftDialog
@@ -237,11 +241,29 @@ export default function SPHome() {
       )}
 
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-5 w-5 text-primary" />
-          <span className="font-semibold text-sm">Study Planner</span>
-        </div>
+      <div className="sticky top-0 z-10 bg-background/90 backdrop-blur-md border-b border-border/50 px-4 py-3 flex items-center justify-between">
+        <motion.div
+          className="flex items-center gap-2.5"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <div
+            className="flex items-center justify-center h-8 w-8 rounded-lg shrink-0"
+            style={{
+              background: "hsl(38 95% 60% / 0.15)",
+              boxShadow: "0 0 12px hsl(38 95% 60% / 0.25)",
+            }}
+          >
+            <CalendarDays className="h-4 w-4" style={{ color: "#fb923c" }} />
+          </div>
+          <span
+            className="font-bold text-sm bg-clip-text text-transparent"
+            style={{ backgroundImage: "linear-gradient(90deg, #fb923c, #fbbf24)" }}
+          >
+            Study Planner
+          </span>
+        </motion.div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground hidden sm:block">{displayName}</span>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => nav("/settings")}>

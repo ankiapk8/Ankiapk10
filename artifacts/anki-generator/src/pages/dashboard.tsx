@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Layers, FileText, Sparkles, TrendingUp, ChevronRight, PlusCircle,
+  Layers, FileText, Sparkles, ChevronRight, PlusCircle,
   Clock, Flame, Brain, CheckCircle2, BookOpen, Stethoscope, CalendarClock,
+  LayoutDashboard,
 } from "lucide-react";
 import {
   getSessions,
@@ -22,6 +23,8 @@ import type { Qbank } from "@workspace/api-client-react";
 import { AppDownloads } from "@/components/app-downloads";
 import { FeaturesShowcase } from "@/components/features-showcase";
 import { ModelBadge } from "@/components/model-badge";
+import { AmbientOrbs } from "@/components/ambient-orbs";
+import { PageHeader } from "@/components/page-header";
 
 export default function Dashboard() {
   const { data: decks, isLoading } = useListDecks();
@@ -60,24 +63,35 @@ export default function Dashboard() {
   const hasStudied = sessions.length > 0;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+    <div className="relative space-y-8 animate-in fade-in duration-500 pb-10">
+      <AmbientOrbs
+        color="hsl(152 72% 55% / 0.12)"
+        className="rounded-3xl"
+      />
+
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-serif font-bold text-primary tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Your study progress at a glance.</p>
-          {import.meta.env.DEV && (
-            <div className="mt-2">
-              <ModelBadge />
-            </div>
-          )}
-        </div>
-        <Link href="/generate">
-          <Button className="gap-2">
-            <PlusCircle className="h-4 w-4" />
-            Generate Cards
-          </Button>
-        </Link>
+      <div className="relative">
+        <PageHeader
+          icon={LayoutDashboard}
+          iconColor="#34d399"
+          iconGlow="hsl(152 72% 55% / 0.5)"
+          gradient="from-emerald-500 via-teal-400 to-cyan-500"
+          title="Dashboard"
+          subtitle="Your study progress at a glance."
+          action={
+            <Link href="/generate">
+              <Button className="gap-2">
+                <PlusCircle className="h-4 w-4" />
+                Generate Cards
+              </Button>
+            </Link>
+          }
+        />
+        {import.meta.env.DEV && (
+          <div className="mt-2">
+            <ModelBadge />
+          </div>
+        )}
       </div>
 
       {/* Top stats */}

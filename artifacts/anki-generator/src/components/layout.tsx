@@ -8,6 +8,13 @@ import { FeedbackButton } from "@/components/feedback-button";
 import { useDarkMode } from "@/hooks/use-dark-mode";
 import { Button } from "@/components/ui/button";
 
+const NAV_ACCENTS: Record<string, { color: string; glow: string }> = {
+  "/":        { color: "#34d399", glow: "hsl(152 72% 55% / 0.35)" },
+  "/decks":   { color: "#818cf8", glow: "hsl(239 84% 68% / 0.35)" },
+  "/history": { color: "#38bdf8", glow: "hsl(199 89% 60% / 0.35)" },
+  "/planner": { color: "#fb923c", glow: "hsl(24 95% 60% / 0.35)" },
+};
+
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const [dark, setDark] = useDarkMode();
@@ -34,18 +41,38 @@ export function Layout({ children }: { children: React.ReactNode }) {
               const isActive = href === "/"
                 ? location === "/"
                 : location.startsWith(href);
+              const accent = NAV_ACCENTS[href];
               return (
                 <Link key={href} href={href}>
                   <span
-                    className={`flex items-center gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    className={`relative flex items-center gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
                       isActive
-                        ? "bg-primary/10 text-primary"
-                        : "text-foreground/60 hover:text-foreground hover:bg-muted"
+                        ? "text-foreground"
+                        : "text-foreground/55 hover:text-foreground hover:bg-muted/60"
                     }`}
+                    style={isActive ? { color: accent?.color } : undefined}
                     aria-label={label}
                   >
-                    <Icon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                    <span className="hidden xs:inline sm:inline">{label}</span>
+                    {isActive && accent && (
+                      <motion.span
+                        layoutId="nav-indicator"
+                        className="absolute inset-0 rounded-md"
+                        style={{ background: `${accent.color}14`, boxShadow: `0 0 10px ${accent.glow}` }}
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative flex items-center gap-1.5">
+                      <Icon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                      <span className="hidden xs:inline sm:inline">{label}</span>
+                    </span>
+                    {isActive && accent && (
+                      <motion.span
+                        layoutId="nav-underline"
+                        className="absolute bottom-0.5 left-2 right-2 h-0.5 rounded-full"
+                        style={{ background: accent.color, opacity: 0.7 }}
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
                   </span>
                 </Link>
               );
