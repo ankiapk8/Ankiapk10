@@ -79,6 +79,17 @@ export function useUsage() {
   };
 }
 
+export async function fetchStripeConfigured(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/subscription/stripe-configured`);
+    if (!res.ok) return false;
+    const json = await res.json() as Record<string, unknown>;
+    return json.configured === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchProducts() {
   try {
     const res = await fetch(`${API_BASE}/api/subscription/products`);

@@ -31,9 +31,13 @@ async function initStripe(): Promise<void> {
     logger.info("Stripe schema ready");
 
     const stripeSync = await getStripeSync();
-    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
-    await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
-    logger.info("Stripe webhook configured");
+    if (process.env.REPLIT_DOMAINS) {
+      const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`;
+      await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
+      logger.info("Stripe webhook configured");
+    } else {
+      logger.info("REPLIT_DOMAINS not set — skipping webhook registration (local dev mode)");
+    }
 
     stripeSync.syncBackfill()
       .then(() => logger.info("Stripe data synced"))

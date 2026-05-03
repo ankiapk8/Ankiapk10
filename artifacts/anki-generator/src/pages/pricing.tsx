@@ -2,14 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Crown, Check, Sparkles, Zap, Brain, FileText, BarChart3,
-  ChevronRight, Star, Loader2, BookOpen, FileStack, Image,
+  Star, Loader2, BookOpen, FileStack, Image,
   MessageSquare, Map, Download, CalendarDays, CheckCircle2,
-  AlertTriangle,
+  AlertTriangle, WifiOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { AmbientOrbs } from "@/components/ambient-orbs";
-import { useSubscription, useUsage, fetchProducts, startCheckout, openBillingPortal } from "@/hooks/useSubscription";
+import { useSubscription, useUsage, fetchProducts, fetchStripeConfigured, startCheckout, openBillingPortal } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { useSearch } from "wouter";
 
@@ -86,6 +86,7 @@ export default function Pricing() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [pollingForPro, setPollingForPro] = useState(false);
+  const [stripeConfigured, setStripeConfigured] = useState<boolean | null>(null);
   const { toast } = useToast();
   const rawSearch = useSearch();
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -121,8 +122,11 @@ export default function Pricing() {
 
   useEffect(() => {
     setLoadingProducts(true);
-    fetchProducts()
-      .then(setProducts)
+    Promise.all([fetchProducts(), fetchStripeConfigured()])
+      .then(([prods, configured]) => {
+        setProducts(prods);
+        setStripeConfigured(configured);
+      })
       .finally(() => setLoadingProducts(false));
   }, []);
 
@@ -362,6 +366,11 @@ export default function Pricing() {
                   </Button>
                 )}
               </>
+            ) : stripeConfigured === false ? (
+              <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3 flex items-start gap-2.5 text-xs text-muted-foreground">
+                <WifiOff className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>Stripe is not connected yet. Connect Stripe from the Integrations tab, or set <code className="font-mono bg-muted px-1 rounded">STRIPE_SECRET_KEY</code> in Secrets to enable payments.</span>
+              </div>
             ) : (
               <Button
                 className="w-full gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-sm"

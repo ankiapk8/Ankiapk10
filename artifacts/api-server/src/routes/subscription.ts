@@ -33,6 +33,13 @@ async function getActiveSubscription(userId: string) {
   return result.rows[0] ?? null;
 }
 
+router.get("/subscription/stripe-configured", async (_req, res): Promise<void> => {
+  const hasDirectKey = !!process.env.STRIPE_SECRET_KEY;
+  const hasConnector = !!(process.env.REPLIT_CONNECTORS_HOSTNAME &&
+    (process.env.REPL_IDENTITY || process.env.WEB_REPL_RENEWAL));
+  res.json({ configured: hasDirectKey || hasConnector });
+});
+
 router.get("/subscription/status", async (req, res, next): Promise<void> => {
   try {
     if (!req.isAuthenticated()) {
