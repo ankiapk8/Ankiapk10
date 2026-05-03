@@ -321,6 +321,7 @@ function ResultsView({
   }, [answers, questions]);
 
   const wrongAnswers = answers.filter(a => !a.correct);
+  const [wrongsOpen, setWrongsOpen] = useState(true);
 
   useEffect(() => {
     if (pct >= 0.75) {
@@ -405,8 +406,8 @@ function ResultsView({
                 {correct} correct · {total - correct} wrong · {total} questions
               </p>
               <div className="flex items-center justify-center gap-2 flex-wrap mt-1">
-                {timed && (
-                  <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-200/50 dark:border-amber-700/40 px-2 py-0.5 rounded-full font-medium">
+                {totalSeconds > 0 && (
+                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium ${timed ? "text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-200/50 dark:border-amber-700/40" : "text-muted-foreground bg-muted/50"}`}>
                     <Clock className="h-3 w-3" /> {formatTime(totalSeconds)}
                   </span>
                 )}
@@ -479,14 +480,19 @@ function ResultsView({
           {/* Wrong answer review */}
           {wrongAnswers.length > 0 && (
             <motion.div variants={fadeUp} className="space-y-2">
-              <div className="flex items-center gap-2 py-1">
+              <button
+                onClick={() => setWrongsOpen(o => !o)}
+                className="w-full flex items-center gap-2 py-1 group"
+              >
                 <div className="h-px flex-1 bg-border/50" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 group-hover:text-foreground transition-colors">
                   Wrong Answers ({wrongAnswers.length})
+                  <ChevronRight className={`h-3 w-3 transition-transform ${wrongsOpen ? "rotate-90" : ""}`} />
                 </span>
                 <div className="h-px flex-1 bg-border/50" />
-              </div>
-              {wrongAnswers.map((ans, i) => {
+              </button>
+              <AnimatePresence initial={false}>
+              {wrongsOpen && wrongAnswers.map((ans, i) => {
                 const q = questions[ans.questionIndex];
                 if (!q) return null;
                 const choices = q.choices ?? [];
@@ -521,6 +527,7 @@ function ResultsView({
                   </motion.div>
                 );
               })}
+              </AnimatePresence>
             </motion.div>
           )}
         </motion.div>

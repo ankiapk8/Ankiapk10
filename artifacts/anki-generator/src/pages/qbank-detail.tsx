@@ -251,7 +251,15 @@ function PerformanceTab({ qbankId }: { qbankId: number }) {
     const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
     const best = Math.max(...scores);
     const totalTime = sessions.reduce((a, s) => a + s.totalSeconds, 0);
-    return { avg, best, totalTime, count: sessions.length };
+    const n = scores.length;
+    let improvementDelta: number | null = null;
+    if (n >= 4) {
+      const half = Math.min(3, Math.floor(n / 2));
+      const recentAvg = scores.slice(-half).reduce((a, b) => a + b, 0) / half;
+      const earlyAvg = scores.slice(0, half).reduce((a, b) => a + b, 0) / half;
+      improvementDelta = recentAvg - earlyAvg;
+    }
+    return { avg, best, totalTime, count: sessions.length, improvementDelta };
   }, [sessions]);
 
   const chartData = useMemo(() => {
@@ -324,7 +332,17 @@ function PerformanceTab({ qbankId }: { qbankId: number }) {
       {/* Score trend chart */}
       {chartData.length >= 2 && (
         <div className="rounded-xl border border-border/50 bg-card/60 p-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-4">Score Trend</p>
+          <div className="flex items-center gap-3 mb-4">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex-1">Score Trend</p>
+            {stats?.improvementDelta != null && (
+              <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${stats.improvementDelta >= 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"}`}>
+                {stats.improvementDelta >= 0
+                  ? <TrendingUp className="h-3 w-3" />
+                  : <TrendingDown className="h-3 w-3" />}
+                {stats.improvementDelta >= 0 ? "+" : ""}{Math.round(stats.improvementDelta * 100)}% recent vs early
+              </span>
+            )}
+          </div>
           <ResponsiveContainer width="100%" height={160}>
             <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -24 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
