@@ -48,6 +48,7 @@ COPY . .
 
 ENV NODE_ENV=production
 ENV BASE_PATH=/
+ENV PORT=8080
 
 RUN pnpm --filter @workspace/api-spec run codegen || true
 RUN pnpm --filter @workspace/anki-generator run build
