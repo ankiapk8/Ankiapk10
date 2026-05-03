@@ -3,6 +3,7 @@ import { createRequire } from "module";
 import { createHash } from "crypto";
 import { inArray } from "drizzle-orm";
 import { db, decksTable, cardsTable } from "@workspace/db";
+import { checkIsPro, FREE_TIER, recordAndCheckExportLimit, sendLimitError } from "../lib/free-tier-limits";
 
 const require = createRequire(import.meta.url);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -212,6 +213,21 @@ router.post("/export-apkg", async (req, res, next): Promise<void> => {
   if (!Array.isArray(deckIds) || deckIds.length === 0) {
     res.status(400).json({ error: "deckIds must be a non-empty array." });
     return;
+  }
+
+  const userId = req.isAuthenticated() ? req.user!.id : null;
+  const isPro = userId ? await checkIsPro(userId) : false;
+  if (!isPro) {
+    const key = userId ?? (req.ip ?? "unknown");
+    const allowed = recordAndCheckExportLimit(key, FREE_TIER.MAX_APKG_EXPORTS_PER_DAY);
+    if (!allowed) {
+      sendLimitError(
+        res,
+        "apkg_export",
+        `Free users can export ${FREE_TIER.MAX_APKG_EXPORTS_PER_DAY} .apkg file per day. Upgrade to Pro for unlimited exports.`,
+      );
+      return;
+    }
   }
 
   const ids = deckIds.map(id => Number(id)).filter(id => !isNaN(id));

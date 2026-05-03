@@ -149,6 +149,9 @@ export async function ensureDatabaseSchema(): Promise<void> {
     ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "stripe_customer_id" varchar;
     ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "stripe_subscription_id" varchar;
 
+    ALTER TABLE "decks" ADD COLUMN IF NOT EXISTS "user_id" varchar;
+    ALTER TABLE "qbanks" ADD COLUMN IF NOT EXISTS "user_id" varchar;
+
     CREATE TABLE IF NOT EXISTS "user_topics" (
       "user_id" varchar NOT NULL,
       "storage_key" varchar NOT NULL,

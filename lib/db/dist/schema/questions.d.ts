@@ -177,13 +177,13 @@ export declare const questionsTable: import("drizzle-orm/pg-core").PgTableWithCo
     dialect: "pg";
 }>;
 export declare const insertQuestionSchema: z.ZodObject<{
-    qbankId: z.ZodInt;
     front: z.ZodString;
     back: z.ZodString;
+    tags: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     choices: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     correctIndex: z.ZodOptional<z.ZodNullable<z.ZodInt>>;
-    tags: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     pageNumber: z.ZodOptional<z.ZodNullable<z.ZodInt>>;
+    qbankId: z.ZodInt;
 }, {
     out: {};
     in: {};

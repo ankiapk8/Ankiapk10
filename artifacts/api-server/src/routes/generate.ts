@@ -6,6 +6,7 @@ import { serializeCard } from "../lib/serialize-card";
 import { createRateLimiter } from "../lib/rate-limiter";
 import { FREE_TEXT_MODEL, FREE_VISION_MODEL } from "../lib/models";
 import { eq } from "drizzle-orm";
+import { checkIsPro, countRootDecksByUser, FREE_TIER, sendLimitError } from "../lib/free-tier-limits";
 
 const router: IRouter = Router();
 
@@ -904,6 +905,25 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     return;
   }
 
+  const userId = req.isAuthenticated() ? req.user!.id : null;
+  const isPro = userId ? await checkIsPro(userId) : false;
+  if (!isPro) {
+    const hasVisualRequest = Array.isArray(pageImages) && pageImages.length > 0 &&
+      (rawDeckType === "visual" || rawDeckType === "both" || rawDeckType == null);
+    if (hasVisualRequest) {
+      sendLimitError(res, "visual_cards", "Image and visual card detection is a Pro feature. Upgrade to Pro to unlock it.");
+      return;
+    }
+    if (userId && parentId == null) {
+      const deckCount = await countRootDecksByUser(userId);
+      if (deckCount >= FREE_TIER.MAX_DECKS) {
+        sendLimitError(res, "deck_count", `Free users can create up to ${FREE_TIER.MAX_DECKS} decks. Upgrade to Pro for unlimited decks.`);
+        return;
+      }
+    }
+  }
+  const effectiveCardCount = isPro ? cardCount : Math.min(cardCount, FREE_TIER.MAX_CARDS_PER_DECK);
+
   const runStartedAt = Date.now();
   let recorded = false;
   const recordRun = async (status: "success" | "error" | "cancelled", cardsGenerated: number, errorMessage?: string) => {
@@ -956,9 +976,9 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
   const wantText = deckType === "text" || deckType === "both";
   const wantVisual = (deckType === "visual" || deckType === "both") && hasImages;
 
-  const maxTextCards = wantText ? Math.max(cardCount, 1) : 0;
+  const maxTextCards = wantText ? Math.max(effectiveCardCount, 1) : 0;
   const maxVisualCards = wantVisual
-    ? Math.max(visualCardCount ?? cardCount, 1)
+    ? Math.max(visualCardCount ?? effectiveCardCount, 1)
     : 0;
 
   sseEmit(res, { type: "progress", percent: 5, message: "Connecting to AI…", stage: "extracting" });
@@ -1109,7 +1129,7 @@ router.post("/generate/stream", async (req, res, next): Promise<void> => {
     // PDF page so the deck reads in the same order as the original document.
     const [primaryDeck] = await db
       .insert(decksTable)
-      .values({ name: deckName, parentId: parentId ?? null })
+      .values({ name: deckName, parentId: parentId ?? null, userId: userId ?? null })
       .returning();
 
     if (!primaryDeck) {
@@ -1334,6 +1354,13 @@ router.post("/generate-qbank", async (req, res, next): Promise<void> => {
     return;
   }
 
+  const userId = req.isAuthenticated() ? req.user!.id : null;
+  const isPro = userId ? await checkIsPro(userId) : false;
+  if (!isPro) {
+    sendLimitError(res, "qbank", "QBank generation is a Pro feature. Upgrade to Pro to unlock question banks.");
+    return;
+  }
+
   let openai: Awaited<ReturnType<typeof getOpenAIClient>>;
   try {
     openai = await getOpenAIClient();
@@ -1374,7 +1401,7 @@ router.post("/generate-qbank", async (req, res, next): Promise<void> => {
   try {
     const [primaryQbank] = await db
       .insert(qbanksTable)
-      .values({ name: deckName, parentId: parentId ?? null })
+      .values({ name: deckName, parentId: parentId ?? null, userId: userId ?? null })
       .returning();
 
     if (!primaryQbank) {
@@ -1428,6 +1455,13 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
   }
   if (!deckName) {
     res.status(400).json({ error: "Question bank name is required." });
+    return;
+  }
+
+  const userId = req.isAuthenticated() ? req.user!.id : null;
+  const isPro = userId ? await checkIsPro(userId) : false;
+  if (!isPro) {
+    sendLimitError(res, "qbank", "QBank generation is a Pro feature. Upgrade to Pro to unlock question banks.");
     return;
   }
 
@@ -1495,7 +1529,7 @@ router.post("/generate-qbank/stream", async (req, res): Promise<void> => {
   try {
     const [primaryQbank] = await db
       .insert(qbanksTable)
-      .values({ name: deckName, parentId: parentId ?? null })
+      .values({ name: deckName, parentId: parentId ?? null, userId: userId ?? null })
       .returning();
 
     if (!primaryQbank) {
@@ -1542,6 +1576,25 @@ router.post("/generate", async (req, res, next): Promise<void> => {
     return;
   }
 
+  const userId = req.isAuthenticated() ? req.user!.id : null;
+  const isPro = userId ? await checkIsPro(userId) : false;
+  if (!isPro) {
+    const hasVisualRequest = Array.isArray(pageImages) && pageImages.length > 0 &&
+      (rawDeckType === "visual" || rawDeckType === "both" || rawDeckType == null);
+    if (hasVisualRequest) {
+      sendLimitError(res, "visual_cards", "Image and visual card detection is a Pro feature. Upgrade to Pro to unlock it.");
+      return;
+    }
+    if (userId && parentId == null) {
+      const deckCount = await countRootDecksByUser(userId);
+      if (deckCount >= FREE_TIER.MAX_DECKS) {
+        sendLimitError(res, "deck_count", `Free users can create up to ${FREE_TIER.MAX_DECKS} decks. Upgrade to Pro for unlimited decks.`);
+        return;
+      }
+    }
+  }
+  const effectiveCardCount = isPro ? cardCount : Math.min(cardCount, FREE_TIER.MAX_CARDS_PER_DECK);
+
   const selectedImages = Array.isArray(pageImages) && pageImages.length > 0
     ? pageImages.slice(0, MAX_PAGE_IMAGES)
     : [];
@@ -1549,8 +1602,8 @@ router.post("/generate", async (req, res, next): Promise<void> => {
   const deckType = resolveDeckType(rawDeckType, hasImages);
   const wantText = deckType === "text" || deckType === "both";
   const wantVisual = (deckType === "visual" || deckType === "both") && hasImages;
-  const maxTextCards = wantText ? Math.max(cardCount, 1) : 0;
-  const maxVisualCards = wantVisual ? Math.max(visualCardCount ?? cardCount, 1) : 0;
+  const maxTextCards = wantText ? Math.max(effectiveCardCount, 1) : 0;
+  const maxVisualCards = wantVisual ? Math.max(visualCardCount ?? effectiveCardCount, 1) : 0;
 
   let openai: Awaited<ReturnType<typeof getOpenAIClient>>;
   try {
@@ -1601,7 +1654,7 @@ router.post("/generate", async (req, res, next): Promise<void> => {
     // Single merged deck — text + visual cards together, ordered later by source page.
     const [primaryDeck] = await db
       .insert(decksTable)
-      .values({ name: deckName, parentId: parentId ?? null })
+      .values({ name: deckName, parentId: parentId ?? null, userId: userId ?? null })
       .returning();
 
     if (!primaryDeck) {
@@ -1654,15 +1707,33 @@ router.post("/generate/commit", generateRateLimiter, async (req: Request, res: R
   if (!deckName?.trim()) { res.status(400).json({ error: "deckName is required" }); return; }
   if (!Array.isArray(cards) || cards.length === 0) { res.status(400).json({ error: "cards array is required" }); return; }
 
+  const commitUserId = req.isAuthenticated() ? req.user!.id : null;
+  const commitIsPro = commitUserId ? await checkIsPro(commitUserId) : false;
+  if (!commitIsPro && commitUserId && (parentId ?? null) === null) {
+    const deckCount = await countRootDecksByUser(commitUserId);
+    if (deckCount >= FREE_TIER.MAX_DECKS) {
+      res.status(403).json({
+        limitReached: true,
+        feature: "deck_count",
+        requiredPlan: "pro",
+        message: `Free users can create up to ${FREE_TIER.MAX_DECKS} decks. Upgrade to Pro for unlimited decks.`,
+      });
+      return;
+    }
+  }
+  const committedCards = commitIsPro
+    ? cards
+    : cards.slice(0, FREE_TIER.MAX_CARDS_PER_DECK);
+
   try {
     const [deck] = await db
       .insert(decksTable)
-      .values({ name: deckName.trim(), parentId: parentId ?? null })
+      .values({ name: deckName.trim(), parentId: parentId ?? null, userId: commitUserId })
       .returning();
     if (!deck) { res.status(500).json({ error: "Failed to create deck" }); return; }
 
     const validCardTypes = new Set(["basic", "visual", "mcq"]);
-    const cardRows = cards
+    const cardRows = committedCards
       .filter(c => c.front?.trim() && c.back?.trim())
       .map(c => ({
         deckId: deck.id,

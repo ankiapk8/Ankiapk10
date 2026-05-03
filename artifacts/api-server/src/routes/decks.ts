@@ -10,6 +10,7 @@ import {
   UpdateDeckBody,
 } from "@workspace/api-zod";
 import { serializeCard } from "../lib/serialize-card";
+import { checkIsPro, countRootDecksByUser, FREE_TIER, sendLimitError } from "../lib/free-tier-limits";
 
 const router: IRouter = Router();
 
@@ -43,12 +44,28 @@ router.post("/decks", async (req, res, next): Promise<void> => {
     return;
   }
 
+  const userId = req.isAuthenticated() ? req.user!.id : null;
+  const isPro = userId ? await checkIsPro(userId) : false;
+
+  if (!isPro && userId && parsed.data.parentId == null) {
+    const count = await countRootDecksByUser(userId);
+    if (count >= FREE_TIER.MAX_DECKS) {
+      sendLimitError(
+        res,
+        "deck_count",
+        `Free users can create up to ${FREE_TIER.MAX_DECKS} decks. Upgrade to Pro for unlimited decks.`,
+      );
+      return;
+    }
+  }
+
   try {
     const values = {
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       parentId: parsed.data.parentId ?? null,
       kind: parsed.data.kind === "qbank" ? "qbank" : "deck",
+      userId,
     };
     const [deck] = await db.insert(decksTable).values(values).returning();
     res.status(201).json({
