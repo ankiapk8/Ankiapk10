@@ -1,7 +1,27 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db, userTopicsTable } from "@workspace/db";
-import { GetAllTopicsResponse, UpsertTopicsBody, UpsertTopicsResponse } from "@workspace/api-zod";
+
+const TopicSchema = z.object({
+  id: z.union([z.string(), z.number()]).optional(),
+  title: z.string().optional(),
+  status: z.string().optional(),
+  priority: z.string().optional(),
+  estimatedMinutes: z.number().nullable().optional(),
+});
+
+const GetAllTopicsResponseSchema = z.object({
+  topics: z.record(z.array(TopicSchema)),
+});
+
+const UpsertTopicsBodySchema = z.object({
+  topics: z.array(TopicSchema),
+});
+
+const UpsertTopicsResponseSchema = z.object({
+  topics: z.array(TopicSchema),
+});
 
 const router: IRouter = Router();
 
@@ -21,7 +41,7 @@ router.get("/topics", async (req: Request, res: Response): Promise<void> => {
     topics[row.storageKey] = (row.topics as unknown[]) ?? [];
   }
 
-  res.json(GetAllTopicsResponse.parse({ topics }));
+  res.json(GetAllTopicsResponseSchema.parse({ topics }));
 });
 
 router.put("/topics/:storageKey", async (req: Request, res: Response): Promise<void> => {
@@ -30,7 +50,7 @@ router.put("/topics/:storageKey", async (req: Request, res: Response): Promise<v
     return;
   }
 
-  const parsed = UpsertTopicsBody.safeParse(req.body);
+  const parsed = UpsertTopicsBodySchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });
     return;
@@ -53,7 +73,7 @@ router.put("/topics/:storageKey", async (req: Request, res: Response): Promise<v
       },
     });
 
-  res.json(UpsertTopicsResponse.parse({ topics: parsed.data.topics }));
+  res.json(UpsertTopicsResponseSchema.parse({ topics: parsed.data.topics }));
 });
 
 export default router;
