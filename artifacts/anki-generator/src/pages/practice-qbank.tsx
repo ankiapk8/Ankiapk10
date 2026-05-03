@@ -1089,7 +1089,13 @@ export default function PracticeQbank() {
         completedAt: now,
       });
 
-      markSeen(id, activeQuestions.map(q => q.id));
+      // Only mark questions that were actually attempted — unanswered questions
+      // (e.g. those skipped when the timer expired) stay unseen so they appear
+      // correctly in the "Unseen Only" filter next time.
+      const attemptedIds = answers
+        .map(a => activeQuestions[a.questionIndex]?.id)
+        .filter((qid): qid is number => qid != null);
+      markSeen(id, attemptedIds);
     }
   }, [qbank, id, activeQuestions, sessionConfig]);
 
