@@ -89,7 +89,7 @@ export default function Dashboard() {
     const stats = getDeckStats(recentSessions);
     return [...stats.entries()]
       .map(([id, s]) => ({ id, ...s, pct: s.total > 0 ? Math.round((s.known / s.total) * 100) : 0 }))
-      .filter(d => d.total >= 3);
+      .filter(d => d.total >= 1);
   }, [sessions]);
 
   const totalDecks = (decks ?? []).filter((d: { kind?: string }) => (d.kind ?? "deck") !== "qbank").length;
@@ -154,7 +154,7 @@ export default function Dashboard() {
         const score = overdueScore * 0.5 + masteryScore * 0.5;
         return { id, ...s, pct: Math.round(pct * 100), daysSince, score };
       })
-      .filter(d => d.total >= 5)
+      .filter(d => d.total >= 1)
       .sort((a, b) => b.score - a.score);
     return qualified[0] ?? null;
   }, [sessions, deckStats]);
@@ -637,66 +637,68 @@ export default function Dashboard() {
           </Card>
 
           {/* Strongest / Weakest topics */}
-          {(strongest.length > 0 || weakest.length > 0) && (
+          {hasStudied && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Strongest */}
-              {strongest.length > 0 && (
-                <Card className="border-border/50 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-emerald-500" />
-                      <CardTitle className="text-sm text-emerald-700 dark:text-emerald-400">Strongest Topics</CardTitle>
+              <Card className="border-border/50 shadow-sm">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-emerald-500" />
+                    <CardTitle className="text-sm text-emerald-700 dark:text-emerald-400">Strongest Topics</CardTitle>
+                    <span className="text-[10px] text-muted-foreground ml-auto">last 28 days</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3">
+                  {strongest.length > 0 ? strongest.map((d, i) => (
+                    <div key={d.id} className="flex items-center gap-3">
+                      <span className="text-[11px] font-bold text-muted-foreground/60 w-4 shrink-0">#{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{d.deckName}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <div className="flex-1 h-1.5 rounded-full bg-border/60 overflow-hidden">
+                            <div className="h-full rounded-full bg-emerald-500/80" style={{ width: `${d.pct}%` }} />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{d.pct}%</span>
+                        </div>
+                      </div>
                     </div>
-                  </CardHeader>
-                  <CardContent className="pt-0 space-y-3">
-                    {strongest.map((d, i) => (
-                      <div key={d.id} className="flex items-center gap-3">
+                  )) : (
+                    <p className="text-xs text-muted-foreground py-2">No recent activity in the last 28 days.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Weakest */}
+              <Card className="border-border/50 shadow-sm">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingDown className="h-4 w-4 text-red-500" />
+                    <CardTitle className="text-sm text-red-700 dark:text-red-400">Needs Work</CardTitle>
+                    <span className="text-[10px] text-muted-foreground ml-auto">last 28 days</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-0 space-y-3">
+                  {weakest.length > 0 ? weakest.map((d, i) => (
+                    <Link key={d.id} href={`/study/${d.id}`}>
+                      <div className="flex items-center gap-3 group cursor-pointer rounded-md p-1 -m-1 hover:bg-muted/50 transition-colors">
                         <span className="text-[11px] font-bold text-muted-foreground/60 w-4 shrink-0">#{i + 1}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">{d.deckName}</p>
+                          <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">{d.deckName}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <div className="flex-1 h-1.5 rounded-full bg-border/60 overflow-hidden">
-                              <div className="h-full rounded-full bg-emerald-500/80" style={{ width: `${d.pct}%` }} />
+                              <div className="h-full rounded-full bg-red-500/80" style={{ width: `${d.pct}%` }} />
                             </div>
                             <span className="text-[10px] text-muted-foreground shrink-0">{d.pct}%</span>
                           </div>
                         </div>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 group-hover:text-primary transition-colors" />
                       </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Weakest */}
-              {weakest.length > 0 && (
-                <Card className="border-border/50 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center gap-2">
-                      <TrendingDown className="h-4 w-4 text-red-500" />
-                      <CardTitle className="text-sm text-red-700 dark:text-red-400">Needs Work</CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-0 space-y-3">
-                    {weakest.map((d, i) => (
-                      <Link key={d.id} href={`/study/${d.id}`}>
-                        <div className="flex items-center gap-3 group cursor-pointer rounded-md p-1 -m-1 hover:bg-muted/50 transition-colors">
-                          <span className="text-[11px] font-bold text-muted-foreground/60 w-4 shrink-0">#{i + 1}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium truncate group-hover:text-primary transition-colors">{d.deckName}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <div className="flex-1 h-1.5 rounded-full bg-border/60 overflow-hidden">
-                                <div className="h-full rounded-full bg-red-500/80" style={{ width: `${d.pct}%` }} />
-                              </div>
-                              <span className="text-[10px] text-muted-foreground shrink-0">{d.pct}%</span>
-                            </div>
-                          </div>
-                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 group-hover:text-primary transition-colors" />
-                        </div>
-                      </Link>
-                    ))}
-                  </CardContent>
-                </Card>
-              )}
+                    </Link>
+                  )) : (
+                    <p className="text-xs text-muted-foreground py-2">No recent activity in the last 28 days.</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 
