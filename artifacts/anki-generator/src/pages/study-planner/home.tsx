@@ -24,6 +24,7 @@ import {
   customGroupsToSubjectGroups, CUSTOM_COLOR_STYLES,
   getOverdueItems, shiftTopicsToDate, getShiftDismissedDate, setShiftDismissedDate,
   redistributeOverdueItems, getBurndownData, getTodayScheduledCount, computeSchedule,
+  getDateOverrides,
   type Status, type ScheduledItem,
 } from "@/lib/study-planner/topics";
 import { CalendarView } from "@/components/study-planner/calendar-view";
@@ -235,11 +236,17 @@ export default function SPHome() {
       alert("No scheduled topics. Add topics and set a schedule start/end date first.");
       return;
     }
+    const overrides = getDateOverrides();
     const byDate = new Map<string, typeof items>();
     for (const item of items) {
-      const d = isoDate(item.firstDate);
+      // Use the overridden first date if one exists (respects manual shifts + auto-redistribute)
+      const d = overrides[item.topic.id] ?? isoDate(item.firstDate);
       if (!byDate.has(d)) byDate.set(d, []);
       byDate.get(d)!.push(item);
+      // Also place on second/review date
+      const d2 = isoDate(item.secondDate);
+      if (!byDate.has(d2)) byDate.set(d2, []);
+      byDate.get(d2)!.push({ ...item, topic: { ...item.topic, name: `↩ ${item.topic.name}` } });
     }
     const priorityBorder: Record<string, string> = {
       "High": "#ef4444", "Medium": "#f59e0b", "Low": "#3b82f6",

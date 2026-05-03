@@ -527,8 +527,9 @@ export function getTodayScheduledCount(
   const overrides = getDateOverrides();
   const scheduled = computeSchedule(groups, topicsMap, startDate, endDate, spacing, weightByDifficulty);
   return scheduled.filter(item => {
-    const override = overrides[item.topic.id];
-    return (override ?? isoDate(item.firstDate)) === today;
+    const firstDateStr = overrides[item.topic.id] ?? isoDate(item.firstDate);
+    const secondDateStr = isoDate(item.secondDate);
+    return firstDateStr === today || secondDateStr === today;
   }).length;
 }
 
@@ -568,10 +569,12 @@ export function redistributeOverdueItems(items: ScheduledItem[], endDate: Date):
   const remaining: string[] = [];
   const cur = new Date(today);
   while (isoDate(cur) <= endStr) { remaining.push(isoDate(cur)); cur.setDate(cur.getDate() + 1); }
+  if (remaining.length === 0) return;
   const overrides = getDateOverrides();
-  const step = remaining.length > 1 ? Math.max(1, Math.floor(remaining.length / items.length)) : 1;
+  // True balanced round-robin: item[i] → remaining[i % remaining.length]
+  // Every day gets floor(items/days) items; first (items % days) days get one extra.
   items.forEach((item, idx) => {
-    overrides[item.topic.id] = remaining[Math.min(idx * step, remaining.length - 1)];
+    overrides[item.topic.id] = remaining[idx % remaining.length];
   });
   saveDateOverrides(overrides);
 }
