@@ -1,11 +1,24 @@
-import { Router, type IRouter } from "express";
-import { eq, sql, inArray, asc } from "drizzle-orm";
+import { Router, type IRouter, type Request } from "express";
+import { eq, sql, inArray, asc, isNull, and } from "drizzle-orm";
 import { db, qbanksTable, questionsTable } from "@workspace/db";
 import { getEffectiveIsPro, sendLimitError } from "../lib/free-tier-limits";
 
 const router: IRouter = Router();
 
-router.get("/qbanks", async (_req, res, next): Promise<void> => {
+function getRequestUserId(req: Request): string | null {
+  return req.isAuthenticated() ? req.user!.id : null;
+}
+
+function qbankOwnerFilter(userId: string | null) {
+  return userId ? eq(qbanksTable.userId, userId) : isNull(qbanksTable.userId);
+}
+
+function ownsResource(resourceUserId: string | null, requestUserId: string | null): boolean {
+  return resourceUserId === requestUserId;
+}
+
+router.get("/qbanks", async (req, res, next): Promise<void> => {
+  const userId = getRequestUserId(req);
   try {
     const qbanks = await db
       .select({
@@ -18,6 +31,7 @@ router.get("/qbanks", async (_req, res, next): Promise<void> => {
       })
       .from(qbanksTable)
       .leftJoin(questionsTable, eq(questionsTable.qbankId, qbanksTable.id))
+      .where(qbankOwnerFilter(userId))
       .groupBy(qbanksTable.id)
       .orderBy(qbanksTable.createdAt);
 
@@ -59,6 +73,7 @@ router.get("/qbanks/:id", async (req, res, next): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
+  const userId = getRequestUserId(req);
   try {
     const [row] = await db
       .select({
@@ -66,6 +81,7 @@ router.get("/qbanks/:id", async (req, res, next): Promise<void> => {
         name: qbanksTable.name,
         description: qbanksTable.description,
         parentId: qbanksTable.parentId,
+        userId: qbanksTable.userId,
         createdAt: qbanksTable.createdAt,
         questionCount: sql<number>`cast(count(${questionsTable.id}) as int)`,
       })
@@ -74,7 +90,7 @@ router.get("/qbanks/:id", async (req, res, next): Promise<void> => {
       .where(eq(qbanksTable.id, id))
       .groupBy(qbanksTable.id);
 
-    if (!row) { res.status(404).json({ error: "QBank not found" }); return; }
+    if (!row || !ownsResource(row.userId ?? null, userId)) { res.status(404).json({ error: "QBank not found" }); return; }
 
     const subQbanks = await db
       .select({
@@ -87,7 +103,7 @@ router.get("/qbanks/:id", async (req, res, next): Promise<void> => {
       })
       .from(qbanksTable)
       .leftJoin(questionsTable, eq(questionsTable.qbankId, qbanksTable.id))
-      .where(eq(qbanksTable.parentId, id))
+      .where(and(eq(qbanksTable.parentId, id), qbankOwnerFilter(userId)))
       .groupBy(qbanksTable.id)
       .orderBy(asc(qbanksTable.name));
 

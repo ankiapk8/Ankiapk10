@@ -1,5 +1,5 @@
-import { Router, type IRouter } from "express";
-import { eq, sql, inArray, asc } from "drizzle-orm";
+import { Router, type IRouter, type Request } from "express";
+import { eq, sql, inArray, asc, isNull, and } from "drizzle-orm";
 import { db, decksTable, cardsTable } from "@workspace/db";
 import {
   CreateDeckBody,
@@ -14,7 +14,23 @@ import { getEffectiveIsPro, checkDeckQuota, recordDeckCreation, FREE_TIER, sendL
 
 const router: IRouter = Router();
 
-router.get("/decks", async (_req, res, next): Promise<void> => {
+/** Returns the authenticated userId or null for anonymous requests. */
+function getRequestUserId(req: Request): string | null {
+  return req.isAuthenticated() ? req.user!.id : null;
+}
+
+/** Drizzle WHERE condition that scopes rows to the requester. */
+function deckOwnerFilter(userId: string | null) {
+  return userId ? eq(decksTable.userId, userId) : isNull(decksTable.userId);
+}
+
+/** Returns true when a stored deck userId matches the requester (null == anonymous). */
+function ownsResource(resourceUserId: string | null, requestUserId: string | null): boolean {
+  return resourceUserId === requestUserId;
+}
+
+router.get("/decks", async (req, res, next): Promise<void> => {
+  const userId = getRequestUserId(req);
   try {
     const decks = await db
       .select({
@@ -28,6 +44,7 @@ router.get("/decks", async (_req, res, next): Promise<void> => {
       })
       .from(decksTable)
       .leftJoin(cardsTable, eq(cardsTable.deckId, decksTable.id))
+      .where(deckOwnerFilter(userId))
       .groupBy(decksTable.id)
       .orderBy(decksTable.createdAt);
 
@@ -90,6 +107,7 @@ router.get("/decks/:id", async (req, res, next): Promise<void> => {
     return;
   }
 
+  const userId = getRequestUserId(req);
   try {
     const [row] = await db
       .select({
@@ -99,6 +117,7 @@ router.get("/decks/:id", async (req, res, next): Promise<void> => {
         parentId: decksTable.parentId,
         kind: decksTable.kind,
         createdAt: decksTable.createdAt,
+        userId: decksTable.userId,
         cardCount: sql<number>`cast(count(${cardsTable.id}) as int)`,
       })
       .from(decksTable)
@@ -106,7 +125,7 @@ router.get("/decks/:id", async (req, res, next): Promise<void> => {
       .where(eq(decksTable.id, params.data.id))
       .groupBy(decksTable.id);
 
-    if (!row) {
+    if (!row || !ownsResource(row.userId ?? null, userId)) {
       res.status(404).json({ error: "Deck not found" });
       return;
     }
@@ -123,7 +142,7 @@ router.get("/decks/:id", async (req, res, next): Promise<void> => {
       })
       .from(decksTable)
       .leftJoin(cardsTable, eq(cardsTable.deckId, decksTable.id))
-      .where(eq(decksTable.parentId, params.data.id))
+      .where(and(eq(decksTable.parentId, params.data.id), deckOwnerFilter(userId)))
       .groupBy(decksTable.id)
       .orderBy(asc(decksTable.name));
 
@@ -163,6 +182,7 @@ router.patch("/decks/:id", async (req, res, next): Promise<void> => {
     }
   }
 
+  const patchUserId2 = getRequestUserId(req);
   const updates: Partial<typeof decksTable.$inferInsert> & { updatedAt?: Date } = {
     updatedAt: new Date(),
   };
@@ -177,10 +197,16 @@ router.patch("/decks/:id", async (req, res, next): Promise<void> => {
   }
 
   try {
+    const [existing] = await db.select({ userId: decksTable.userId }).from(decksTable).where(eq(decksTable.id, id));
+    if (!existing || !ownsResource(existing.userId ?? null, patchUserId2)) {
+      res.status(404).json({ error: "Deck not found" });
+      return;
+    }
+
     const [updated] = await db
       .update(decksTable)
       .set(updates)
-      .where(eq(decksTable.id, id))
+      .where(and(eq(decksTable.id, id), deckOwnerFilter(patchUserId2)))
       .returning();
 
     if (!updated) { res.status(404).json({ error: "Deck not found" }); return; }
@@ -334,7 +360,14 @@ router.delete("/decks/:id", async (req, res, next): Promise<void> => {
     return;
   }
 
+  const deleteUserId = getRequestUserId(req);
   try {
+    const [target] = await db.select({ userId: decksTable.userId }).from(decksTable).where(eq(decksTable.id, params.data.id));
+    if (!target || !ownsResource(target.userId ?? null, deleteUserId)) {
+      res.status(404).json({ error: "Deck not found" });
+      return;
+    }
+
     const allDecks = await db.select({ id: decksTable.id, parentId: decksTable.parentId }).from(decksTable);
 
     function collectDescendants(parentId: number): number[] {
