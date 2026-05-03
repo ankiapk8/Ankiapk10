@@ -26,7 +26,7 @@ export function SyncIndicator({ queueCount, isSyncing }: Props) {
           {isSyncing ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
-              Syncing…
+              Syncing {queueCount > 0 ? `${queueCount} item${queueCount !== 1 ? "s" : ""}` : ""}…
             </>
           ) : (
             <>

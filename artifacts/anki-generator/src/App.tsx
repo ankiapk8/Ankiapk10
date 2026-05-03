@@ -12,7 +12,6 @@ import { UpdateBanner } from "@/components/update-banner";
 import { WhatsNewBanner } from "@/components/whats-new-banner";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { SplashScreen } from "@/components/splash-screen";
-import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 
 import Dashboard from "@/pages/dashboard";
 import Generate from "@/pages/generate";
@@ -86,7 +85,6 @@ function AppContent() {
         <AppRouter />
         <ClickRipple />
         <Toaster />
-        <PwaInstallPrompt />
       </>
     </SplashScreen>
   );

@@ -9,8 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import QRCodeSVG from "react-qr-code";
 import jsQR from "jsqr";
 
-// ── Compression helpers (native CompressionStream) ───────────────────────────
-
 async function compress(data: string): Promise<string> {
   try {
     const stream = new Blob([new TextEncoder().encode(data)])
@@ -40,8 +38,6 @@ async function decompress(b64: string): Promise<string> {
   }
 }
 
-// ── Collect all ankigen localStorage data ────────────────────────────────────
-
 function collectExportData(): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   try {
@@ -54,7 +50,10 @@ function collectExportData(): Record<string, unknown> {
         }
       }
     }
-  } catch {}
+  } catch {
+    // localStorage may throw SecurityError in restricted contexts; return partial data
+    return out;
+  }
   return out;
 }
 
@@ -62,14 +61,13 @@ function applyImportData(data: Record<string, unknown>) {
   for (const [key, val] of Object.entries(data)) {
     try {
       localStorage.setItem(key, typeof val === "string" ? val : JSON.stringify(val));
-    } catch {}
+    } catch {
+      // Individual key may exceed quota; skip and continue
+    }
   }
 }
 
-// ── QR Code size limit ────────────────────────────────────────────────────────
 const QR_BYTE_LIMIT = 2800;
-
-// ── Sub-component: QR Export panel ──────────────────────────────────────────
 
 function ExportPanel({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
@@ -114,7 +112,9 @@ function ExportPanel({ onClose }: { onClose: () => void }) {
     try {
       await navigator.clipboard.writeText(`AGX:${compressed}`);
       toast({ title: "Copied to clipboard" });
-    } catch {}
+    } catch {
+      toast({ title: "Copy failed", description: "Could not access clipboard. Try saving the file instead.", variant: "destructive" });
+    }
   }, [compressed, toast]);
 
   return (
@@ -185,8 +185,6 @@ function ExportPanel({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
-
-// ── Sub-component: QR Import panel ──────────────────────────────────────────
 
 function ImportPanel({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
@@ -349,8 +347,6 @@ function ImportPanel({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
-
-// ── Main SettingsSheet component ─────────────────────────────────────────────
 
 type Tab = "export" | "import";
 
