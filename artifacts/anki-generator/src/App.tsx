@@ -15,6 +15,7 @@ import { SplashScreen } from "@/components/splash-screen";
 import { OfflineQueueProvider } from "@/providers/offline-queue-provider";
 import { PwaInstallProvider } from "@/providers/pwa-install-provider";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { DevPanel } from "@/components/dev-panel";
 
 import Dashboard from "@/pages/dashboard";
 import Generate from "@/pages/generate";
@@ -92,6 +93,7 @@ function AppContent() {
         <AppRouter />
         <ClickRipple />
         <PwaInstallPrompt />
+        {import.meta.env.DEV && <DevPanel />}
         <Toaster />
       </>
     </SplashScreen>

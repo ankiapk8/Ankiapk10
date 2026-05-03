@@ -14,7 +14,7 @@ import { useOfflineQueue } from "@/hooks/use-offline-queue";
 import { OfflineBadge } from "@/components/offline-indicator";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
 import { IosInstallModal } from "@/components/ios-install-modal";
-import { DevPanel, DevPlanBadge } from "@/components/dev-panel";
+import { DevPlanBadge } from "@/components/dev-panel";
 
 const NAV_ACCENTS: Record<string, { color: string; glow: string }> = {
   "/":        { color: "#34d399", glow: "hsl(152 72% 55% / 0.35)" },
@@ -290,7 +290,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <FeedbackButton />
       <ApkWelcomeBanner />
       <IosInstallModal open={showIosModal} onClose={() => setShowIosModal(false)} />
-      {import.meta.env.DEV && <DevPanel />}
     </div>
   );
 }

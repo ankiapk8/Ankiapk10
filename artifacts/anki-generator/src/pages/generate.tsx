@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, FileText, ImageIcon, Layers, Plus, Stethoscope, Library, Crown, Lock, Unlock } from "lucide-react";
+import { Sparkles, FileText, ImageIcon, Layers, Plus, Stethoscope, Library, Crown, Lock, Unlock, GitBranch, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { GenerateForm } from "@/components/generate-form";
@@ -36,6 +36,24 @@ const features = [
     bg: "bg-emerald-500/10",
     pro: false,
   },
+  ...(import.meta.env.DEV ? [
+    {
+      icon: GitBranch,
+      title: "Mind Map",
+      desc: "AI-generated visual mind map of your deck's topics.",
+      color: "text-indigo-500",
+      bg: "bg-indigo-500/10",
+      pro: true,
+    },
+    {
+      icon: Download,
+      title: "Export (.apkg)",
+      desc: "Download your deck as an Anki-compatible .apkg file.",
+      color: "text-rose-500",
+      bg: "bg-rose-500/10",
+      pro: true,
+    },
+  ] : []),
 ];
 
 function DevLockBadge({ isPro, feature }: { isPro: boolean; feature: string }) {
@@ -252,16 +270,12 @@ export default function Generate() {
           >
             <Stethoscope className="h-4 w-4" />
             Question Bank
-            {!isPro && (
+            {!import.meta.env.DEV && !isPro && (
               <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-300/50 ml-0.5">
                 <Crown className="h-2 w-2" />Pro
               </span>
             )}
-            {import.meta.env.DEV && isPro && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-400/20 text-emerald-600 dark:text-emerald-400 border border-emerald-300/50 ml-0.5">
-                <Unlock className="h-2 w-2" />DEV
-              </span>
-            )}
+            {import.meta.env.DEV && <DevLockBadge isPro={isPro} feature="Question Bank" />}
           </button>
         </div>
       </motion.div>
