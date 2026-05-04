@@ -86,6 +86,8 @@ export function getDevSidFromRequest(req: Request): string | undefined {
   return req.cookies?.[DEV_SID_COOKIE] as string | undefined;
 }
 
+const DEV_DEFAULT: OverrideEntry = { isPro: true, simulated: false };
+
 export function getDevOverrideForRequest(req: Request): OverrideEntry | undefined {
   if (process.env.NODE_ENV === "production") return undefined;
   const userId = (req as any).user?.id as string | undefined;
@@ -94,6 +96,10 @@ export function getDevOverrideForRequest(req: Request): OverrideEntry | undefine
     if (entry !== undefined) return entry;
   }
   const devSid = getDevSidFromRequest(req);
-  if (devSid) return devProOverrides.get(devSid);
-  return undefined;
+  if (devSid) {
+    const entry = devProOverrides.get(devSid);
+    if (entry !== undefined) return entry;
+  }
+  // Default to Pro in dev mode when no explicit override has been set
+  return DEV_DEFAULT;
 }
