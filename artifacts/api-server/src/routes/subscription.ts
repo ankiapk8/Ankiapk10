@@ -44,6 +44,7 @@ router.get("/subscription/stripe-configured", async (_req, res): Promise<void> =
 
 router.get("/subscription/status", async (req, res, next): Promise<void> => {
   try {
+    res.set("Cache-Control", "no-store");
     if (process.env.NODE_ENV !== "production") {
       const devEntry = getDevOverrideForRequest(req);
       if (devEntry !== undefined) {

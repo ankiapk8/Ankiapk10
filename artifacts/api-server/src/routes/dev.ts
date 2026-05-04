@@ -63,6 +63,7 @@ if (process.env.NODE_ENV !== "production") {
 
   router.get("/dev/status", async (req, res): Promise<void> => {
     await ensureLoaded();
+    res.set("Cache-Control", "no-store");
     const key = getOverrideKey(req, res);
     const entry = getDevOverrideEntry(key);
     res.json({
@@ -89,6 +90,7 @@ if (process.env.NODE_ENV !== "production") {
 
   router.get("/dev/usage", async (req, res): Promise<void> => {
     await ensureLoaded();
+    res.set("Cache-Control", "no-store");
     const userId = req.isAuthenticated() ? req.user!.id : null;
     const today = new Date().toISOString().slice(0, 10);
     const key = userId ?? (req.cookies?.[DEV_SID_COOKIE] as string | undefined) ?? "anon";

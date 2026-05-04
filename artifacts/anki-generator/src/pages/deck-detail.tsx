@@ -24,7 +24,7 @@ import {
   FileText, BookOpen, Shuffle, ChevronLeft, ChevronRight,
   RotateCcw, GraduationCap, Eye, Bookmark, Play, Sparkles, Loader2,
   Brain, ClipboardList, Stethoscope, ListChecks, ChevronDown, FileJson, Package, ImageIcon, ZoomIn, XCircle, Search, HelpCircle, Plus, Network, CheckCircle2, CalendarClock, Zap,
-  Lightbulb, Activity, Copy, BookmarkPlus, StickyNote, Clock, Tag, Library
+  Lightbulb, Activity, Copy, BookmarkPlus, StickyNote, Clock, Tag, Library, Star, RefreshCw
 } from "lucide-react";
 import {
   Dialog,
@@ -1414,7 +1414,7 @@ export default function DeckDetail() {
   const [studyMode, setStudyMode] = useState(false);
   const [activeSavePoint, setActiveSavePoint] = useState<StudySavePoint | null>(null);
   const [resumePrompt, setResumePrompt] = useState<StudySavePoint | null>(null);
-  const [cardFilter, setCardFilter] = useState<"all" | "text" | "visual">("all");
+  const [cardFilter, setCardFilter] = useState<"all" | "text" | "visual" | "starred">("all");
   const [cardSearch, setCardSearch] = useState("");
   const [addCardOpen, setAddCardOpen] = useState(false);
   const [addFront, setAddFront] = useState("");
@@ -1584,13 +1584,16 @@ export default function DeckDetail() {
   const deckSourceModalActiveIndex = deckVisualCards.findIndex(v => v.id === deckSourceModalCardId);
   const isQbank = (deck as Deck & { kind?: string } | undefined)?.kind === "qbank";
   const showTabs = !isQbank && cardList.length > 0;
+  const starredCount = cardList.filter(c => isCardStarred(c)).length;
   const tabFilteredCards = !showTabs
     ? cardList
     : cardFilter === "visual"
       ? cardList.filter(c => (c as Card & { image?: string | null }).image)
       : cardFilter === "text"
         ? cardList.filter(c => !(c as Card & { image?: string | null }).image)
-        : cardList;
+        : cardFilter === "starred"
+          ? cardList.filter(c => isCardStarred(c))
+          : cardList;
   const filteredCards = cardSearch.trim()
     ? tabFilteredCards.filter(c => {
         const q = cardSearch.toLowerCase();
@@ -1923,7 +1926,7 @@ export default function DeckDetail() {
               </Button>
             </div>
             {showTabs && (
-              <Tabs value={cardFilter} onValueChange={(v) => { setCardFilter(v as "all" | "text" | "visual"); setCardSearch(""); }}>
+              <Tabs value={cardFilter} onValueChange={(v) => { setCardFilter(v as "all" | "text" | "visual" | "starred"); setCardSearch(""); }}>
                 <TabsList className="h-9">
                   <TabsTrigger value="all" className="text-xs gap-1.5">
                     All <span className="text-[10px] opacity-70">{cardList.length}</span>
@@ -1934,6 +1937,11 @@ export default function DeckDetail() {
                   <TabsTrigger value="visual" className="text-xs gap-1.5">
                     <ImageIcon className="h-3 w-3" /> Visual <span className="text-[10px] opacity-70">{visualCount}</span>
                   </TabsTrigger>
+                  {starredCount > 0 && (
+                    <TabsTrigger value="starred" className="text-xs gap-1.5">
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> Starred <span className="text-[10px] opacity-70">{starredCount}</span>
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </Tabs>
             )}
@@ -1979,6 +1987,27 @@ export default function DeckDetail() {
                 subDeckName={hasSubDecks ? subDecks.find(s => s.id === card.deckId)?.name : undefined}
                 index={idx}
                 onViewSource={(id) => setDeckSourceModalCardId(id)}
+                onLightbox={(src) => setLightboxSrc(src)}
+                onStar={async (id, starred) => {
+                  const c = cardList.find(x => x.id === id);
+                  if (!c) return;
+                  const newTags = toggleStarInTags(c, starred);
+                  await fetch(apiUrl(`api/cards/${id}`), {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ tags: newTags }),
+                  });
+                  queryClient.invalidateQueries({ queryKey: getListDeckCardsQueryKey(deckId) });
+                }}
+                onRegenerate={async (id) => {
+                  const resp = await fetch(apiUrl(`api/cards/${id}/regenerate`), { method: "POST" });
+                  if (resp.ok) {
+                    queryClient.invalidateQueries({ queryKey: getListDeckCardsQueryKey(deckId) });
+                    toast({ title: "Card regenerated", description: "AI rewrote this card." });
+                  } else {
+                    toast({ title: "Regeneration failed", variant: "destructive" });
+                  }
+                }}
                 onUpdate={(id, data) => updateCard.mutate(
                   { id, data },
                   {
@@ -2008,13 +2037,32 @@ export default function DeckDetail() {
   );
 }
 
+function isCardStarred(card: Card): boolean {
+  const tags = (card as Card & { tags?: string | null }).tags ?? "";
+  try { const arr = JSON.parse(tags); if (Array.isArray(arr)) return arr.includes("starred"); } catch { /* */ }
+  return tags.split(",").map(t => t.trim()).includes("starred");
+}
+
+function toggleStarInTags(card: Card, star: boolean): string | null {
+  const existing = (card as Card & { tags?: string | null }).tags ?? "";
+  let tags: string[] = [];
+  try { const arr = JSON.parse(existing); if (Array.isArray(arr)) tags = arr; else tags = existing ? [existing] : []; }
+  catch { tags = existing ? existing.split(",").map(t => t.trim()).filter(Boolean) : []; }
+  tags = tags.filter(t => t !== "starred");
+  if (star) tags.push("starred");
+  return tags.length ? tags.join(",") : null;
+}
+
 function EditableCard({ 
   card, 
   index,
   subDeckName,
   onViewSource,
   onUpdate, 
-  onDelete 
+  onDelete,
+  onStar,
+  onLightbox,
+  onRegenerate,
 }: { 
   card: Card;
   index: number;
@@ -2022,12 +2070,17 @@ function EditableCard({
   onViewSource?: (id: number) => void;
   onUpdate: (id: number, data: { front: string; back: string }) => void; 
   onDelete: (id: number) => void;
+  onStar?: (id: number, starred: boolean) => void;
+  onLightbox?: (src: string) => void;
+  onRegenerate?: (id: number) => void;
 }) {
   const daysUntilDue = getDaysUntilDue(card.id);
   const cardSrs = getSrsState(card.id);
   const [isEditing, setIsEditing] = useState(false);
   const [front, setFront] = useState(card.front);
   const [back, setBack] = useState(card.back);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const isStarred = isCardStarred(card);
 
   const handleSave = () => {
     if (front !== card.front || back !== card.back) {
@@ -2152,6 +2205,7 @@ function EditableCard({
                   image={c.image}
                   sourceImage={c.sourceImage}
                   bbox={parseBbox(c.bbox)}
+                  onLightbox={onLightbox}
                 />
               </div>
             );
@@ -2164,6 +2218,27 @@ function EditableCard({
         </div>
         
         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1 bg-background/80 backdrop-blur-sm rounded-md shadow-sm p-1">
+          <Button
+            variant="ghost" size="icon"
+            className={`h-8 w-8 transition-colors ${isStarred ? "text-amber-400 hover:text-amber-500" : "text-muted-foreground hover:text-amber-400"}`}
+            title={isStarred ? "Unstar card" : "Star card"}
+            onClick={() => onStar?.(card.id, !isStarred)}
+          >
+            <Star className={`h-4 w-4 ${isStarred ? "fill-amber-400" : ""}`} />
+          </Button>
+          <Button
+            variant="ghost" size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-emerald-500"
+            title="Regenerate card with AI"
+            disabled={isRegenerating}
+            onClick={async () => {
+              if (!onRegenerate) return;
+              setIsRegenerating(true);
+              try { await onRegenerate(card.id); } finally { setIsRegenerating(false); }
+            }}
+          >
+            {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          </Button>
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => setIsEditing(true)}>
             <Edit2 className="h-4 w-4" />
           </Button>

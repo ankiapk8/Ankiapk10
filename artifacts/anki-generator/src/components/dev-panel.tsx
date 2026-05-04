@@ -43,7 +43,7 @@ const FEATURES: { label: string; pro: boolean }[] = [
 
 async function fetchDevStatus(): Promise<DevStatus> {
   try {
-    const res = await fetch(`${API_BASE}/api/dev/status`, { credentials: "include", headers: devHeaders() });
+    const res = await fetch(`${API_BASE}/api/dev/status`, { credentials: "include", cache: "no-store", headers: devHeaders() });
     if (!res.ok) return { authenticated: false, userId: null, devIsPro: null, simulated: false };
     return res.json();
   } catch {
@@ -53,7 +53,7 @@ async function fetchDevStatus(): Promise<DevStatus> {
 
 async function fetchDevUsage(): Promise<DevUsage | null> {
   try {
-    const res = await fetch(`${API_BASE}/api/dev/usage`, { credentials: "include", headers: devHeaders() });
+    const res = await fetch(`${API_BASE}/api/dev/usage`, { credentials: "include", cache: "no-store", headers: devHeaders() });
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -94,7 +94,7 @@ interface DevSubStatus {
 
 async function fetchSubStatus(): Promise<DevSubStatus> {
   try {
-    const res = await fetch(`${API_BASE}/api/subscription/status`, { credentials: "include", headers: devHeaders() });
+    const res = await fetch(`${API_BASE}/api/subscription/status`, { credentials: "include", cache: "no-store", headers: devHeaders() });
     if (!res.ok) return { isPro: false };
     return res.json();
   } catch {
@@ -106,7 +106,7 @@ export function DevPlanBadge() {
   const { data, isLoading } = useQuery<DevSubStatus>({
     queryKey: ["subscription/status"],
     queryFn: fetchSubStatus,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 0,
     gcTime: 1000 * 60 * 10,
     retry: 1,
   });

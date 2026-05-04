@@ -27,6 +27,7 @@ async function fetchSubscriptionStatus(): Promise<SubscriptionStatus> {
   try {
     const res = await fetch(`${API_BASE}/api/subscription/status`, {
       credentials: "include",
+      cache: "no-store",
       headers: devSidHeaders(),
     });
     if (!res.ok) return { isPro: false, subscription: null };
@@ -53,7 +54,7 @@ export function useSubscription() {
   const { data, isLoading, refetch } = useQuery<SubscriptionStatus>({
     queryKey: ["subscription/status"],
     queryFn: fetchSubscriptionStatus,
-    staleTime: 1000 * 60 * 5,
+    staleTime: import.meta.env.DEV ? 0 : 1000 * 60 * 5,
     gcTime: 1000 * 60 * 10,
     retry: 1,
   });
