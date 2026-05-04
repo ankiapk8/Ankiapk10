@@ -4,6 +4,7 @@ import { ensureDatabaseSchema } from "@workspace/db";
 import { autoConfigureFromEnv } from "./lib/apk-builder";
 import { runMigrations } from 'stripe-replit-sync';
 import { getStripeSync } from "./stripeClient";
+import { loadDevOverridesFromDB } from "./lib/dev-overrides";
 
 const rawPort = process.env["PORT"];
 
@@ -49,6 +50,13 @@ async function initStripe(): Promise<void> {
 
 async function main(): Promise<void> {
   await ensureDatabaseSchema();
+
+  if (process.env.NODE_ENV !== "production") {
+    await loadDevOverridesFromDB().catch(err =>
+      logger.warn({ err }, "Dev overrides load failed (non-fatal)")
+    );
+    logger.info("Dev overrides loaded from DB");
+  }
 
   await initStripe();
 
